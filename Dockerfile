@@ -16,8 +16,5 @@ RUN npm install -g hexo-cli
 # 复制 Hexo 项目文件
 COPY . .
 
-# 暴露 Hexo 服务器默认监听的端口
-EXPOSE 4000
-
 # 启动 Hexo 服务器
 CMD ["hexo", "server"]
