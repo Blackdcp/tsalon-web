@@ -17,4 +17,4 @@ RUN npm install -g hexo-cli
 COPY . .
 
 # 启动 Hexo 服务器
-CMD ["hexo", "server"]
+CMD ["hexo", "server", "-i", "0.0.0.0"]
