@@ -1,0 +1,21 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props { event: CollectionEntry<'activityArchive'>; }
+const { event } = Astro.props;
+const date = event.data.startDate.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replaceAll('/', '.');
+---
+<a class="event-tile" href={`/events/archive/${event.id}/`}>
+  <figure class="event-tile-media">
+    <img src={event.data.cover} alt={event.data.coverAlt} loading="lazy" />
+  </figure>
+  <div class="event-tile-body">
+    <p class="event-tile-series mono"><span>T SALON / {event.data.mode === 'online' ? '线上' : '线下'}</span><i class="event-tile-status is-ended">已结束</i></p>
+    <h3>{event.data.title}</h3>
+    <div class="event-tile-facts">
+      <span><i>日期</i>{date}</span>
+      <span><i>地点</i>{event.data.mode === 'online' ? '线上' : `${event.data.province} · ${event.data.city}`}</span>
+    </div>
+    <strong class="event-tile-action">活动详情 <i>→</i></strong>
+  </div>
+</a>

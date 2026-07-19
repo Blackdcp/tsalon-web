@@ -1,0 +1,20 @@
+[
+  { "id": "lalamove", "name": "货拉拉技术", "logo": "/images/partners/lalamove.jpg", "logoAlt": "货拉拉技术标志", "type": "company", "order": 1 },
+  { "id": "cmp", "name": "机械工业出版社", "logo": "/images/partners/cmp.jpg", "logoAlt": "机械工业出版社标志", "type": "publisher", "order": 2 },
+  { "id": "kuaishou", "name": "快手中学", "logo": "/images/partners/kuaishou.png", "logoAlt": "快手中学标志", "type": "company", "order": 3 },
+  { "id": "juejin", "name": "稀土掘金", "logo": "/images/partners/juejin.png", "logoAlt": "稀土掘金标志", "type": "community", "order": 4 },
+  { "id": "segmentfault", "name": "SegmentFault", "logo": "/images/partners/segmentfault.svg", "logoAlt": "SegmentFault 标志", "type": "community", "order": 5 },
+  { "id": "oschina", "name": "开源中国", "logo": "/images/partners/oschina.jpg", "logoAlt": "开源中国标志", "type": "community", "order": 6 },
+  { "id": "freecodecamp", "name": "freeCodeCamp", "logo": "/images/partners/freecodecamp.png", "logoAlt": "freeCodeCamp 标志", "type": "community", "order": 7 },
+  { "id": "gdg-shanghai", "name": "GDG Shanghai", "logo": "/images/partners/gdg-shanghai.jpg", "logoAlt": "GDG Shanghai 标志", "type": "community", "order": 8 },
+  { "id": "swiftgg", "name": "SwiftGG", "logo": "/images/partners/swiftgg.png", "logoAlt": "SwiftGG 标志", "type": "community", "order": 9 },
+  { "id": "thoughtworks", "name": "Thoughtworks", "logo": "/images/partners/thoughtworks.png", "logoAlt": "Thoughtworks 标志", "type": "company", "order": 10 },
+  { "id": "csdn", "name": "CSDN", "logo": "/images/partners/csdn.png", "logoAlt": "CSDN 标志", "type": "media", "order": 11 },
+  { "id": "d2", "name": "D2", "logo": "/images/partners/d2.png", "logoAlt": "D2 开发者大会标志", "type": "community", "order": 12 },
+  { "id": "dbaplus", "name": "dbaplus", "logo": "/images/partners/dbaplus.png", "logoAlt": "dbaplus 标志", "type": "community", "order": 13 },
+  { "id": "broadview", "name": "博文视点", "logo": "/images/partners/broadview.jpg", "logoAlt": "博文视点标志", "type": "publisher", "order": 14 },
+  { "id": "iosclub", "name": "iOS Club", "logo": "/images/partners/iosclub.png", "logoAlt": "iOS Club 标志", "type": "community", "order": 15 },
+  { "id": "gitwork", "name": "GitWork", "logo": "/images/partners/gitwork.png", "logoAlt": "GitWork 标志", "type": "community", "order": 16 },
+  { "id": "ostech", "name": "OSTech", "logo": "/images/partners/ostech.jpg", "logoAlt": "OSTech 标志", "type": "community", "order": 17 },
+  { "id": "fe-zaodu", "name": "前端早读课", "logo": "/images/partners/fe-zaodu.png", "logoAlt": "前端早读课标志", "type": "community", "order": 18 }
+]

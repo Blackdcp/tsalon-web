@@ -1,0 +1,19 @@
+[
+  {
+    "id": "t-chat",
+    "number": "A1",
+    "name": "T Chat",
+    "englishName": "T Chat — 我在大厂做研发",
+    "shortDescription": "一线研发专家的在线对话",
+    "description": "T Salon 与老司机周报共同发起的线上系列，以主题分享和一对一交流，记录一线互联网研发团队与工程师的真实实践。",
+    "status": "archive",
+    "modes": ["online"],
+    "format": "30 分钟主题分享 + 30 分钟一对一交流",
+    "cadence": "已完成 17 期",
+    "topics": ["移动端", "前端", "后端", "架构", "跨端", "研发文化"],
+    "accent": "#151515",
+    "cover": "/images/news/tchat-launch-1.jpg",
+    "coverAlt": "T Chat 我在大厂做研发系列直播主视觉",
+    "order": 1
+  }
+]

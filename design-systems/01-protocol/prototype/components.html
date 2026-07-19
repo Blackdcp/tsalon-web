@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>T Salon Protocol — Component Library</title>
+  <meta name="description" content="T Salon Protocol 设计 Token 与核心组件展示。">
+  <link rel="stylesheet" href="assets/pages.css">
+</head>
+<body>
+  <header class="site-header"><div class="container header-inner"><a class="site-logo" href="index.html"><img src="../../assets/logo-dark.png" alt="T Salon"></a><nav class="desktop-nav"><a href="index.html">首页</a><a href="event.html">活动详情</a><a href="article.html">文章详情</a><a href="components.html" aria-current="page">组件库</a></nav><a class="btn btn-dark header-action" href="../DESIGN.md">DESIGN.md <span>↗</span></a><details class="mobile-nav"><summary aria-label="打开导航"><i></i></summary><nav class="mobile-menu"><a href="index.html">首页 <span>→</span></a><a href="event.html">活动详情 <span>→</span></a><a href="article.html">文章详情 <span>→</span></a></nav></details></div></header>
+
+  <main>
+    <header class="container library-hero"><div><p class="eyebrow">T SALON / PROTOCOL</p><h1>Design tokens<br>& components.</h1><p>这一页不是独立视觉稿，而是首页、活动和文章共同调用的基础系统。Token 同时提供 CSS Variables 与 JSON，为后续 Astro 组件接入保留单一事实来源。</p></div></header>
+
+    <section class="container library-section"><header><span class="mono muted">01 / COLOR</span><h2>语义色彩</h2></header><div class="library-content"><div class="color-demo"><div class="color-chip" style="background:#151515"><strong>Ink</strong><span>#151515</span></div><div class="color-chip" style="background:#FFFFFF"><strong>Canvas</strong><span>#FFFFFF</span></div><div class="color-chip" style="background:#F6F6F3"><strong>Surface</strong><span>#F6F6F3</span></div><div class="color-chip" style="background:#E4E4E0"><strong>Line</strong><span>#E4E4E0</span></div><div class="color-chip" style="background:#146EF5"><strong>Signal</strong><span>#146EF5</span></div></div></div></section>
+
+    <section class="container library-section"><header><span class="mono muted">02 / TYPE</span><h2>字体层级</h2></header><div class="library-content"><div class="library-row"><span class="library-row-label mono">DISPLAY / 72</span><div class="type-demo-display">技术因交流而生长</div></div><div class="library-row"><span class="library-row-label mono">BODY / 18</span><p class="type-demo-body">连接开发者、研究者与创造者。把一次真实讨论，沉淀为所有人都能继续发现、引用和使用的公共知识。</p></div><div class="library-row"><span class="library-row-label mono">META / 11</span><div class="mono">2026.08.16 · SHANGHAI · EVENT / 026</div></div></div></section>
+
+    <section class="container library-section"><header><span class="mono muted">03 / ACTION</span><h2>操作与状态</h2></header><div class="library-content"><div class="library-row"><span class="library-row-label mono">BUTTONS</span><div class="component-demo"><button class="btn btn-dark">主要操作 <span>↗</span></button><button class="btn btn-blue">报名活动 <span>↗</span></button><button class="btn btn-outline">次要操作</button><button class="btn btn-light">浅色操作</button></div></div><div class="library-row"><span class="library-row-label mono">LINK</span><div class="component-demo"><a class="text-link" href="#">浏览全部内容 <span>→</span></a></div></div><div class="library-row"><span class="library-row-label mono">STATUS</span><div class="component-demo"><span class="status">LIVE</span><span class="status status-success">REGISTRATION OPEN</span></div></div><div class="library-row"><span class="library-row-label mono">TAXONOMY</span><div class="tag-list"><span class="tag">AI</span><span class="tag">Apple</span><span class="tag">Robotics</span><span class="tag">Community</span><span class="tag">Field Note</span></div></div></div></section>
+
+    <section class="container library-section"><header><span class="mono muted">04 / CONTENT</span><h2>内容组件</h2></header><div class="library-content"><div class="library-row"><span class="library-row-label mono">EVENT CARD</span><a class="event-card mini-event" href="event.html"><div class="event-card-media"><img src="../../assets/salon-speaker.png" alt="活动现场"><span class="event-card-number mono">EVENT / 026</span></div><div class="event-card-body"><p class="event-card-meta mono">2026.08.16 · SHANGHAI</p><div class="tag-list"><span class="tag">On-device AI</span><span class="tag">Spatial</span></div><h3>从端侧智能<br>到空间计算</h3><div class="event-card-footer"><span>线下 · 120 人</span><strong>报名 ↗</strong></div></div></a></div><div class="library-row"><span class="library-row-label mono">ARTICLE CARD</span><a class="article-card" style="max-width:420px" href="article.html"><p class="mono muted">FIELD NOTE · 08 MIN</p><div class="tag-list"><span class="tag">Community</span><span class="tag">GEO</span></div><h3>一场技术活动，如何留下可检索的公共知识？</h3><p>从现场问题到可引用内容，重新设计活动结束之后的知识链路。</p><div class="article-card-footer"><span>2026.07.12</span><span>阅读 →</span></div></a></div><div class="library-row"><span class="library-row-label mono">PERSON</span><div class="person-card" style="max-width:680px"><div class="person-avatar"><img src="../../assets/community-dinner.jpeg" alt="讲者"></div><div><h3>周予安</h3><p>空间交互设计师。研究人与环境、设备和智能系统之间的多模态交互。</p></div></div></div></div></section>
+
+    <section class="container library-section"><header><span class="mono muted">05 / DISCLOSURE</span><h2>渐进信息</h2></header><div class="library-content faq"><details open><summary>活动是否收费？</summary><p>活动免费，但报名需要经过社区志愿者审核，以保证有限席位被真正希望参与讨论的人使用。</p></details><details><summary>结束后在哪里查看内容？</summary><p>活动页面会直接转为永久归档，并补充视频、文字记录、讲义和相关内容。</p></details></div></section>
+  </main>
+
+  <footer class="site-footer"><div class="container"><div class="footer-bottom mono"><span>T SALON PROTOCOL · COMPONENT LIBRARY</span><span>CSS TOKENS + JSON TOKENS</span></div></div></footer>
+</body>
+</html>

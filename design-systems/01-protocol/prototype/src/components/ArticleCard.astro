@@ -1,0 +1,13 @@
+---
+import type { CollectionEntry } from 'astro:content';
+interface Props { article: CollectionEntry<'articles'>; }
+const { article } = Astro.props;
+const typeLabel = article.data.type.replace('-', ' ');
+---
+<a class="article-card" href={`/articles/${article.id}/`}>
+  <p class="mono muted">{typeLabel} · {String(article.data.readingMinutes).padStart(2, '0')} MIN</p>
+  <div class="tag-list">{article.data.topics.slice(0, 2).map((topic) => <span class="tag">{topic}</span>)}</div>
+  <h3>{article.data.title}</h3>
+  <p>{article.data.summary}</p>
+  <div class="article-card-footer"><span>{article.data.publishedAt.toISOString().slice(0, 10).replaceAll('-', '.')}</span><span>阅读 →</span></div>
+</a>

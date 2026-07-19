@@ -1,0 +1,101 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const articles = (await getCollection('articles', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime(),
+);
+const leadArticle = articles[0];
+const recentArticles = articles.slice(1);
+const articleTypeLabels: Record<string, string> = {
+  news: '社区动态',
+  interview: '人物采访',
+  'field-note': '活动回顾',
+  guide: '嘉宾观点',
+  archive: '社区档案',
+};
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'T Salon 内容',
+  description: 'T Salon 的社区动态、人物对话与技术实践记录。',
+  url: 'https://www.tsalon.tech/articles/',
+};
+---
+
+<BaseLayout
+  alternatePath="/en/articles/"
+  title="内容 — T Salon"
+  description="阅读 T Salon 的社区动态、人物对话与技术实践记录。内容来自真实活动与一线从业者，并保留清晰的来源和上下文。"
+  image="/images/news/tchat-launch-1.jpg"
+  jsonLd={jsonLd}
+>
+  <main class="content-index-page">
+    <header class="content-editorial-hero">
+      <div class="content-index-shell content-editorial-hero-inner">
+        <div class="content-editorial-mark" aria-hidden="true">
+          <span>&lt;</span><i></i><span>&gt;</span>
+        </div>
+        <div class="content-editorial-copy">
+          <p class="eyebrow">内容 / 人物、实践与变化</p>
+          <h1 class="display-lines"><span>从一线实践出发</span><span>理解技术正在如何发生</span></h1>
+          <p>我们发布嘉宾观点、行业观察、人物采访与活动回顾，关注技术如何进入产品、团队和真实世界。</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-index-shell content-scope" aria-label="内容方向">
+      <span class="mono">内容方向</span>
+      <span>嘉宾观点</span>
+      <span>行业观察</span>
+      <span>人物采访</span>
+      <span>活动回顾</span>
+    </div>
+
+    {leadArticle && (
+      <section class="content-index-shell content-lead" aria-labelledby="content-lead-title">
+        <figure class="content-lead-media">
+          <img src={leadArticle.data.cover} alt={leadArticle.data.coverAlt} loading="eager" />
+          <figcaption class="mono">来自社区档案 / T SALON</figcaption>
+        </figure>
+        <div class="content-lead-copy">
+          <div>
+            <p class="eyebrow">最新 / {articleTypeLabels[leadArticle.data.type] ?? '内容'}</p>
+            <h2 id="content-lead-title">{leadArticle.data.title}</h2>
+            <a class="content-lead-link" href={`/articles/${leadArticle.id}/`}>阅读文章 <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="content-lead-side">
+            <p>{leadArticle.data.summary}</p>
+            <div class="content-lead-meta mono">
+              <span>{leadArticle.data.publishedAt.toISOString().slice(0, 10).replaceAll('-', '.')}</span>
+              <span>{leadArticle.data.readingMinutes} 分钟阅读</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section class="content-published" aria-labelledby="recent-content-title">
+      <div class="content-index-shell">
+        <header class="content-published-head">
+          <div><p class="mono">最近发布</p><h2 id="recent-content-title">更多内容</h2></div>
+          <p>内容只在完成整理后发布。新的嘉宾观点、行业观察与人物采访会继续进入这里。</p>
+        </header>
+        <div class="content-published-list">
+          {recentArticles.map((article, index) => (
+            <a href={`/articles/${article.id}/`}>
+              <span class="content-published-number mono">{String(index + 1).padStart(2, '0')}</span>
+              <div>
+                <p class="mono">{articleTypeLabels[article.data.type] ?? '内容'} · {article.data.publishedAt.toISOString().slice(0, 10).replaceAll('-', '.')}</p>
+                <h3>{article.data.title}</h3>
+                <p>{article.data.summary}</p>
+              </div>
+              <span class="content-published-arrow" aria-hidden="true">→</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

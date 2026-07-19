@@ -1,0 +1,31 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import TalkCard from '../../../components/TalkCard.astro';
+
+export async function getStaticPaths() {
+  const series = await getCollection('eventSeries');
+  return series.map((item) => ({ params: { id: item.id }, props: { series: item } }));
+}
+
+interface Props { series: CollectionEntry<'eventSeries'>; }
+const { series } = Astro.props;
+const talks = series.id === 't-chat' ? (await getCollection('talks')).sort((a, b) => b.data.order - a.data.order) : [];
+const modeLabel = { offline: '线下', online: '线上', hybrid: '线上 + 线下' };
+const jsonLd = {
+  '@context': 'https://schema.org', '@type': 'CreativeWorkSeries', name: series.data.englishName,
+  description: series.data.description, url: `https://www.tsalon.tech/events/series/${series.id}/`,
+  publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+};
+---
+<BaseLayout alternatePath={`/en/events/series/${series.id}/`} title={`${series.data.name}｜T Salon 活动系列`} description={series.data.description} image={series.data.cover ?? '/images/gallery/gallery-3.jpeg'} jsonLd={jsonLd}>
+  <main>
+    <nav class="container breadcrumb" aria-label="面包屑"><ol><li><a href="/">首页</a></li><li><a href="/events/">活动</a></li><li aria-current="page">{series.data.name}</li></ol></nav>
+    <header class="container series-hero" style={`--series-accent:${series.data.accent}`}><div><p class="eyebrow">系列 / {series.data.number} · {series.data.status === 'active' ? '进行中' : '已归档'}</p><h1>{series.data.englishName}</h1><p class="series-chinese">{series.data.name}</p></div><div><strong>{series.data.shortDescription}</strong><p>{series.data.description}</p></div></header>
+    <section class="container series-facts"><div><span class="mono">形式</span><strong>{series.data.format}</strong></div><div><span class="mono">节奏</span><strong>{series.data.cadence}</strong></div><div><span class="mono">参与方式</span><strong>{series.data.modes.map((mode) => modeLabel[mode]).join(' / ')}</strong></div><div><span class="mono">主题</span><strong>{series.data.topics.join(' · ')}</strong></div></section>
+
+    {talks.length > 0 && <section class="container series-talks"><header class="section-heading"><span class="mono">17 / 全部期数</span><h2>完整系列<br />从第一期到第十七期</h2></header><div class="talk-index-grid">{talks.map((talk) => <TalkCard talk={talk} />)}</div></section>}
+
+    <section class="container series-join"><div><p class="eyebrow">参与共创</p><h2>有值得讨论的问题<br />欢迎一起发起</h2></div><div><p>如果你希望成为分享嘉宾、联合主办活动或共同策划选题，可以直接通过合作微信联系我们。</p><a class="btn btn-dark" href="/about/#join">查看参与方式 <span>↗</span></a></div></section>
+  </main>
+</BaseLayout>

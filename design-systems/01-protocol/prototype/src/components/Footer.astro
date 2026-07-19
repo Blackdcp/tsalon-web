@@ -1,0 +1,43 @@
+---
+import { localizedPath, type SiteLocale } from '../lib/i18n';
+
+interface Props { locale: SiteLocale; }
+const { locale } = Astro.props;
+const route = (path: string) => localizedPath(path, locale);
+const friendLinks = [
+  { zh: '老司机技术', en: 'SwiftOldDriver', href: 'https://github.com/SwiftOldDriver' },
+  { zh: '小红花', en: 'Xiaohonghua', href: 'https://xhh.club/' },
+  { zh: 'GitWork', en: 'GitWork', href: 'https://gitwork.cn/' },
+];
+const copy = locale === 'zh' ? {
+  nav: '站内导航', events: '活动与现场', articles: '内容与观点', history: '社区年鉴', about: '关于 T Salon',
+  official: '关注公众号', participate: '一起做点事情', collaborate: '嘉宾与合作',
+  friends: '友情链接', tagline: ['技术发生在实践里', '社区让经验流动起来'], home: '返回 T Salon 首页',
+} : {
+  nav: 'Explore', events: 'Events', articles: 'Stories & Ideas', history: 'Community Archive', about: 'About T Salon',
+  official: 'Follow on WeChat', participate: 'Do something together', collaborate: 'Speak or collaborate',
+  friends: 'Friends of T Salon', tagline: ['Technology is made in practice', 'Community lets experience travel'], home: 'T Salon home',
+};
+---
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-main">
+      <div class="footer-brand">
+        <a href={route('/')} aria-label={copy.home}><img src="/images/logo-dark.png" alt="T Salon" /></a>
+        <p>{copy.tagline.map((line) => <span>{line}</span>)}</p>
+      </div>
+      <nav class="footer-nav" aria-label={locale === 'zh' ? '页脚导航' : 'Footer navigation'}>
+        <div class="footer-col"><strong>{copy.nav}</strong><a href={route('/events/')}>{copy.events}</a><a href={route('/articles/')}>{copy.articles}</a><a href={route('/history/')}>{copy.history}</a><a href={route('/about/')}>{copy.about}</a></div>
+        <div class="footer-col"><strong>{copy.participate}</strong><a href={`${route('/about/')}#official`}>{copy.official}</a><a href={`${route('/about/')}#cooperate`}>{copy.collaborate}</a><a href="https://github.com/Code-T" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://space.bilibili.com/488340243" target="_blank" rel="noopener noreferrer">bilibili</a></div>
+        <div class="footer-col"><strong>{copy.friends}</strong>
+          {friendLinks.map((link) => (
+            <a href={link.href} target="_blank" rel="noopener noreferrer">
+              {locale === 'zh' ? link.zh : link.en}
+            </a>
+          ))}
+        </div>
+      </nav>
+    </div>
+    <div class="footer-legal mono"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">苏ICP备15023694号-3</a></div>
+  </div>
+</footer>

@@ -1,0 +1,34 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props { event: CollectionEntry<'events'>; }
+const { event } = Astro.props;
+const ended = event.data.endDate.getTime() < Date.now() || event.data.registration.status === 'archived';
+const registrationOpen = !ended && ['open', 'waitlist'].includes(event.data.registration.status);
+const externalRegistration = registrationOpen && Boolean(event.data.registration.url);
+const href = externalRegistration ? event.data.registration.url : `/events/${event.id}/`;
+const cta = ended ? '活动回顾' : registrationOpen ? '立即报名' : '活动详情';
+const state = ended ? '已结束' : registrationOpen ? '正在报名' : '即将开始';
+const stateClass = ended ? 'is-ended' : registrationOpen ? 'is-open' : 'is-upcoming';
+const date = event.data.startDate.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replaceAll('/', '.');
+const mode = event.data.attendanceMode === 'offline' ? '线下' : event.data.attendanceMode === 'online' ? '线上' : '线上 + 线下';
+---
+<a
+  class="event-tile"
+  href={href}
+  target={externalRegistration ? '_blank' : undefined}
+  rel={externalRegistration ? 'noreferrer' : undefined}
+>
+  <figure class="event-tile-media">
+    <img src={event.data.cover} alt={event.data.coverAlt} loading="lazy" />
+  </figure>
+  <div class="event-tile-body">
+    <p class="event-tile-series mono"><span>{event.data.series} / {mode}</span><i class:list={['event-tile-status', stateClass]}>{state}</i></p>
+    <h3>{event.data.title}</h3>
+    <div class="event-tile-facts">
+      <span><i>日期</i>{date}</span>
+      <span><i>地点</i>{event.data.city ?? mode}</span>
+    </div>
+    <strong class="event-tile-action">{cta} <i>{externalRegistration ? '↗' : '→'}</i></strong>
+  </div>
+</a>

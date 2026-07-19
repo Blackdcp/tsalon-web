@@ -1,0 +1,23 @@
+{
+  "aiHot": {
+    "lookbackHours": 24,
+    "take": 30,
+    "minimumSourceScore": 60
+  },
+  "review": {
+    "minimumScore": 80,
+    "maximumCandidates": 5
+  },
+  "scoring": {
+    "communityRelevance": 30,
+    "practicalSubstance": 25,
+    "sourceReliability": 20,
+    "editorialAngle": 15,
+    "durableValue": 10
+  },
+  "article": {
+    "author": "editorial-team",
+    "cover": "/images/logo-dark.png",
+    "defaultType": "news"
+  }
+}

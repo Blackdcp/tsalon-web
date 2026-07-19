@@ -1,0 +1,29 @@
+{
+  "name": "tsalon-astro-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "node scripts/content-i18n-check.mjs && astro check && astro build && node scripts/site-locale-check.mjs && node scripts/site-heading-check.mjs",
+    "preview": "astro preview",
+    "astro": "astro",
+    "content:new": "node scripts/content-new.mjs",
+    "content:prompt": "node scripts/content-prompt.mjs",
+    "content:daily": "node scripts/content-daily.mjs",
+    "content:validate": "node scripts/content-validate.mjs && node scripts/content-i18n-check.mjs",
+    "content:i18n-check": "node scripts/content-i18n-check.mjs",
+    "site:locale": "node scripts/site-locale-check.mjs",
+    "site:headings": "node scripts/site-heading-check.mjs",
+    "site:links": "node scripts/site-link-check.mjs",
+    "events:sync": "node scripts/sync-huodongxing-events.mjs"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "3.7.3",
+    "astro": "7.1.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.6",
+    "typescript": "5.9.3"
+  }
+}

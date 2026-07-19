@@ -1,0 +1,204 @@
+---
+import { getCollection, getEntry, render, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const articles = await getCollection('articles', ({ data }) => !data.draft);
+  const talks = await getCollection('talks');
+  return [
+    ...articles.map((article) => ({ params: { id: article.id }, props: { kind: 'article' as const, article } })),
+    ...talks.map((talk) => ({ params: { id: talk.id }, props: { kind: 'talk' as const, talk } })),
+  ];
+}
+
+type Props =
+  | { kind: 'article'; article: CollectionEntry<'articles'> }
+  | { kind: 'talk'; talk: CollectionEntry<'talks'> };
+
+type NavigationEntry = {
+  id: string;
+  title: string;
+  label: string;
+};
+
+const props = Astro.props as Props;
+const isTalk = props.kind === 'talk';
+const talk = isTalk ? props.talk : undefined;
+const article = !isTalk ? props.article : undefined;
+
+let ArticleContent: any;
+let headings: { depth: number; slug: string; text: string }[] = [];
+let author: CollectionEntry<'people'> | undefined;
+if (article) {
+  const rendered = await render(article);
+  ArticleContent = rendered.Content;
+  headings = rendered.headings;
+  author = await getEntry(article.data.author);
+  if (!author) throw new Error(`Missing author for ${article.id}`);
+}
+
+const articleTypeLabels: Record<string, string> = {
+  news: '社区动态',
+  interview: '人物采访',
+  'field-note': '活动回顾',
+  guide: '嘉宾观点',
+  archive: '社区档案',
+};
+
+const publishedArticles = (await getCollection('articles', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime(),
+);
+const publishedTalks = (await getCollection('talks')).sort((a, b) => b.data.order - a.data.order);
+const navigationEntries: NavigationEntry[] = isTalk
+  ? publishedTalks.map((entry) => ({ id: entry.id, title: entry.data.title, label: `T Chat / ${String(entry.data.episode).padStart(2, '0')}` }))
+  : publishedArticles.map((entry) => ({ id: entry.id, title: entry.data.title, label: articleTypeLabels[entry.data.type] ?? '文章' }));
+const currentId = talk?.id ?? article!.id;
+const currentIndex = navigationEntries.findIndex((entry) => entry.id === currentId);
+const previousEntry = currentIndex > 0 ? navigationEntries[currentIndex - 1] : undefined;
+const nextEntry = currentIndex >= 0 && currentIndex < navigationEntries.length - 1 ? navigationEntries[currentIndex + 1] : undefined;
+
+const contentKind = talk ? '人物访谈' : articleTypeLabels[article!.data.type] ?? '文章';
+const title = talk?.data.title ?? article!.data.title;
+const summary = talk?.data.summary ?? article!.data.summary;
+const cover = talk?.data.cover ?? article!.data.cover;
+const coverAlt = talk?.data.coverAlt ?? article!.data.coverAlt;
+const topics = talk?.data.topics ?? article!.data.topics;
+const pageUrl = new URL(`/articles/${currentId}/`, Astro.site).toString();
+
+const jsonLd = talk ? {
+  '@context': 'https://schema.org',
+  '@type': 'VideoObject',
+  name: talk.data.title,
+  description: talk.data.summary,
+  thumbnailUrl: [new URL(talk.data.cover, Astro.site).toString()],
+  contentUrl: talk.data.videoUrl,
+  url: pageUrl,
+  publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  about: talk.data.topics,
+  inLanguage: 'zh-CN',
+} : {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: article!.data.title,
+  description: article!.data.summary,
+  datePublished: article!.data.publishedAt.toISOString(),
+  dateModified: (article!.data.updatedAt ?? article!.data.publishedAt).toISOString(),
+  url: pageUrl,
+  image: new URL(article!.data.cover, Astro.site).toString(),
+  author: { '@type': 'Organization', name: author!.data.name },
+  publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  inLanguage: 'zh-CN',
+  about: article!.data.topics,
+};
+
+const pageTitle = talk ? `${talk.data.title}｜T Chat 第 ${talk.data.episode} 期 — T Salon` : article!.data.seo.title;
+const pageDescription = talk
+  ? `${talk.data.speaker} 做客 T Chat「我在大厂做研发」第 ${talk.data.episode} 期。${talk.data.summary}`
+  : article!.data.seo.description;
+---
+
+<BaseLayout alternatePath={article ? `/en/articles/${article.id}/` : undefined} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={jsonLd}>
+  <main class="content-detail-page">
+    <nav class="content-detail-shell content-detail-breadcrumb" aria-label="面包屑">
+      <a href="/articles/">内容</a><span aria-hidden="true">/</span><span>{contentKind}</span>
+    </nav>
+
+    <header class="content-detail-shell content-detail-header">
+      <div class="content-detail-kicker">
+        <p class="eyebrow">{talk ? `T CHAT / EPISODE ${String(talk.data.episode).padStart(2, '0')}` : `${contentKind} / T SALON`}</p>
+        <span class="mono">{talk ? '对谈' : '编辑内容'}</span>
+      </div>
+      <h1>{title}</h1>
+      <p class="content-detail-summary">{summary}</p>
+      <div class="content-detail-byline">
+        <span class="content-detail-avatar" aria-hidden="true">{talk ? String(talk.data.episode).padStart(2, '0') : 'TS'}</span>
+        <div>
+          <strong>{talk ? talk.data.speaker : author!.data.name}</strong>
+          <span>{talk ? `「我在大厂做研发」· T Salon` : `${article!.data.publishedAt.toISOString().slice(0, 10)} · ${article!.data.readingMinutes} 分钟阅读`}</span>
+        </div>
+      </div>
+    </header>
+
+    <figure class="content-detail-shell content-detail-cover">
+      <div><img src={cover} alt={coverAlt} /></div>
+      <figcaption class="mono">T SALON / {talk ? `T CHAT ${String(talk.data.episode).padStart(2, '0')}` : '社区档案'}</figcaption>
+    </figure>
+
+    <section class="content-detail-shell content-detail-body">
+      <article class="prose content-detail-prose">
+        {talk ? (
+          <>
+            <p class="standfirst">{talk.data.speaker} 做客 T Chat「我在大厂做研发」第 {talk.data.episode} 期，围绕“{talk.data.title}”分享一线研发实践。</p>
+            <p>{talk.data.summary}</p>
+            <h2>本期讨论主题</h2>
+            <ul>{talk.data.topics.map((topic) => <li>{topic}</li>)}</ul>
+            <h2>关于「我在大厂做研发」</h2>
+            <p>T Chat 由 T Salon 与老司机周报共同发起，通过主题分享与一对一交流，记录一线互联网研发团队与工程师的真实实践。系列共完成 17 期。</p>
+          </>
+        ) : (
+          <ArticleContent />
+        )}
+        <footer class="content-detail-tags">
+          <span class="mono">主题</span>
+          <div class="tag-list">{topics.map((topic) => <span class="tag">{topic}</span>)}</div>
+        </footer>
+      </article>
+
+      <aside class="content-detail-aside">
+        {article && headings.some((heading) => heading.depth === 2) && (
+          <div class="content-detail-aside-section">
+            <strong class="mono">本文目录</strong>
+            <nav aria-label="本文目录">
+              {headings.filter((heading) => heading.depth === 2).map((heading) => <a href={`#${heading.slug}`}>{heading.text}</a>)}
+            </nav>
+          </div>
+        )}
+
+        <div class="content-detail-aside-section">
+          <strong class="mono">{talk ? '本期信息' : '文章信息'}</strong>
+          <dl>
+            <div><dt>类型</dt><dd>{contentKind}</dd></div>
+            {talk ? (
+              <>
+                <div><dt>期数</dt><dd>{String(talk.data.episode).padStart(2, '0')} / 17</dd></div>
+                <div><dt>嘉宾</dt><dd>{talk.data.speaker}</dd></div>
+              </>
+            ) : (
+              <>
+                <div><dt>作者</dt><dd>{author!.data.name}</dd></div>
+                <div><dt>发布时间</dt><dd>{article!.data.publishedAt.toISOString().slice(0, 10)}</dd></div>
+              </>
+            )}
+          </dl>
+        </div>
+
+        {talk && <a class="content-detail-source" href={talk.data.videoUrl} target="_blank" rel="noreferrer">观看完整视频 <span>↗</span></a>}
+        {article && article.data.citations.map((citation) => <a class="content-detail-source" href={citation.url} target="_blank" rel="noreferrer">{citation.label} <span>↗</span></a>)}
+      </aside>
+    </section>
+
+    {talk && (
+      <aside class="content-detail-shell content-series-note">
+        <div><p class="mono">T CHAT / 系列</p><h2>继续浏览「我在大厂做研发」</h2></div>
+        <p>从第 1 期到第 17 期，查看完整嘉宾与主题目录。</p>
+        <a href="/events/series/t-chat/">打开系列 <span aria-hidden="true">→</span></a>
+      </aside>
+    )}
+
+    <nav class="content-pagination" aria-label="上一篇和下一篇">
+      <div class="content-pagination-inner content-detail-shell">
+        {previousEntry ? (
+          <a class="content-pagination-item content-pagination-previous" href={`/articles/${previousEntry.id}/`}>
+            <span>← 上一篇 · {previousEntry.label}</span><strong>{previousEntry.title}</strong>
+          </a>
+        ) : <span class="content-pagination-item is-empty" aria-hidden="true"></span>}
+        <a class="content-pagination-back" href="/articles/">全部内容</a>
+        {nextEntry ? (
+          <a class="content-pagination-item content-pagination-next" href={`/articles/${nextEntry.id}/`}>
+            <span>下一篇 · {nextEntry.label} →</span><strong>{nextEntry.title}</strong>
+          </a>
+        ) : <span class="content-pagination-item is-empty" aria-hidden="true"></span>}
+      </div>
+    </nav>
+  </main>
+</BaseLayout>

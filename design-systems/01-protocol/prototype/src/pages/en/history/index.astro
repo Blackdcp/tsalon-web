@@ -1,0 +1,16 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { cityEn } from '../../../data/en';
+const gallery = (await getCollection('gallery')).sort((a, b) => b.data.order - a.data.order);
+const years = [...new Set(gallery.map((item) => item.data.year))].sort((a, b) => b - a);
+---
+<BaseLayout locale="en" alternatePath="/history/" title="Community archive — T Salon, 2016 to now" description="A year-by-year visual record of the people, cities and developer gatherings that have shaped T Salon since 2016." image="/images/gallery/gallery-1.jpeg">
+  <main>
+    <nav class="container breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/en/">Home</a></li><li><a href="/en/about/">About</a></li><li aria-current="page">Community archive</li></ol></nav>
+    <header class="container history-hero"><div><p class="eyebrow">COMMUNITY ARCHIVE / 2016—NOW</p><h1>We did not appear overnight</h1></div><div><p>These photographs record more than scale. They show how developers kept meeting, sharing and building trust over time.</p><div class="history-year-list">{years.map((year) => <a href={`#year-${year}`}>{year}</a>)}</div></div></header>
+    <section class="history-opening"><div class="container"><figure><img src="/images/gallery/gallery-17.jpeg" alt="Developers at an early T Salon gathering in July 2016" /></figure><blockquote><span class="mono">THE BEGINNING / 2016</span><p>At first, we simply wanted iOS developers to have a place for serious technical conversation.</p></blockquote></div></section>
+    {years.map((year) => <section id={`year-${year}`} class="container history-year"><header><span class="mono">YEAR / {year}</span><strong>{gallery.filter((item) => item.data.year === year).length} moments from the community</strong></header><div class="history-photo-grid">{gallery.filter((item) => item.data.year === year).map((item, index) => <figure class:list={{ wide: index === 0 && gallery.filter((entry) => entry.data.year === year).length > 1 }}><img src={item.data.cover} alt={`T Salon community gathering in ${cityEn[item.data.city ?? ''] ?? 'China'} in ${item.data.year}`} loading={year === years[0] ? 'eager' : 'lazy'} /><figcaption><strong>T Salon community gathering</strong><span>{cityEn[item.data.city ?? ''] ?? 'T Salon'} · {item.data.year}{item.data.month ? `.${String(item.data.month).padStart(2, '0')}` : ''}</span></figcaption></figure>)}</div></section>)}
+    <section class="container history-end"><span class="mono">ARCHIVE CONTINUES</span><h2>The past builds trust<br />The future will still be written in real rooms</h2><div><a class="btn btn-dark" href="/en/events/">See current events <span>→</span></a><a class="btn btn-outline" href="/en/about/#join">Take part</a></div></section>
+  </main>
+</BaseLayout>

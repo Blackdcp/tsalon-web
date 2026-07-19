@@ -1,0 +1,18 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const gallery = (await getCollection('gallery')).sort((a, b) => b.data.order - a.data.order);
+const years = [...new Set(gallery.map((item) => item.data.year))].sort((a, b) => b - a);
+---
+<BaseLayout alternatePath="/en/history/" title="社区年鉴 — T Salon 2016 至今" description="通过历年活动现场、城市与社区成员，回看 T Salon 从 2016 年 iOS 开发者组织发展至今的社区轨迹。" image="/images/gallery/gallery-1.jpeg">
+  <main>
+    <nav class="container breadcrumb" aria-label="面包屑"><ol><li><a href="/">首页</a></li><li><a href="/about/">关于</a></li><li aria-current="page">社区年鉴</li></ol></nav>
+    <header class="container history-hero"><div><p class="eyebrow">社区年鉴 / 2016 至今</p><h1>我们不是突然出现的</h1></div><div><p>一张张现场照片记录的，不只是活动规模，也是一群开发者如何持续相遇、分享与建立信任。</p><div class="history-year-list">{years.map((year) => <a href={`#year-${year}`}>{year}</a>)}</div></div></header>
+
+    <section class="history-opening"><div class="container"><figure><img src="/images/gallery/gallery-17.jpeg" alt="2016 年 7 月 T Salon 早期活动参与者合影" /></figure><blockquote><span class="mono">起点 / 2016</span><p>最初，我们只是想让 iOS 开发者有一个可以认真交流技术的地方。</p></blockquote></div></section>
+
+    {years.map((year) => <section id={`year-${year}`} class="container history-year"><header><span class="mono">年份 / {year}</span><strong>{gallery.filter((item) => item.data.year === year).length} 个现场切片</strong></header><div class="history-photo-grid">{gallery.filter((item) => item.data.year === year).map((item, index) => <figure class:list={{ wide: index === 0 && gallery.filter((entry) => entry.data.year === year).length > 1 }}><img src={item.data.cover} alt={item.data.coverAlt} loading={year === years[0] ? 'eager' : 'lazy'} /><figcaption><strong>{item.data.title}</strong><span>{item.data.city ?? 'T Salon'} · {item.data.year}{item.data.month ? `.${String(item.data.month).padStart(2, '0')}` : ''}</span></figcaption></figure>)}</div></section>)}
+
+    <section class="container history-end"><span class="mono">年鉴仍在继续</span><h2>过去用来建立信任<br />未来仍由现场写下</h2><div><a class="btn btn-dark" href="/events/">查看现在的活动 <span>→</span></a><a class="btn btn-outline" href="/about/#join">参与下一场</a></div></section>
+  </main>
+</BaseLayout>

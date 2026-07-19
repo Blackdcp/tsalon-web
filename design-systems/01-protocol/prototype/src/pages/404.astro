@@ -1,0 +1,117 @@
+---
+import '../../assets/pages.css';
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>页面未找到｜T Salon</title>
+  </head>
+  <body>
+    <header class="not-found-header">
+      <a href="/" aria-label="返回 T Salon 首页" data-home-link>
+        <img src="/images/logo-dark.png" width="4096" height="1808" alt="T Salon" />
+      </a>
+    </header>
+    <main class="not-found-main">
+      <p class="eyebrow">404 / NOT FOUND</p>
+      <h1 data-copy="title">这里没有你要找的页面</h1>
+      <p data-copy="description">链接可能已经更新，也可能从未存在。你可以回到首页，继续查看活动与内容。</p>
+      <div class="not-found-actions">
+        <a class="btn btn-dark" href="/" data-primary-link data-copy="primary">返回首页</a>
+        <a class="btn btn-outline" href="/events/" data-secondary-link data-copy="secondary">查看活动</a>
+      </div>
+    </main>
+    <script is:inline>
+      (() => {
+        if (!location.pathname.startsWith('/en/')) return;
+        document.documentElement.lang = 'en';
+        document.title = 'Page not found | T Salon';
+        const copy = {
+          title: 'This page could not be found',
+          description: 'The link may have changed or never existed. Return home to continue with T Salon events and stories.',
+          primary: 'Back home',
+          secondary: 'Explore events',
+        };
+        document.querySelectorAll('[data-copy]').forEach((element) => {
+          element.textContent = copy[element.dataset.copy];
+        });
+        document.querySelector('[data-home-link]').href = '/en/';
+        document.querySelector('[data-home-link]').ariaLabel = 'Back to the T Salon home page';
+        document.querySelector('[data-primary-link]').href = '/en/';
+        document.querySelector('[data-secondary-link]').href = '/en/events/';
+      })();
+    </script>
+  </body>
+</html>
+
+<style>
+  :global(body) {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    color: var(--text-primary);
+    background: var(--background-primary);
+  }
+
+  .not-found-header {
+    min-height: var(--header-height);
+    padding-inline: var(--gutter-desktop);
+    border-bottom: 1px solid var(--border-default);
+    display: flex;
+    align-items: center;
+  }
+
+  .not-found-header a {
+    display: block;
+    width: 124px;
+  }
+
+  .not-found-header img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .not-found-main {
+    width: min(calc(100% - var(--gutter-desktop) * 2), 1180px);
+    margin-inline: auto;
+    padding-block: clamp(5rem, 12vh, 10rem);
+  }
+
+  .not-found-main h1 {
+    max-width: 860px;
+    margin: var(--space-6) 0 var(--space-6);
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    line-height: 1.02;
+    letter-spacing: -.06em;
+  }
+
+  .not-found-main > p:not(.eyebrow) {
+    max-width: 660px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--text-18);
+    line-height: 1.8;
+  }
+
+  .not-found-actions {
+    margin-top: var(--space-10);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  @media (max-width: 760px) {
+    .not-found-header { padding-inline: var(--gutter-mobile); }
+    .not-found-main {
+      width: calc(100% - var(--gutter-mobile) * 2);
+      padding-block: var(--space-16);
+    }
+    .not-found-main h1 { font-size: clamp(2.75rem, 13vw, 4rem); }
+    .not-found-main > p:not(.eyebrow) { font-size: var(--text-16); }
+  }
+</style>

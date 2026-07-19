@@ -1,0 +1,15 @@
+{
+  "type": "article",
+  "slug": "example-field-note",
+  "workingTitle": "一个具体、可以独立回答的技术问题",
+  "primaryQuestion": "这篇内容要为读者解决什么问题？",
+  "audience": ["开发者", "技术管理者"],
+  "facts": [
+    { "statement": "人工确认的事实写在这里", "source": "原始链接、活动页面或转录时间戳" }
+  ],
+  "quotes": [],
+  "relatedEvent": null,
+  "topics": ["AI", "Engineering"],
+  "desiredAction": "阅读相关活动或订阅后续内容",
+  "editorNotes": "没有来源的内容不要补写。"
+}

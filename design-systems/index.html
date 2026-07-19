@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>T Salon — Three Design Systems</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600&display=swap');
+    *{box-sizing:border-box} body{margin:0;color:#171717;background:#efefec;font-family:'Noto Sans SC',sans-serif} a{color:inherit;text-decoration:none} img{display:block;max-width:100%}
+    header{min-height:360px;padding:36px 40px 52px;background:#fff;border-bottom:1px solid #d8d8d4;display:grid;grid-template-columns:2fr 7fr 3fr;align-content:space-between}
+    header img{width:132px} header .meta{grid-column:3;font:11px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-align:right}
+    header h1{grid-column:2/4;margin:100px 0 0;max-width:980px;font-size:64px;line-height:1.08;letter-spacing:-.055em;font-weight:600}
+    header p{grid-column:2/3;margin:28px 0 0;max-width:700px;color:#656563;font-size:16px;line-height:1.8}
+    main{padding:80px 40px 120px}.intro{display:grid;grid-template-columns:2fr 7fr 3fr;margin-bottom:44px}.intro span{font:11px 'IBM Plex Mono',monospace;color:#666}.intro p{grid-column:2/3;margin:0;font-size:20px;line-height:1.6}
+    .direction{margin-bottom:84px;background:#fff;border:1px solid #d7d7d2}.direction-head{min-height:170px;padding:28px 32px;display:grid;grid-template-columns:1.5fr 5fr 3fr;align-items:end;border-bottom:1px solid #ddd}
+    .number{align-self:start;font:11px 'IBM Plex Mono',monospace}.direction h2{margin:0;font-size:40px;letter-spacing:-.045em;font-weight:600}.direction h2 small{display:block;margin-top:10px;color:#777;font:12px 'IBM Plex Mono',monospace;letter-spacing:.02em}
+    .direction-copy{align-self:end}.direction-copy p{margin:0 0 22px;color:#5f5f5c;font-size:14px;line-height:1.75}.links{display:flex;gap:8px}.links a{padding:10px 13px;border:1px solid #aaa;font-size:11px}.links a:first-child{color:#fff;background:#171717;border-color:#171717}
+    .pair{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#ddd}.pair figure{margin:0;background:#f7f7f4}.pair img{width:100%;aspect-ratio:1440/1020;object-fit:cover}.pair figure:first-child img{object-position:top}.pair figcaption{padding:13px 16px;font:10px 'IBM Plex Mono',monospace;color:#666;border-top:1px solid #ddd}
+    footer{min-height:160px;padding:36px 40px;border-top:1px solid #d0d0cc;display:flex;align-items:flex-end;justify-content:space-between}footer img{width:120px}footer span{font:10px 'IBM Plex Mono',monospace}
+    @media(max-width:760px){header{padding:24px 20px;display:block}header .meta{margin-top:30px;text-align:left}header h1{margin-top:70px;font-size:42px}main{padding:60px 12px}.intro{display:block;padding:0 8px}.intro p{margin-top:24px}.direction-head{display:block;padding:24px 20px}.direction h2{margin:44px 0 28px;font-size:32px}.pair{grid-template-columns:1fr}.links{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="assets/logo-dark.png" alt="T Salon">
+    <div class="meta">DESIGN SYSTEM STUDY<br>18 JUL 2026</div>
+    <h1>三种不同的秩序，<br>同一个 T Salon。</h1>
+    <p>这不是三张情绪图，而是三套能继续长成完整官网的视觉语言：从 Logo 规则，到内容组件，再到首页真实应用。</p>
+  </header>
+  <main>
+    <div class="intro"><span>HOW TO REVIEW</span><p>先判断哪一种“像我们”，再讨论局部喜好。每套都可以进入完整规范页，查看色彩、字体、间距、活动、文章、照片与首页组件。</p></div>
+
+    <section class="direction">
+      <div class="direction-head"><span class="number">01 / PROTOCOL</span><h2>把社区做成一种协议<small>EXPO × VERCEL</small></h2><div class="direction-copy"><p>最克制、最开发者，也最像一套会被长期维护的公共基础设施。</p><div class="links"><a href="01-protocol/index.html">打开完整规范</a><a href="01-protocol/DESIGN.md">阅读 DESIGN.md</a></div></div></div>
+      <div class="pair"><figure><img src="01-protocol/preview.png" alt="Protocol design system"><figcaption>FOUNDATION / LOGO / COLOR / TYPE</figcaption></figure><figure><img src="01-protocol/application.png" alt="Protocol homepage application"><figcaption>HOMEPAGE APPLICATION</figcaption></figure></div>
+    </section>
+
+    <section class="direction">
+      <div class="direction-head"><span class="number">02 / NIGHT BUILD</span><h2>把构建中的思想带到光下<small>RESEND × xAI</small></h2><div class="direction-copy"><p>更前沿、更实验、更像一个由开发者共同构建未知的夜间工作台。</p><div class="links"><a href="02-night-build/index.html">打开完整规范</a><a href="02-night-build/DESIGN.md">阅读 DESIGN.md</a></div></div></div>
+      <div class="pair"><figure><img src="02-night-build/preview.png" alt="Night Build design system"><figcaption>FOUNDATION / LOGO / COLOR / TYPE</figcaption></figure><figure><img src="02-night-build/application.png" alt="Night Build homepage application"><figcaption>HOMEPAGE APPLICATION</figcaption></figure></div>
+    </section>
+
+    <section class="direction">
+      <div class="direction-head"><span class="number">03 / COMMONS</span><h2>为技术留一张共同的桌子<small>MISTRAL AI × EXPO</small></h2><div class="direction-copy"><p>保留技术判断力，同时让非营利社区的开放、现场与人情味成立。</p><div class="links"><a href="03-commons/index.html">打开完整规范</a><a href="03-commons/DESIGN.md">阅读 DESIGN.md</a></div></div></div>
+      <div class="pair"><figure><img src="03-commons/preview.png" alt="Commons design system"><figcaption>FOUNDATION / LOGO / COLOR / TYPE</figcaption></figure><figure><img src="03-commons/application.png" alt="Commons homepage application"><figcaption>HOMEPAGE APPLICATION</figcaption></figure></div>
+    </section>
+  </main>
+  <footer><img src="assets/logo-dark.png" alt="T Salon"><span>CHOOSE A SYSTEM, THEN BUILD THE SITE.</span></footer>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci --prefix design-systems/01-protocol/prototype",
+  "buildCommand": "npm run build --prefix design-systems/01-protocol/prototype",
+  "outputDirectory": "design-systems/01-protocol/prototype/dist",
+  "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "tsalon.tech"
+        }
+      ],
+      "destination": "https://www.tsalon.tech/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "tsalon.tech"
+        }
+      ],
+      "destination": "https://www.tsalon.tech/:path*",
+      "permanent": true
+    }
+  ]
+}

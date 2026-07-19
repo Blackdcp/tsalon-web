@@ -1,0 +1,15 @@
+---
+import type { CollectionEntry } from 'astro:content';
+interface Props { talk: CollectionEntry<'talks'>; size?: 'large' | 'normal'; }
+const { talk, size = 'normal' } = Astro.props;
+---
+<a class:list={['talk-card', { 'talk-card-large': size === 'large' }]} href={`/articles/${talk.id}/`}>
+  <div class="talk-card-media">
+    <img src={talk.data.cover} alt={talk.data.coverAlt} loading={size === 'large' ? 'eager' : 'lazy'} />
+  </div>
+  <div class="talk-card-copy">
+    <p class="talk-card-meta mono muted"><span>{talk.data.series} · {talk.data.speaker}</span><i>T CHAT / {String(talk.data.episode).padStart(2, '0')}</i></p>
+    <h3>{talk.data.title}</h3>
+    <div class="talk-card-footer"><div class="tag-list">{talk.data.topics.slice(0, 2).map((topic) => <span class="tag">{topic}</span>)}</div><span>查看内容 →</span></div>
+  </div>
+</a>

@@ -1,0 +1,21 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { talkSpeakerEn, talkTitleEn } from '../../../../data/en';
+export async function getStaticPaths() {
+  const series = await getCollection('eventSeries');
+  return series.map((item) => ({ params: { id: item.id }, props: { series: item } }));
+}
+const { series } = Astro.props as { series: CollectionEntry<'eventSeries'> };
+const talks = (await getCollection('talks')).filter((talk) => talk.data.seriesId === series.id).sort((a, b) => b.data.order - a.data.order);
+const seriesTitle = series.id === 't-chat' ? 'T Chat' : series.data.englishName;
+---
+<BaseLayout locale="en" alternatePath={`/events/series/${series.id}/`} title={`${seriesTitle} — T Salon series`} description="A 17-episode online conversation series documenting real engineering work inside major technology companies." image={series.data.cover ?? '/images/news/tchat-launch-1.jpg'}>
+  <main>
+    <nav class="container breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/en/">Home</a></li><li><a href="/en/events/">Events</a></li><li aria-current="page">{seriesTitle}</li></ol></nav>
+    <header class="container series-hero" style={`--series-accent:${series.data.accent}`}><div><p class="eyebrow">SERIES / {series.data.number} · ARCHIVE</p><h1>{seriesTitle}</h1><p class="series-chinese">Engineering Inside Major Technology Companies</p></div><div><strong>First-hand engineering stories, one conversation at a time.</strong><p>T Chat was created by T Salon and Laosiji Weekly. Each episode paired a focused presentation with a direct conversation about the guest’s team, systems and individual practice.</p></div></header>
+    <section class="container series-facts"><div><span class="mono">FORMAT</span><strong>Talk + conversation</strong></div><div><span class="mono">RUN</span><strong>17 episodes</strong></div><div><span class="mono">MODE</span><strong>Online</strong></div><div><span class="mono">YEARS</span><strong>2022—2023</strong></div></section>
+    <section class="container series-talks"><header class="section-heading"><span class="mono">17 / EPISODES</span><h2>The complete series<br />from episode one to seventeen</h2></header><div class="talk-index-grid">{talks.map((talk) => <a class="talk-card" href={talk.data.videoUrl} target="_blank" rel="noopener noreferrer"><figure><img src={talk.data.cover} alt={`${talkTitleEn[talk.id]} with ${talkSpeakerEn[talk.id]}`} loading="lazy" /></figure><div><p class="talk-card-meta mono"><span>{talkSpeakerEn[talk.id]}</span><i>T CHAT / {String(talk.data.episode).padStart(2, '0')}</i></p><h3>{talkTitleEn[talk.id]}</h3><span>Watch on bilibili ↗</span></div></a>)}</div></section>
+    <section class="container series-join"><div><p class="eyebrow">TAKE PART</p><h2>Have a problem worth discussing<br />Let’s start the next conversation</h2></div><div><p>To speak, co-host or propose an editorial idea, contact us through the collaboration channel.</p><a class="btn btn-dark" href="/en/about/#cooperate">Ways to collaborate <span>↗</span></a></div></section>
+  </main>
+</BaseLayout>

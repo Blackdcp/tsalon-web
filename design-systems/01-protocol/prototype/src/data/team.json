@@ -1,0 +1,5 @@
+[
+  { "id": "mm", "name": "郑宜东", "handle": "MM", "role": "发起人", "bio": "前阿里巴巴 P8 技术专家，现任独角兽企业技术高管，拥有深厚的技术背景和行业资源。", "avatar": "/images/team/mm.png", "avatarAlt": "T Salon 发起人 MM 郑宜东的头像", "order": 1 },
+  { "id": "eyrefree", "name": "EyreFree", "role": "运营负责人", "bio": "技术咨询公司创始人，资深开发者社区运营专家，具备敏锐的技术洞察力和丰富的社群运营经验。", "avatar": "/images/team/eyrefree.png", "avatarAlt": "T Salon 运营负责人 EyreFree 的头像", "order": 2 },
+  { "id": "black", "name": "Black", "role": "商务负责人", "bio": "曾任字节跳动及多家 B2B 企业市场负责人，长期从事内容营销、品牌合作与开发者社区协作。", "avatar": "/images/team/black.jpg", "avatarAlt": "T Salon 商务负责人 Black 的头像", "order": 3 }
+]

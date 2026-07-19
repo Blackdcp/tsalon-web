@@ -1,0 +1,19 @@
+[
+  { "id": "shenzhen-2022-2", "title": "深圳大前端时代的挑战和机遇", "caption": "2022 年，深圳线下活动现场。", "cover": "/images/gallery/gallery-1.jpeg", "coverAlt": "2022 深圳大前端时代的挑战和机遇活动现场", "year": 2022, "city": "深圳", "order": 17 },
+  { "id": "shenzhen-2022-1", "title": "深圳大前端时代的挑战和机遇", "caption": "2022 年，开发者在深圳相聚。", "cover": "/images/gallery/gallery-2.jpeg", "coverAlt": "2022 深圳大前端时代活动参与者", "year": 2022, "city": "深圳", "order": 16 },
+  { "id": "shanghai-mobile-2022-1", "title": "上海移动技术实践日", "caption": "2022 年上海移动技术实践日。", "cover": "/images/gallery/gallery-3.jpeg", "coverAlt": "2022 上海移动技术实践日活动现场", "year": 2022, "city": "上海", "order": 15 },
+  { "id": "shanghai-mobile-2022-2", "title": "上海移动技术实践日", "caption": "移动技术实践分享与交流。", "cover": "/images/gallery/gallery-4.jpeg", "coverAlt": "2022 上海移动技术实践日分享现场", "year": 2022, "city": "上海", "order": 14 },
+  { "id": "aug-2019", "title": "台风天的线下活动", "caption": "2019 年 8 月，社区成员如约到场。", "cover": "/images/gallery/gallery-5.jpeg", "coverAlt": "2019 年 8 月 T Salon 线下活动合影", "year": 2019, "month": 8, "city": "上海", "order": 13 },
+  { "id": "apr-2019", "title": "iTutorGroup 线下活动", "caption": "2019 年 4 月技术交流现场。", "cover": "/images/gallery/gallery-6.jpeg", "coverAlt": "2019 年 4 月 T Salon 线下活动现场", "year": 2019, "month": 4, "city": "上海", "order": 12 },
+  { "id": "aug-2018", "title": "2018 年 8 月线下活动", "caption": "围绕移动开发的现场讨论。", "cover": "/images/gallery/gallery-7.jpg", "coverAlt": "2018 年 8 月 T Salon 线下活动", "year": 2018, "month": 8, "order": 11 },
+  { "id": "apr-2018", "title": "哒哒英语线下活动", "caption": "2018 年 4 月，技术社区线下交流。", "cover": "/images/gallery/gallery-8.jpeg", "coverAlt": "2018 年 4 月哒哒英语活动现场", "year": 2018, "month": 4, "city": "上海", "order": 10 },
+  { "id": "eleme-mar-2018", "title": "第二次与饿了么技术合作", "caption": "2018 年 3 月合作活动现场。", "cover": "/images/gallery/gallery-9.jpeg", "coverAlt": "2018 年 3 月 T Salon 与饿了么合作活动", "year": 2018, "month": 3, "city": "上海", "order": 9 },
+  { "id": "jan-2018", "title": "2018 年 1 月线下活动", "caption": "新一年的第一次开发者相聚。", "cover": "/images/gallery/gallery-10.jpg", "coverAlt": "2018 年 1 月 T Salon 线下活动", "year": 2018, "month": 1, "order": 8 },
+  { "id": "closed-dec-2017", "title": "2017 年 12 月闭门活动", "caption": "小规模、深入的技术讨论。", "cover": "/images/gallery/gallery-11.jpeg", "coverAlt": "2017 年 12 月 T Salon 闭门活动", "year": 2017, "month": 12, "order": 7 },
+  { "id": "eleme-dec-2017", "title": "与饿了么合办线下活动", "caption": "2017 年 12 月合作活动现场。", "cover": "/images/gallery/gallery-12.jpeg", "coverAlt": "2017 年 12 月 T Salon 与饿了么活动现场", "year": 2017, "month": 12, "city": "上海", "order": 6 },
+  { "id": "eleme-jul-2017-stage", "title": "第一次与饿了么合办活动", "caption": "2017 年 7 月嘉宾分享现场。", "cover": "/images/gallery/gallery-13.jpeg", "coverAlt": "2017 年 7 月 T Salon 与饿了么活动分享现场", "year": 2017, "month": 7, "city": "上海", "order": 5 },
+  { "id": "eleme-jul-2017", "title": "第一次与饿了么合办活动", "caption": "2017 年 7 月活动现场。", "cover": "/images/gallery/gallery-14.jpeg", "coverAlt": "2017 年 7 月 T Salon 与饿了么合办活动", "year": 2017, "month": 7, "city": "上海", "order": 4 },
+  { "id": "dec-2016", "title": "2016 年 12 月线下活动", "caption": "社区建立第一年的线下交流。", "cover": "/images/gallery/gallery-15.jpeg", "coverAlt": "2016 年 12 月 T Salon 线下活动现场", "year": 2016, "month": 12, "order": 3 },
+  { "id": "jul-2016-speaker", "title": "2016 年 7 月嘉宾分享", "caption": "早期 iOS 开发者活动的分享现场。", "cover": "/images/gallery/gallery-16.jpeg", "coverAlt": "2016 年 7 月 T Salon 嘉宾分享现场", "year": 2016, "month": 7, "order": 2 },
+  { "id": "jul-2016", "title": "2016 年 7 月线下活动", "caption": "T Salon 最早的一批社区参与者。", "cover": "/images/gallery/gallery-17.jpeg", "coverAlt": "2016 年 7 月 T Salon 线下活动参与者合影", "year": 2016, "month": 7, "order": 1 }
+]

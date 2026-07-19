@@ -1,0 +1,45 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { archiveEn, partnerEn } from '../../data/en';
+
+const archiveEvents = (await getCollection('activityArchive')).sort((a, b) => a.data.order - b.data.order);
+const articles = (await getCollection('articlesEn', ({ data }) => !data.draft)).sort((a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime());
+const partners = (await getCollection('partners')).sort((a, b) => a.data.order - b.data.order);
+const featuredEvent = archiveEvents[0];
+const orgJsonLd = {
+  '@context': 'https://schema.org', '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/en/', foundingDate: '2016-03',
+  description: 'An online and offline technology community built by developers.',
+  sameAs: ['https://github.com/Code-T', 'https://space.bilibili.com/488340243'],
+};
+---
+<BaseLayout locale="en" alternatePath="/" title="T Salon — A technology community built by developers" description="Founded in 2016, T Salon connects real engineering work across the Apple ecosystem, AI and embodied intelligence through events, conversations and durable community publishing." image="/images/home-community-group.jpg" jsonLd={orgJsonLd}>
+  <main>
+    <section class="container home-hero home-hero-v2 home-hero-en">
+      <div class="home-hero-copy"><p class="eyebrow">DEVELOPER COMMUNITY · SINCE 2016</p><h1 class="display-lines"><span>Technology is made in practice</span><span>Community lets experience travel</span></h1><p>An online and offline community for developers. We began with iOS and continue to connect first-hand work across the Apple ecosystem, AI and embodied intelligence.</p><div class="hero-actions"><a class="btn btn-dark" href="/en/events/">Explore events <span>↗</span></a><a class="btn btn-outline" href="/en/articles/">Read stories</a></div></div>
+      <figure class="home-hero-media"><img src="/images/home-community-group.webp" srcset="/images/home-community-group-960.webp 960w, /images/home-community-group.webp 1519w" sizes="(max-width: 1000px) 100vw, 50vw" width="1519" height="879" alt="Developers gathering for a T Salon community group photo" fetchpriority="high" decoding="async" /><span class="code-mark" aria-hidden="true">&lt;<i></i>&gt;</span><figcaption class="mono">ONLINE & OFFLINE · BUILT BY DEVELOPERS</figcaption></figure>
+    </section>
+
+    <div class="container home-proof"><span class="mono">EST. 2016</span><strong>100+ in-person events</strong><strong>100,000+ developers reached</strong><strong>50+ community partners</strong><a href="/en/history/">Explore the community archive →</a></div>
+
+    <section class="home-series"><div class="container">
+      <header class="section-heading"><span class="mono">01 / EVENTS</span><h2>Meet people doing the work<br />Keep the experience after the room clears</h2><a class="text-link" href="/en/events/">All events <span>→</span></a></header>
+      <p class="section-intro">Local gatherings, online conversations and long-running themes make up the T Salon event directory.</p>
+      <div class="event-directory-grid home-event-grid">
+        {featuredEvent && <a class="event-tile" href={`/en/events/archive/${featuredEvent.id}/`}><figure class="event-tile-media"><img src={featuredEvent.data.cover} alt={archiveEn[featuredEvent.id]?.title} loading="eager" /></figure><div class="event-tile-body"><p class="event-tile-series mono"><span>T SALON / OFFLINE</span><i class="event-tile-status is-ended">ENDED</i></p><h3>{archiveEn[featuredEvent.id]?.title}</h3><p>{archiveEn[featuredEvent.id]?.summary}</p><strong class="event-tile-action">Event details <i>→</i></strong></div></a>}
+        <a class="event-tile" href="/en/events/series/t-chat/"><figure class="event-tile-media"><img src="/images/news/tchat-launch-1.jpg" alt="T Chat series poster" loading="lazy" /></figure><div class="event-tile-body"><p class="event-tile-series mono"><span>T CHAT / ONLINE</span><i class="event-tile-status is-ended">ENDED</i></p><h3>T Chat: Engineering Inside Major Technology Companies</h3><div class="event-tile-facts"><span><i>Dates</i>2022—2023</span><span><i>Format</i>Online · 17 episodes</span></div><strong class="event-tile-action">Series archive <i>→</i></strong></div></a>
+        <a class="event-tile home-open-call" href="/en/events/#event-topics-title"><figure class="event-tile-media"><img src="/images/gallery/gallery-4.jpeg" alt="A speaker presenting to developers at T Salon" loading="lazy" /></figure><div class="event-tile-body"><p class="event-tile-series mono"><span>NEXT / OPEN CALL</span><i class="event-tile-status is-open">OPEN</i></p><h3>AI and embodied intelligence: help shape the next gathering</h3><p>We welcome practitioners who want to speak, co-create content or host a conversation.</p><strong class="event-tile-action">Take part <i>→</i></strong></div></a>
+      </div>
+    </div></section>
+
+    <section class="home-editorial"><div class="container">
+      <header class="section-heading"><span class="mono">02 / STORIES</span><h2>Start with first-hand practice<br />Understand how technology is changing</h2><a class="text-link" href="/en/articles/">Browse stories <span>→</span></a></header>
+      {articles[0] && <a class="home-editorial-feature" href={`/en/articles/${articles[0].id}/`}><figure><img src={articles[0].data.cover} alt={articles[0].data.coverAlt} loading="lazy" /><figcaption class="mono">LATEST / FIELD NOTE</figcaption></figure><div><p class="eyebrow">FEATURED STORY</p><h3>{articles[0].data.title}</h3><p>{articles[0].data.summary}</p><span>Read the story <i>→</i></span></div></a>}
+      <div class="home-editorial-scope"><p>We publish practitioner viewpoints, industry observations, interviews and field notes.</p><div><span>Viewpoints</span><span>Industry</span><span>Interviews</span><span>Field notes</span></div></div>
+    </div></section>
+
+    <section class="home-archive-showcase"><div class="container"><figure><img src="/images/gallery/gallery-12.jpeg" alt="A T Salon developer gathering in 2017" loading="lazy" /></figure><div><p class="eyebrow">03 / COMMUNITY ARCHIVE · 2016—NOW</p><h2>Years of work<br />not just a claim</h2><p>From our first iOS developer gathering to events across different cities, the photographs show a community built through repeated encounters.</p><a class="btn btn-light" href="/en/history/">Open the archive <span>→</span></a></div></div></section>
+
+    <section class="container home-partners"><header class="section-heading"><span class="mono">04 / FRIENDS & PARTNERS</span><h2>No community is built alone</h2><a class="text-link" href="/en/about/">About T Salon <span>→</span></a></header><div class="home-partner-logo-grid">{partners.map((partner) => <figure><img src={partner.data.logo} alt={partnerEn[partner.id] ?? partner.data.name} loading="lazy" /><figcaption class="sr-only">{partnerEn[partner.id] ?? partner.data.name}</figcaption></figure>)}</div></section>
+  </main>
+</BaseLayout>

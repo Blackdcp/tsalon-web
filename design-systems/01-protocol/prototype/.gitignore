@@ -1,0 +1,8 @@
+node_modules/
+.astro/
+dist/
+.editorial/
+.qa/
+.qa-v2/
+previews/
+public/images/home-community-group.png

@@ -1,0 +1,23 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { archiveEn } from '../../../../data/en';
+export async function getStaticPaths() {
+  const events = await getCollection('activityArchive');
+  return events.map((event) => ({ params: { id: event.id }, props: { event } }));
+}
+const { event } = Astro.props as { event: CollectionEntry<'activityArchive'> };
+const copy = archiveEn[event.id];
+const start = event.data.startDate;
+const date = start.toLocaleDateString('en', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Shanghai' });
+const jsonLd = { '@context': 'https://schema.org', '@type': 'Event', name: copy.title, description: copy.summary, startDate: event.data.startDate.toISOString(), endDate: event.data.endDate.toISOString(), eventStatus: 'https://schema.org/EventCompleted', url: new URL(`/en/events/archive/${event.id}/`, Astro.site).toString(), organizer: { '@type': 'Organization', name: 'T Salon' }, image: new URL(event.data.cover, Astro.site).toString(), inLanguage: 'en' };
+---
+<BaseLayout locale="en" alternatePath={`/events/archive/${event.id}/`} title={`${copy.title} — T Salon event archive`} description={copy.summary} image={event.data.cover} jsonLd={jsonLd}>
+  <main>
+    <nav class="container breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/en/">Home</a></li><li><a href="/en/events/">Events</a></li><li aria-current="page">Event details</li></ol></nav>
+    <header class="container page-title"><div class="page-title-main"><div class="event-page-status is-ended"><span aria-hidden="true">✓</span> Ended</div><h1>{copy.title}</h1><p class="lead">{copy.summary}</p></div><div class="page-title-side"><span class="mono">T SALON / {start.getFullYear()}</span></div><div class="page-title-main event-quickfacts"><div class="quickfact"><span class="mono">DATE</span><strong>{date}</strong></div><div class="quickfact"><span class="mono">CITY</span><strong>{copy.city}</strong></div><div class="quickfact"><span class="mono">FORMAT</span><strong>{event.data.mode === 'online' ? 'Online' : 'In person'}</strong></div><div class="quickfact"><span class="mono">STATUS</span><strong>Community archive</strong></div></div></header>
+    <figure class="container page-cover"><img src={event.data.cover} alt={`${copy.title} event poster`} /><figcaption class="mono">EVENT POSTER · {start.getFullYear()}</figcaption></figure>
+    <section class="container archive-event-story" aria-labelledby="archive-event-story-title"><div><p class="eyebrow">EVENT RECORD</p><h2 id="archive-event-story-title">A record of the gathering</h2></div><div><p>{copy.summary}</p><p>This English page keeps the essential event record on T Salon. The original publishing page contains the full programme and source material in Chinese.</p><a href={event.data.sourceUrl} target="_blank" rel="noopener noreferrer">Open the original event page <span>↗</span></a></div></section>
+    <nav class="container archive-event-nav"><a href="/en/events/">← Back to events</a><a href="/en/history/">Continue to the community archive →</a></nav>
+  </main>
+</BaseLayout>

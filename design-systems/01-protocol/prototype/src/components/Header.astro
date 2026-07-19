@@ -1,0 +1,57 @@
+---
+import { localizedPath, type SiteLocale } from '../lib/i18n';
+
+interface Props {
+  locale: SiteLocale;
+  alternatePath: string;
+  hasTranslation?: boolean;
+}
+
+const { locale, alternatePath, hasTranslation = false } = Astro.props;
+const pathname = Astro.url.pathname;
+const route = (path: string) => localizedPath(path, locale);
+const isActive = (path: string) => pathname === route(path) || pathname.startsWith(route(path));
+const copy = locale === 'zh'
+  ? { home: 'T Salon 首页', nav: '主导航', events: '活动与现场', articles: '内容与观点', about: '关于 T Salon', join: '一起做点事情', open: '打开导航', close: '关闭导航', language: 'English', languageTitle: hasTranslation ? '查看英文版' : '前往英文首页' }
+  : { home: 'T Salon home', nav: 'Main navigation', events: 'Events', articles: 'Stories & Ideas', about: 'About T Salon', join: 'Take part', open: 'Open navigation', close: 'Close navigation', language: '中文', languageTitle: hasTranslation ? 'View in Chinese' : 'Go to the Chinese homepage' };
+const languageHref = hasTranslation ? alternatePath : (locale === 'zh' ? '/en/' : '/');
+---
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="site-logo" href={route('/')} aria-label={copy.home}><img src="/images/logo-dark.png" alt="T Salon" /></a>
+    <nav class="desktop-nav" aria-label={copy.nav}>
+      <a href={route('/events/')} aria-current={isActive('/events/') ? 'page' : undefined}>{copy.events}</a>
+      <a href={route('/articles/')} aria-current={isActive('/articles/') ? 'page' : undefined}>{copy.articles}</a>
+      <a href={route('/about/')} aria-current={isActive('/about/') ? 'page' : undefined}>{copy.about}</a>
+    </nav>
+    <a class="btn btn-dark header-action" href={`${route('/about/')}#join`}>{copy.join} <span>↗</span></a>
+    <a class="language-switch" href={languageHref} hreflang={locale === 'zh' ? 'en' : 'zh-Hans'} lang={locale === 'zh' ? 'en' : 'zh-CN'} title={copy.languageTitle} aria-label={copy.languageTitle} data-locale-choice={locale === 'zh' ? 'en' : 'zh'}>{copy.language}</a>
+    <details class="mobile-nav">
+      <summary aria-label={copy.open} data-open-label={copy.open} data-close-label={copy.close}><i></i></summary>
+      <nav class="mobile-menu" aria-label={copy.nav}>
+        <a href={route('/events/')}>{copy.events} <span>→</span></a>
+        <a href={route('/articles/')}>{copy.articles} <span>→</span></a>
+        <a href={route('/about/')}>{copy.about} <span>→</span></a>
+        <a class="mobile-menu-action" href={`${route('/about/')}#join`}>{copy.join} <span>↗</span></a>
+        <a class="mobile-menu-language" href={languageHref} hreflang={locale === 'zh' ? 'en' : 'zh-Hans'} lang={locale === 'zh' ? 'en' : 'zh-CN'} aria-label={copy.languageTitle} data-locale-choice={locale === 'zh' ? 'en' : 'zh'}>{copy.language} <span>→</span></a>
+      </nav>
+    </details>
+  </div>
+</header>
+
+<script>
+  const nav = document.querySelector<HTMLDetailsElement>('.mobile-nav');
+  const summary = nav?.querySelector<HTMLElement>('summary');
+  const syncLabel = () => summary?.setAttribute('aria-label', nav?.open ? summary.dataset.closeLabel || '' : summary.dataset.openLabel || '');
+  nav?.addEventListener('toggle', syncLabel);
+  nav?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => nav.removeAttribute('open')));
+  document.addEventListener('click', (event) => {
+    if (nav?.open && event.target instanceof Node && !nav.contains(event.target)) nav.removeAttribute('open');
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && nav?.open) {
+      nav.removeAttribute('open');
+      summary?.focus();
+    }
+  });
+</script>

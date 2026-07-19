@@ -1,0 +1,54 @@
+---
+import { getCollection, getEntries, render, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const events = await getCollection('events', ({ data }) => !data.draft);
+  return events.map((event) => ({ params: { id: event.id }, props: { event } }));
+}
+
+interface Props { event: CollectionEntry<'events'>; }
+const { event } = Astro.props;
+const { Content } = await render(event);
+const speakers = await getEntries(event.data.speakers);
+const start = event.data.startDate;
+const ended = event.data.endDate.getTime() < Date.now() || event.data.registration.status === 'archived';
+const registrationOpen = !ended && ['open', 'waitlist'].includes(event.data.registration.status);
+const statusLabel = ended ? '已结束' : registrationOpen ? '正在报名' : '即将开始';
+const statusClass = ended ? 'is-ended' : registrationOpen ? 'is-open' : 'is-upcoming';
+const statusIcon = ended ? '✓' : registrationOpen ? '●' : '→';
+const dateLabel = start.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+const timeLabel = `${start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}—${event.data.endDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+const eventUrl = new URL(`/events/${event.id}/`, Astro.site).toString();
+const eventJsonLd = {
+  '@context': 'https://schema.org', '@type': 'Event', name: event.data.title, description: event.data.summary,
+  startDate: event.data.startDate.toISOString(), endDate: event.data.endDate.toISOString(), url: eventUrl,
+  eventAttendanceMode: event.data.attendanceMode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
+  eventStatus: ended ? 'https://schema.org/EventCompleted' : 'https://schema.org/EventScheduled',
+  location: event.data.attendanceMode === 'online'
+    ? { '@type': 'VirtualLocation', name: event.data.venue ?? 'T Salon 在线活动', url: 'https://space.bilibili.com/488340243' }
+    : { '@type': 'Place', name: event.data.venue, address: { '@type': 'PostalAddress', streetAddress: event.data.address, addressLocality: event.data.city, addressCountry: 'CN' } },
+  organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  image: new URL(event.data.cover, Astro.site).toString(),
+};
+---
+<BaseLayout alternatePath={`/en/events/${event.id}/`} title={event.data.seo.title} description={event.data.seo.description} image={event.data.cover} noindex={event.data.seo.noindex} jsonLd={eventJsonLd}>
+  <main>
+    <nav class="container breadcrumb" aria-label="面包屑"><ol><li><a href="/">首页</a></li><li><a href="/events/">活动</a></li><li aria-current="page">{event.data.number ? `T Salon ${String(event.data.number).padStart(3, '0')}` : event.data.series}</li></ol></nav>
+    <header class="container page-title"><div class="page-title-main"><div class:list={["event-page-status", statusClass]}><span aria-hidden="true">{statusIcon}</span>{statusLabel}{event.data.registration.seatsLeft !== undefined && registrationOpen && ` · 剩余 ${event.data.registration.seatsLeft} 席`}</div><h1>{event.data.title}</h1><p class="lead">{event.data.summary}</p></div><div class="page-title-side"><span class="mono">活动 / {event.data.series.toUpperCase()}</span></div><div class="page-title-main event-quickfacts"><div class="quickfact"><span class="mono">日期</span><strong>{dateLabel}</strong></div><div class="quickfact"><span class="mono">时间</span><strong>{timeLabel}</strong></div><div class="quickfact"><span class="mono">地点</span><strong>{event.data.city ?? '线上'} · {event.data.venue ?? '待发布'}</strong></div><div class="quickfact"><span class="mono">形式</span><strong>{event.data.attendanceMode === 'offline' ? '线下' : event.data.attendanceMode === 'online' ? '线上' : '线上 + 线下'}{event.data.capacity ? ` · ${event.data.capacity} 人` : ''}</strong></div></div></header>
+    <figure class="container page-cover"><img src={event.data.cover} alt={event.data.coverAlt} /><figcaption class="mono">活动记录 · T SALON</figcaption></figure>
+    <figure class="container page-cover"><img src={event.data.cover} alt={event.data.coverAlt} /><figcaption class="mono">DOCUMENTARY PHOTO · T SALON EVENT</figcaption></figure>
+
+    <div class="content-container event-content">
+      <aside class="event-index"><strong class="mono">本页内容</strong><a href="#intro">活动介绍</a>{event.data.agenda.length > 0 && <a href="#agenda">活动议程</a>}{speakers.length > 0 && <a href="#speakers">分享嘉宾</a>}<a href="#venue">活动地点</a>{event.data.faq.length > 0 && <a href="#faq">常见问题</a>}</aside>
+      <div class="event-main">
+        <section id="intro" class="content-section event-body"><Content /></section>
+        {event.data.agenda.length > 0 && <section id="agenda" class="content-section"><h2>活动议程</h2><div class="agenda">{event.data.agenda.map((item) => <div class="agenda-item"><time>{item.time}</time><div><h3>{item.title}</h3><p>{item.description}</p></div></div>)}</div></section>}
+        {speakers.length > 0 && <section id="speakers" class="content-section"><h2>分享嘉宾</h2>{speakers.map((speaker) => <div class="person-card"><div class="person-avatar"><img src={speaker.data.avatar} alt={speaker.data.name} /></div><div><h3>{speaker.data.name}</h3><p>{speaker.data.role}。{speaker.data.bio}</p></div></div>)}</section>}
+        <section id="venue" class="content-section"><h2>{event.data.attendanceMode === 'online' ? '活动平台' : '活动地点'}</h2><div class="venue-box"><strong>{event.data.city ?? '线上'} · {event.data.venue ?? '待发布'}</strong><span>{event.data.attendanceMode === 'online' ? '活动视频与相关内容可在 T Salon 与 Bilibili 频道继续观看。' : `${event.data.address ?? ''}。报名成功后将收到完整到场指引。`}</span></div></section>
+        {event.data.faq.length > 0 && <section id="faq" class="content-section faq"><h2>常见问题</h2>{event.data.faq.map((item, index) => <details open={index === 0}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</section>}
+      </div>
+      <aside id="register" class="registration-panel"><div class:list={["event-page-status", statusClass]}><span aria-hidden="true">{statusIcon}</span>{statusLabel}</div><h3>{registrationOpen ? '报名参加活动' : ended ? '活动回顾' : '活动详情'}</h3><p>{registrationOpen ? '点击下方按钮前往活动报名页面。' : ended ? '活动已经结束，视频、文字与资料将在这里持续保留。' : '活动信息与参与方式将在这里更新。'}</p><ul class="registration-meta">{event.data.capacity && <li><span>活动容量</span><strong>{event.data.capacity}</strong></li>}{event.data.registration.deadline && registrationOpen && <li><span>报名截止</span><strong>{event.data.registration.deadline.toISOString().slice(0, 10)}</strong></li>}<li><span>活动语言</span><strong>中文</strong></li></ul>{registrationOpen && event.data.registration.url && <a class="btn btn-blue btn-block" href={event.data.registration.url} target="_blank" rel="noreferrer">前往报名 <span>↗</span></a>}</aside>
+    </div>
+  </main>
+</BaseLayout>

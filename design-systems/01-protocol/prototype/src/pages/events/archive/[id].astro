@@ -1,0 +1,101 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const events = await getCollection('activityArchive');
+  return events.map((event) => ({ params: { id: event.id }, props: { event } }));
+}
+
+interface Props { event: CollectionEntry<'activityArchive'>; }
+const { event } = Astro.props;
+const start = event.data.startDate;
+const dateLabel = start.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+const timeLabel = `${start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}—${event.data.endDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+const locationLabel = event.data.mode === 'online' ? '线上活动' : `${event.data.province} · ${event.data.city}`;
+const description = event.data.summary;
+const eventUrl = new URL(`/events/archive/${event.id}/`, Astro.site).toString();
+const eventJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Event',
+  name: event.data.title,
+  description: event.data.summary,
+  startDate: event.data.startDate.toISOString(),
+  endDate: event.data.endDate.toISOString(),
+  url: eventUrl,
+  sameAs: event.data.sourceUrl,
+  eventStatus: 'https://schema.org/EventCompleted',
+  eventAttendanceMode: event.data.mode === 'online'
+    ? 'https://schema.org/OnlineEventAttendanceMode'
+    : 'https://schema.org/OfflineEventAttendanceMode',
+  location: event.data.mode === 'online'
+    ? { '@type': 'VirtualLocation', name: '线上活动', url: event.data.sourceUrl }
+    : {
+        '@type': 'Place',
+        name: event.data.address,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: event.data.address,
+          addressLocality: event.data.city,
+          addressRegion: event.data.province,
+          addressCountry: 'CN',
+        },
+      },
+  organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  image: new URL(event.data.cover, Astro.site).toString(),
+};
+---
+<BaseLayout alternatePath={`/en/events/archive/${event.id}/`} title={`${event.data.title}｜T Salon 活动详情`} description={description} image={event.data.cover} jsonLd={eventJsonLd}>
+  <main>
+    <nav class="container breadcrumb" aria-label="面包屑"><ol><li><a href="/">首页</a></li><li><a href="/events/">活动</a></li><li aria-current="page">活动详情</li></ol></nav>
+
+    <header class="container page-title archive-event-title">
+      <div class="page-title-main">
+        <div class="event-page-status is-ended"><span aria-hidden="true">✓</span>已结束</div>
+        <h1>{event.data.title}</h1>
+        <p class="lead">{event.data.summary}</p>
+      </div>
+      <div class="page-title-side"><span class="mono">T SALON / {start.getFullYear()}</span></div>
+      <div class="page-title-main event-quickfacts">
+        <div class="quickfact"><span class="mono">DATE</span><strong>{dateLabel}</strong></div>
+        <div class="quickfact"><span class="mono">TIME</span><strong>{timeLabel}</strong></div>
+        <div class="quickfact"><span class="mono">LOCATION</span><strong>{locationLabel}</strong></div>
+        <div class="quickfact"><span class="mono">MODE</span><strong>{event.data.mode === 'online' ? '线上' : '线下'}</strong></div>
+      </div>
+    </header>
+
+    <figure class="container page-cover archive-event-cover">
+      <img src={event.data.cover} alt={event.data.coverAlt} />
+      <figcaption class="mono">活动海报 · {start.getFullYear()}</figcaption>
+    </figure>
+
+    <section class="content-container archive-event-detail">
+      <div>
+        <p class="eyebrow">活动信息</p>
+        <h2>活动信息</h2>
+      </div>
+      <dl>
+        <div><dt>活动名称</dt><dd>{event.data.title}</dd></div>
+        <div><dt>活动时间</dt><dd>{dateLabel} · {timeLabel}</dd></div>
+        <div><dt>活动地点</dt><dd>{event.data.mode === 'online' ? '线上活动' : `${event.data.province}${event.data.city} · ${event.data.address}`}</dd></div>
+        <div><dt>发布机构</dt><dd>{event.data.organizer}</dd></div>
+      </dl>
+    </section>
+
+    <section class="content-container archive-event-story" aria-labelledby="archive-event-story-title">
+      <header>
+        <p class="eyebrow">活动详情</p>
+        <h2 id="archive-event-story-title">活动详情</h2>
+      </header>
+      <article class="archive-event-prose" set:html={event.data.contentHtml} />
+      <footer>
+        <a href={event.data.sourceUrl} target="_blank" rel="noreferrer">查看原活动页面 <span>↗</span></a>
+      </footer>
+    </section>
+
+    <section class="container archive-event-back">
+      <a href="/events/">← 返回活动目录</a>
+      <a href="/history/">继续查看社区年鉴 →</a>
+    </section>
+  </main>
+</BaseLayout>

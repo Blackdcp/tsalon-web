@@ -1,0 +1,29 @@
+---
+import type { CollectionEntry } from 'astro:content';
+interface Props {
+  talk?: CollectionEntry<'talks'>;
+  article?: CollectionEntry<'articles'>;
+  priority?: boolean;
+}
+const { talk, article, priority = false } = Astro.props;
+if (!talk && !article) throw new Error('ContentCard requires talk or article');
+const title = talk?.data.title ?? article!.data.title;
+const summary = talk?.data.summary ?? article!.data.summary;
+const cover = talk?.data.cover ?? article!.data.cover;
+const coverAlt = talk?.data.coverAlt ?? article!.data.coverAlt;
+const topics = talk?.data.topics ?? article!.data.topics;
+const articleTypeLabels: Record<string, string> = {
+  news: '社区动态',
+  interview: '人物采访',
+  'field-note': '活动回顾',
+  guide: '嘉宾观点',
+  archive: '社区档案',
+};
+const type = talk ? '人物访谈 · 视频' : `${articleTypeLabels[article!.data.type] ?? '内容'} · 文章`;
+const extra = talk ? `T CHAT ${String(talk.data.episode).padStart(2, '0')} · ${talk.data.speaker}` : article!.data.publishedAt.toISOString().slice(0, 10).replaceAll('-', '.');
+const id = talk?.id ?? article!.id;
+---
+<a class="content-card" href={`/articles/${id}/`} data-content-type={talk ? 'interview' : article!.data.type}>
+  <div class="content-card-media"><img src={cover} alt={coverAlt} loading={priority ? 'eager' : 'lazy'} /><span class="mono">{type}</span></div>
+  <div class="content-card-body"><p class="mono muted">{extra}</p><h3>{title}</h3><p>{summary}</p><div class="content-card-foot"><div class="tag-list">{topics.slice(0, 2).map((topic) => <span class="tag">{topic}</span>)}</div><span>阅读 / 观看 →</span></div></div>
+</a>

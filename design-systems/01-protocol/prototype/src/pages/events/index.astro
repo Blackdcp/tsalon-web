@@ -1,0 +1,154 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import EventCard from '../../components/EventCard.astro';
+import ArchiveEventCard from '../../components/ArchiveEventCard.astro';
+
+const events = (await getCollection('events', ({ data }) => !data.draft))
+  .filter((event) => event.data.series !== 't-chat')
+  .sort((a, b) => b.data.startDate.getTime() - a.data.startDate.getTime());
+const tChat = (await getCollection('eventSeries')).find((item) => item.id === 't-chat');
+const archiveEvents = (await getCollection('activityArchive')).sort((a, b) => a.data.order - b.data.order);
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'T Salon 活动',
+  description: 'T Salon 发起或参与合作的开发者活动、报名入口与历史活动回顾，以及正在筹备的 AI 和具身智能主题。',
+  url: 'https://www.tsalon.tech/events/',
+  hasPart: [
+    ...events.map((event) => ({
+      '@type': 'Event',
+      name: event.data.title,
+      startDate: event.data.startDate.toISOString(),
+      endDate: event.data.endDate.toISOString(),
+      url: `https://www.tsalon.tech/events/${event.id}/`,
+    })),
+    ...archiveEvents.map((event) => ({
+      '@type': 'Event',
+      name: event.data.title,
+      startDate: event.data.startDate.toISOString(),
+      endDate: event.data.endDate.toISOString(),
+      eventStatus: 'https://schema.org/EventCompleted',
+      url: `https://www.tsalon.tech/events/archive/${event.id}/`,
+      sameAs: event.data.sourceUrl,
+    })),
+    ...(tChat ? [{
+      '@type': 'CreativeWorkSeries',
+      name: tChat.data.englishName,
+      url: 'https://www.tsalon.tech/events/series/t-chat/',
+    }] : []),
+  ],
+};
+---
+<BaseLayout
+  alternatePath="/en/events/"
+  title="活动｜T Salon"
+  description="查看 T Salon 正在报名和已经结束的技术活动、合作活动与 T Chat 系列回顾；了解 AI 与具身智能主题的嘉宾和内容合作机会。"
+  image="/images/news/tchat-launch-1.jpg"
+  jsonLd={jsonLd}
+>
+  <main class="event-directory-page">
+    <header class="event-directory-masthead">
+      <div class="container">
+        <div>
+          <p class="eyebrow">T SALON / 活动</p>
+          <h1 class="display-lines"><span>和真正做事的人见面</span><span>把技术讲清楚，把经验留下来</span></h1>
+        </div>
+        <div class="event-directory-intro">
+          <p>这里汇集正在报名的活动、已经结束的现场记录，以及由 T Salon 发起或参与合作的技术交流。</p>
+          <button type="button" data-open-black-qr>发起一场活动 <span>↗</span></button>
+        </div>
+      </div>
+    </header>
+
+    <section class="container event-directory" aria-labelledby="event-directory-title">
+      <header class="event-directory-heading">
+        <div>
+          <span class="mono">01 / 全部活动</span>
+          <h2 id="event-directory-title">全部活动</h2>
+        </div>
+      </header>
+
+      <div class="event-directory-grid">
+        {tChat && (
+          <a class="event-tile" href="/events/series/t-chat/">
+            <figure class="event-tile-media">
+              <img src={tChat.data.cover} alt={tChat.data.coverAlt} loading="eager" />
+            </figure>
+            <div class="event-tile-body">
+              <p class="event-tile-series mono"><span>T CHAT / 线上</span><i class="event-tile-status is-ended">已结束</i></p>
+              <h3>T Chat「我在大厂做研发」完整回顾</h3>
+              <div class="event-tile-facts">
+                <span><i>日期</i>2022—2023</span>
+                <span><i>形式</i>线上 · 17 期</span>
+              </div>
+              <strong class="event-tile-action">系列回顾 <i>→</i></strong>
+            </div>
+          </a>
+        )}
+
+        {events.map((event) => <EventCard event={event} />)}
+
+        {archiveEvents.map((event) => <ArchiveEventCard event={event} />)}
+      </div>
+    </section>
+
+    <section class="container event-collab-cta" aria-labelledby="event-topics-title">
+      <div>
+        <p class="eyebrow">02 / 下一场 · 公开招募</p>
+        <h2 id="event-topics-title">AI 与具身智能<br />正在寻找下一场的分享者</h2>
+        <p>如果你正在做相关研发、产品或内容，欢迎把真实实践带到现场，成为分享嘉宾或参与内容共创。</p>
+        <button class="btn btn-dark event-collab-trigger" type="button" data-open-black-qr>加入共创 <span>→</span></button>
+      </div>
+      <figure>
+        <img src="/images/gallery/gallery-4.jpeg" alt="T Salon 技术活动现场，开发者正在听嘉宾分享" loading="lazy" />
+      </figure>
+    </section>
+
+    <dialog class="event-qr-dialog" id="black-qr-dialog" aria-labelledby="event-qr-title">
+      <button class="event-qr-close" type="button" data-close-black-qr aria-label="关闭二维码">×</button>
+      <div class="event-qr-copy">
+        <span class="mono">参与下一场</span>
+        <h2 id="event-qr-title">一起做下一场</h2>
+        <p>想成为分享嘉宾，或参与 AI、具身智能内容共创，可以扫码添加 Black，简单说说你正在做的方向。</p>
+      </div>
+      <div class="event-qr-code">
+        <div class="event-qr-crop">
+          <img src="/images/connect/wechat-cooperation-qr.png" alt="Black 微信二维码" />
+        </div>
+        <span class="mono">微信 · BLACK</span>
+      </div>
+    </dialog>
+
+    <section class="container memory-cta">
+      <figure><img src="/images/gallery/gallery-17.jpeg" alt="2016 年 T Salon 早期开发者活动合影" loading="lazy" /></figure>
+      <div>
+        <p class="eyebrow">03 / 社区年鉴 · 2016 至今</p>
+        <h2>活动结束了<br />现场仍然值得被记住</h2>
+        <p>社区年鉴按年份保留 T Salon 从 iOS 开发者组织出发、在不同城市持续举办活动的真实轨迹。</p>
+        <a class="btn btn-dark" href="/history/">打开社区年鉴 <span>→</span></a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('#black-qr-dialog');
+  let previousFocus: HTMLElement | null = null;
+  document.querySelectorAll<HTMLElement>('[data-open-black-qr]').forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      previousFocus = trigger;
+      dialog?.showModal();
+      document.querySelector<HTMLElement>('[data-close-black-qr]')?.focus();
+    });
+  });
+  const closeDialog = () => {
+    dialog?.close();
+    previousFocus?.focus();
+  };
+  document.querySelector<HTMLElement>('[data-close-black-qr]')?.addEventListener('click', closeDialog);
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) closeDialog();
+  });
+  if (location.hash === '#black-qr') dialog?.showModal();
+</script>
