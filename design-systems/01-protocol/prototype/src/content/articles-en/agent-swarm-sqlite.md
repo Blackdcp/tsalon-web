@@ -1,5 +1,5 @@
 ---
-title: Agent Swarm Rewrites SQLite: Deep Dive into 5 Fatal Flaws and Architectural Reorganization
+title: "Agent Swarm Rewrites SQLite: Deep Dive into 5 Fatal Flaws and Architectural Reorganization"
 summary: An in-depth analysis of the latest Agent Swarm experiment. By leveraging tree decomposition, a custom high-speed VCS, neutral merge agents, and a stigmergic Field Guide, the swarm reached an 80% SQLite (Rust) test pass rate in four hours and eventually achieved 100%.
 type: news
 publishedAt: 2026-07-21
@@ -14,14 +14,15 @@ coverAlt: Agent Swarm SQLite Experiment
 citations:
   - label: Cursor Blog (Hacker News)
     url: https://cursor.com/blog/agent-swarm-model-economics
-  - label: AIHot 发现
+  - label: AIHot Discovery
     url: https://aihot.virxact.com/items/cmrtxsl2e3o24bihzutblssoo
 featured: true
 draft: false
-translationStatus: translated
+translationStatus: reviewed
+translationOf: agent-swarm-sqlite
 seo:
-  title: Agent Swarm Rewrites SQLite: Multi-Agent Collaboration Deep Dive
-  description: A deep dive into the Agent Swarm experiment. Through tree decomposition, a 1,000 commit/sec VCS, and solutions to 5 concurrency traps, AI agents successfully rewrote SQLite in Rust and achieved a 100% test pass rate.
+  title: "Agent Swarm Rewrites SQLite: Multi-Agent Collaboration Deep Dive"
+  description: "Deep dive into the Agent Swarm experiment: AI agents rewrote SQLite in Rust via tree decomposition and a custom high-speed VCS, achieving 100% pass rate."
   noindex: false
 ---
 
