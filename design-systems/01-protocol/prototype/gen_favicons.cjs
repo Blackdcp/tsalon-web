@@ -26,11 +26,15 @@ async function generateFavicons() {
       .png()
       .toFile('./public/apple-touch-icon.png');
       
-    // Default Favicon (32x32) - transparent background
-    await sharp(logoBuffer)
-      .resize(32, 32, { fit: 'contain' })
+    // Default Favicon (32x32) - solid dark background
+    const faviconBg = await sharp({
+      create: { width: 32, height: 32, channels: 4, background: { r: 51, g: 51, b: 51, alpha: 1 } }
+    }).png().toBuffer();
+    const resizedForFavicon = await sharp(logoBuffer).resize({ height: 20 }).toBuffer();
+    await sharp(faviconBg)
+      .composite([{ input: resizedForFavicon, gravity: 'center' }])
       .png()
-      .toFile('./public/favicon.png'); // Modern browsers prefer PNG over ICO
+      .toFile('./public/favicon.png');
 
     // Web Manifest Icons
     for (const size of [192, 512]) {
