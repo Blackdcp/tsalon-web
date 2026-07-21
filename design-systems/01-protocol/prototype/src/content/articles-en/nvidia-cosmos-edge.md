@@ -1,7 +1,7 @@
 ---
 title: "NVIDIA Open Sources Cosmos 3 Edge: How a 4B Parameter World Model is Reshaping Embodied AI"
 summary: NVIDIA officially open-sources Cosmos 3 Edge. This lightweight 4 billion parameter model is not just a vision model, but a true "world model" built for edge devices, enabling robots to understand physical laws and generate actions in real-time without the cloud.
-type: news
+type: insight
 publishedAt: 2026-07-20
 readingMinutes: 8
 author: editorial-team
@@ -9,13 +9,8 @@ topics:
   - Open Source
   - Embodied AI
   - Edge Computing
-cover: /images/logo-dark.png
-coverAlt: NVIDIA Cosmos 3 Edge
-citations:
-  - label: Hugging Face Blog
-    url: https://huggingface.co/blog/nvidia/cosmos3edge
-  - label: AIHot Discovery
-    url: https://aihot.virxact.com/items/cmrtgmuyf3366bitl3gnpc8eo
+cover: /images/default-cover.svg
+coverAlt: T Salon Content & Insights
 featured: false
 draft: false
 translationStatus: reviewed

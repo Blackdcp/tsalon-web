@@ -1,20 +1,15 @@
 ---
 title: Hugging Face 遭自主 AI 智能体入侵：AI 攻防战与“对齐”的反噬
 summary: Hugging Face 披露了一场完全由自主 AI 智能体框架发起的数千次操作攻击。而在防御与取证阶段，商业大模型的“安全护栏（Guardrails）”反而成为了阻碍，揭示了 AI 安全领域的全新挑战。
-type: news
+type: insight
 publishedAt: 2026-07-20
 readingMinutes: 10
 author: editorial-team
 topics:
   - AI Security
   - Engineering
-cover: /images/logo-dark.png
-coverAlt: Hugging Face Security
-citations:
-  - label: The Decoder
-    url: https://the-decoder.com/hugging-face-says-an-ai-agent-hacked-its-infrastructure-and-it-used-ai-to-fight-back
-  - label: AIHot 发现
-    url: https://aihot.virxact.com/items/cmrt6yjfo1407bitlsdp6qyn6
+cover: /images/default-cover.svg
+coverAlt: T Salon 内容与观点
 featured: false
 draft: false
 seo:

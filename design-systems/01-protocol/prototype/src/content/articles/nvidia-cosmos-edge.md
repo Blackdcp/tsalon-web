@@ -1,7 +1,7 @@
 ---
 title: NVIDIA 开源 Cosmos 3 Edge：4B 参数的世界模型如何重塑端侧具身智能
 summary: NVIDIA 正式开源 Cosmos 3 Edge。这个拥有 40 亿参数的轻量级模型不只是视觉模型，而是一个真正的“世界模型”，专为边缘设备打造，让机器人无需云端即可实时理解物理规律并生成动作。
-type: news
+type: insight
 publishedAt: 2026-07-20
 readingMinutes: 8
 author: editorial-team
@@ -9,13 +9,8 @@ topics:
   - Open Source
   - Embodied AI
   - Edge Computing
-cover: /images/logo-dark.png
-coverAlt: NVIDIA Cosmos 3 Edge
-citations:
-  - label: Hugging Face Blog
-    url: https://huggingface.co/blog/nvidia/cosmos3edge
-  - label: AIHot 发现
-    url: https://aihot.virxact.com/items/cmrtgmuyf3366bitl3gnpc8eo
+cover: /images/default-cover.svg
+coverAlt: T Salon 内容与观点
 featured: false
 draft: false
 seo:

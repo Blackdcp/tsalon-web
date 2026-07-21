@@ -4,7 +4,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 const articles = (await getCollection('articlesEn', ({ data }) => !data.draft)).sort((a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime());
 const leadArticle = articles[0];
 const recentArticles = articles.slice(1);
-const labels: Record<string, string> = { news: 'Community news', interview: 'Interview', 'field-note': 'Field note', guide: 'Practitioner viewpoint', archive: 'Archive' };
+const labels: Record<string, string> = { news: 'Community news', insight: 'Industry insight', interview: 'Interview', 'field-note': 'Field note', guide: 'Practitioner viewpoint', archive: 'Archive' };
 ---
 <BaseLayout locale="en" alternatePath="/articles/" title="Stories — T Salon" description="Read field notes, practitioner viewpoints, interviews and industry observations from the T Salon developer community." image="/images/news/shenzhen-frontend-recap-01.jpg">
   <main class="content-index-page">

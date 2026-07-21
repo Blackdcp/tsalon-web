@@ -87,7 +87,7 @@ const articles = defineCollection({
   schema: z.object({
     title: z.string(),
     summary: z.string().min(40).max(220),
-    type: z.enum(['field-note', 'interview', 'guide', 'archive', 'news']),
+    type: z.enum(['field-note', 'interview', 'guide', 'archive', 'news', 'insight']),
     publishedAt: z.coerce.date(),
     updatedAt: z.coerce.date().optional(),
     readingMinutes: z.number().int().positive(),
@@ -111,7 +111,7 @@ const articlesEn = defineCollection({
   schema: z.object({
     title: z.string(),
     summary: z.string().min(40).max(300),
-    type: z.enum(['field-note', 'interview', 'guide', 'archive', 'news']),
+    type: z.enum(['field-note', 'interview', 'guide', 'archive', 'news', 'insight']),
     publishedAt: z.coerce.date(),
     updatedAt: z.coerce.date().optional(),
     readingMinutes: z.number().int().positive(),

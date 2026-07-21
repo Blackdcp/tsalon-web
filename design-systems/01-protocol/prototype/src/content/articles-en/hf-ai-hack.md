@@ -1,20 +1,15 @@
 ---
 title: "Hugging Face Hacked by Autonomous AI Agent: The Backlash of Alignment in Forensics"
 summary: Hugging Face disclosed an attack involving thousands of operations launched entirely by an autonomous AI agent framework. Ironically, during defense and forensics, the "safety guardrails" of commercial LLMs hindered the investigation, revealing new challenges in AI security.
-type: news
+type: insight
 publishedAt: 2026-07-20
 readingMinutes: 10
 author: editorial-team
 topics:
   - AI Security
   - Engineering
-cover: /images/logo-dark.png
-coverAlt: Hugging Face Security
-citations:
-  - label: The Decoder
-    url: https://the-decoder.com/hugging-face-says-an-ai-agent-hacked-its-infrastructure-and-it-used-ai-to-fight-back
-  - label: AIHot Discovery
-    url: https://aihot.virxact.com/items/cmrt6yjfo1407bitlsdp6qyn6
+cover: /images/default-cover.svg
+coverAlt: T Salon Content & Insights
 featured: false
 draft: false
 translationStatus: reviewed

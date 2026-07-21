@@ -11,7 +11,7 @@ const all = (await getCollection('articlesEn', ({ data }) => !data.draft)).sort(
 const index = all.findIndex((item) => item.id === article.id);
 const previous = index > 0 ? all[index - 1] : undefined;
 const next = index < all.length - 1 ? all[index + 1] : undefined;
-const labels: Record<string, string> = { news: 'Community news', interview: 'Interview', 'field-note': 'Field note', guide: 'Practitioner viewpoint', archive: 'Archive' };
+const labels: Record<string, string> = { news: 'Community news', insight: 'Industry insight', interview: 'Interview', 'field-note': 'Field note', guide: 'Practitioner viewpoint', archive: 'Archive' };
 const jsonLd = { '@context': 'https://schema.org', '@type': 'Article', headline: article.data.title, description: article.data.summary, datePublished: article.data.publishedAt.toISOString(), dateModified: (article.data.updatedAt ?? article.data.publishedAt).toISOString(), url: new URL(`/en/articles/${article.id}/`, Astro.site).toString(), image: new URL(article.data.cover, Astro.site).toString(), author: { '@type': 'Organization', name: 'T Salon Editorial' }, publisher: { '@type': 'Organization', name: 'T Salon' }, inLanguage: 'en', about: article.data.topics };
 ---
 <BaseLayout locale="en" alternatePath={`/articles/${article.data.translationOf}/`} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={jsonLd}>

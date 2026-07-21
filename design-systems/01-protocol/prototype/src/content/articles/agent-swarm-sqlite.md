@@ -1,7 +1,7 @@
 ---
 title: 代理群（Agent Swarm）重写 SQLite：万字解析多智能体协作的 5 大致命缺陷与架构重构
 summary: 深度解析最新 Agent Swarm 实验：通过树状分解、专用极速 VCS 以及引入“解决冲突第三方智能体”、“Field Guide 环境场”等机制，代理群在四小时内用 Grok 4.5 达到 80% 的 SQLite (Rust 版) 测试通过率，并最终实现 100% 通过。
-type: news
+type: insight
 publishedAt: 2026-07-21
 readingMinutes: 12
 author: editorial-team
@@ -9,13 +9,8 @@ topics:
   - Agent
   - Engineering
   - Rust
-cover: /images/logo-dark.png
-coverAlt: 代理群重写 SQLite 实验
-citations:
-  - label: Cursor Blog (Hacker News)
-    url: https://cursor.com/blog/agent-swarm-model-economics
-  - label: AIHot 发现
-    url: https://aihot.virxact.com/items/cmrtxsl2e3o24bihzutblssoo
+cover: /images/default-cover.svg
+coverAlt: T Salon 内容与观点
 featured: true
 draft: false
 seo:
