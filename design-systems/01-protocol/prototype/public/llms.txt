@@ -1,0 +1,17 @@
+# T Salon
+
+T Salon is an online and offline community for developers, founded in 2016. We began with iOS and continue to connect first-hand work across the Apple ecosystem, AI, embodied intelligence, and software engineering.
+
+Our official website is [https://www.tsalon.tech](https://www.tsalon.tech). All content is available in both English and Chinese.
+
+## Core Sections
+
+- [Events](https://www.tsalon.tech/events/): Past and upcoming developer gatherings and summits.
+- [Stories & Ideas](https://www.tsalon.tech/articles/): Field notes, interviews, and observations from practitioners.
+- [About](https://www.tsalon.tech/about/): Learn more about our history and community guidelines.
+- [History](https://www.tsalon.tech/history/): A visual archive of our community since 2016.
+
+## Mission
+
+Technology is made in practice. Community lets experience travel.
+We believe in connecting real engineering work and sharing first-hand practical experience among developers.
