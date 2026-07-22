@@ -74,6 +74,7 @@ const jsonLd = talk ? {
   thumbnailUrl: [new URL(talk.data.cover, Astro.site).toString()],
   contentUrl: talk.data.videoUrl,
   url: pageUrl,
+  uploadDate: talk.data.publishedAt.toISOString(),
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   about: talk.data.topics,
   inLanguage: 'zh-CN',
