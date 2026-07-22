@@ -5,7 +5,7 @@ import { archiveEn } from '../../../data/en';
 const archiveEvents = (await getCollection('activityArchive')).sort((a, b) => a.data.order - b.data.order);
 const events = (await getCollection('eventsEn', ({ data }) => !data.draft)).filter((event) => event.data.series !== 't-chat').sort((a, b) => b.data.startDate.getTime() - a.data.startDate.getTime());
 ---
-<BaseLayout locale="en" alternatePath="/events/" title="Events — T Salon" description="Explore T Salon developer events, past gatherings and the open call for future conversations about AI and embodied intelligence." image="/images/news/tchat-launch-1.jpg">
+<BaseLayout locale="en" alternatePath="/events/" title="Events — T Salon" description="Explore T Salon developer events, past gatherings and the open call for future conversations about AI and embodied intelligence." image="/icon-512x512.png">
   <main class="event-directory-page">
     <header class="event-directory-masthead"><div class="container"><div><p class="eyebrow">T SALON / EVENTS</p><h1 class="display-lines"><span>Meet people doing the work</span><span>Explain the technology</span><span>Keep the experience</span></h1></div><div class="event-directory-intro"><p>Find upcoming registrations, records from past gatherings, and technology events initiated or co-hosted by T Salon.</p><button type="button" data-open-black-qr>Propose an event <span>↗</span></button></div></div></header>
     <section class="container event-directory" aria-labelledby="event-directory-title"><header class="event-directory-heading"><div><span class="mono">01 / ALL EVENTS</span><h2 id="event-directory-title">Event directory</h2></div></header><div class="event-directory-grid">
