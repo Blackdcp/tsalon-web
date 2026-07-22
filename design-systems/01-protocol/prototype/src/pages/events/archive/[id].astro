@@ -42,6 +42,8 @@ const eventJsonLd = {
         },
       },
   organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  performer: { '@type': 'Organization', name: 'T Salon' },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: eventUrl },
   image: new URL(event.data.cover, Astro.site).toString(),
 };
 ---
