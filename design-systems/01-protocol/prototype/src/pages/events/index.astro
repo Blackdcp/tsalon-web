@@ -45,7 +45,7 @@ const jsonLd = {
       organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
       performer: { '@type': 'Organization', name: 'T Salon' },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: `https://www.tsalon.tech/events/archive/${event.id}/`, availability: 'https://schema.org/InStock', validFrom: event.data.startDate.toISOString() },
-      eventAttendanceMode: event.data.mode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : event.data.mode === 'hybrid' ? 'https://schema.org/MixedEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
+      eventAttendanceMode: event.data.mode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
       location: event.data.mode === 'online'
         ? { '@type': 'VirtualLocation', name: '线上活动', url: event.data.sourceUrl }
         : { '@type': 'Place', name: event.data.address ?? 'TBA', address: { '@type': 'PostalAddress', streetAddress: event.data.address ?? '', addressLocality: event.data.city ?? 'TBA', addressRegion: event.data.province ?? '', addressCountry: 'CN' } }
