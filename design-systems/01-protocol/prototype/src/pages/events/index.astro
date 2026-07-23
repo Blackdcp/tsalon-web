@@ -26,7 +26,8 @@ const jsonLd = {
       url: `https://www.tsalon.tech/events/${event.id}/`,
       organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
       performer: { '@type': 'Organization', name: 'T Salon' },
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: `https://www.tsalon.tech/events/${event.id}/` },
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: `https://www.tsalon.tech/events/${event.id}/`, availability: 'https://schema.org/InStock', validFrom: event.data.startDate.toISOString() },
+      eventAttendanceMode: event.data.attendanceMode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : event.data.attendanceMode === 'hybrid' ? 'https://schema.org/MixedEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
       location: event.data.attendanceMode === 'online'
         ? { '@type': 'VirtualLocation', name: event.data.venue ?? 'T Salon 在线活动', url: 'https://space.bilibili.com/488340243' }
         : { '@type': 'Place', name: event.data.venue ?? 'TBA', address: { '@type': 'PostalAddress', streetAddress: event.data.address ?? '', addressLocality: event.data.city ?? 'TBA', addressCountry: 'CN' } }
@@ -43,7 +44,8 @@ const jsonLd = {
       sameAs: event.data.sourceUrl,
       organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
       performer: { '@type': 'Organization', name: 'T Salon' },
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: `https://www.tsalon.tech/events/archive/${event.id}/` },
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: `https://www.tsalon.tech/events/archive/${event.id}/`, availability: 'https://schema.org/InStock', validFrom: event.data.startDate.toISOString() },
+      eventAttendanceMode: event.data.mode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : event.data.mode === 'hybrid' ? 'https://schema.org/MixedEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
       location: event.data.mode === 'online'
         ? { '@type': 'VirtualLocation', name: '线上活动', url: event.data.sourceUrl }
         : { '@type': 'Place', name: event.data.address ?? 'TBA', address: { '@type': 'PostalAddress', streetAddress: event.data.address ?? '', addressLocality: event.data.city ?? 'TBA', addressRegion: event.data.province ?? '', addressCountry: 'CN' } }

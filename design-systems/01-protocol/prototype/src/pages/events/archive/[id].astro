@@ -25,9 +25,7 @@ const eventJsonLd = {
   url: eventUrl,
   sameAs: event.data.sourceUrl,
   eventStatus: 'https://schema.org/EventCompleted',
-  eventAttendanceMode: event.data.mode === 'online'
-    ? 'https://schema.org/OnlineEventAttendanceMode'
-    : 'https://schema.org/OfflineEventAttendanceMode',
+  eventAttendanceMode: event.data.mode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : event.data.mode === 'hybrid' ? 'https://schema.org/MixedEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
   location: event.data.mode === 'online'
     ? { '@type': 'VirtualLocation', name: '线上活动', url: event.data.sourceUrl }
     : {
@@ -43,7 +41,7 @@ const eventJsonLd = {
       },
   organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   performer: { '@type': 'Organization', name: 'T Salon' },
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: eventUrl },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: eventUrl, availability: 'https://schema.org/InStock', validFrom: event.data.startDate.toISOString() },
   image: new URL(event.data.cover, Astro.site).toString(),
 };
 ---

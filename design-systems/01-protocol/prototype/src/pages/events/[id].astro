@@ -23,14 +23,14 @@ const eventUrl = new URL(`/events/${event.id}/`, Astro.site).toString();
 const eventJsonLd = {
   '@context': 'https://schema.org', '@type': 'Event', name: event.data.title, description: event.data.summary,
   startDate: event.data.startDate.toISOString(), endDate: event.data.endDate.toISOString(), url: eventUrl,
-  eventAttendanceMode: event.data.attendanceMode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
   eventStatus: ended ? 'https://schema.org/EventCompleted' : 'https://schema.org/EventScheduled',
+  eventAttendanceMode: event.data.attendanceMode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : event.data.attendanceMode === 'hybrid' ? 'https://schema.org/MixedEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
   location: event.data.attendanceMode === 'online'
     ? { '@type': 'VirtualLocation', name: event.data.venue ?? 'T Salon 在线活动', url: 'https://space.bilibili.com/488340243' }
     : { '@type': 'Place', name: event.data.venue, address: { '@type': 'PostalAddress', streetAddress: event.data.address, addressLocality: event.data.city, addressCountry: 'CN' } },
   organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   performer: { '@type': 'Organization', name: 'T Salon' },
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: eventUrl },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY', url: eventUrl, availability: 'https://schema.org/InStock', validFrom: event.data.startDate.toISOString() },
   image: new URL(event.data.cover, Astro.site).toString(),
 };
 ---
