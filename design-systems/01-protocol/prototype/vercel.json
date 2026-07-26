@@ -1,0 +1,19 @@
+{
+  "redirects": [
+    {
+      "source": "/archives/:path*",
+      "destination": "/articles/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/en/archives/:path*",
+      "destination": "/en/articles/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/join/:path*",
+      "destination": "/about/#join",
+      "permanent": true
+    }
+  ]
+}
