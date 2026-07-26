@@ -26,6 +26,76 @@
       ],
       "destination": "https://www.tsalon.tech/:path*",
       "permanent": true
+    },
+    {
+      "source": "/archives",
+      "destination": "/articles/",
+      "permanent": true
+    },
+    {
+      "source": "/archives/:path+",
+      "destination": "/articles/:path+",
+      "permanent": true
+    },
+    {
+      "source": "/en/archives",
+      "destination": "/en/articles/",
+      "permanent": true
+    },
+    {
+      "source": "/en/archives/:path+",
+      "destination": "/en/articles/:path+",
+      "permanent": true
+    },
+    {
+      "source": "/join",
+      "destination": "/about/#join",
+      "permanent": true
+    },
+    {
+      "source": "/join/:path+",
+      "destination": "/about/#join",
+      "permanent": true
+    },
+    {
+      "source": "/gallery",
+      "destination": "/history/",
+      "permanent": true
+    },
+    {
+      "source": "/gallery/:path+",
+      "destination": "/history/:path+",
+      "permanent": true
+    },
+    {
+      "source": "/en/gallery",
+      "destination": "/en/history/",
+      "permanent": true
+    },
+    {
+      "source": "/en/gallery/:path+",
+      "destination": "/en/history/:path+",
+      "permanent": true
+    },
+    {
+      "source": "/stories",
+      "destination": "/events/",
+      "permanent": true
+    },
+    {
+      "source": "/stories/:path+",
+      "destination": "/events/:path+",
+      "permanent": true
+    },
+    {
+      "source": "/en/stories",
+      "destination": "/en/events/",
+      "permanent": true
+    },
+    {
+      "source": "/en/stories/:path+",
+      "destination": "/en/events/:path+",
+      "permanent": true
     }
   ]
 }
