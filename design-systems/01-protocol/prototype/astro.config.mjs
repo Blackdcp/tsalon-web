@@ -19,9 +19,9 @@ export default defineConfig({
   redirects: {
     '/join/': '/about/#join',
     '/archives/': '/articles/',
-    '/archives/[...slug]': '/articles/[...slug]',
+    '/archives/[id]': '/articles/[id]',
     '/en/archives/': '/en/articles/',
-    '/en/archives/[...slug]': '/en/articles/[...slug]',
+    '/en/archives/[id]': '/en/articles/[id]',
   },
   build: {
     format: 'directory',
