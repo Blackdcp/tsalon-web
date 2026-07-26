@@ -18,6 +18,10 @@ export default defineConfig({
   ],
   redirects: {
     '/join/': '/about/#join',
+    '/archives/': '/articles/',
+    '/archives/[...slug]': '/articles/[...slug]',
+    '/en/archives/': '/en/articles/',
+    '/en/archives/[...slug]': '/en/articles/[...slug]',
   },
   build: {
     format: 'directory',
