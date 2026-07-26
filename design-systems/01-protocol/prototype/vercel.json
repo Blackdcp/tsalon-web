@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd design-systems/01-protocol/prototype && npm install",
-  "buildCommand": "cd design-systems/01-protocol/prototype && npm run build",
-  "outputDirectory": "design-systems/01-protocol/prototype/dist",
   "trailingSlash": true,
   "redirects": [
     {
