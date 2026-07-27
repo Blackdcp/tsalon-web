@@ -29,6 +29,11 @@ export const archiveEn: Record<string, { title: string; summary: string; city: s
     summary: 'A Shanghai gathering focused on real-world work with large language model applications, open-source projects and prompt engineering.',
     city: 'Shanghai',
   },
+  'hdx-7870619038900': {
+    title: 'From AI Demo to Production: Engineering Practices for Agent and AI Native Applications',
+    summary: 'This event explores the engineering challenges of turning AI demos into sustainable products, featuring discussions on persistent agent memory, robust backend workflows, and efficient model routing.',
+    city: 'Shanghai',
+  },
 };
 
 export const talkTitleEn: Record<string, string> = {
