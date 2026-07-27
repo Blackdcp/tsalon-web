@@ -184,7 +184,7 @@ const activityArchive = defineCollection({
     sourceUrl: z.url(),
     sourceName: z.string(),
     organizer: z.string(),
-    status: z.literal('ended'),
+    status: z.enum(['ended', 'upcoming']),
     mode: z.enum(['offline', 'online']),
     order: z.number().int(),
     summary: z.string().min(20),
