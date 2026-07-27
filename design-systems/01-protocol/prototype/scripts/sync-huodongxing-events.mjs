@@ -267,6 +267,12 @@ function transformEventContent(event, contentHtml) {
     }
     return transformed;
   }
+  if (event.sourceId === '7870619038900') {
+    transformed = transformed.replace(
+      /<h2>(一、活动背景)\s*(.*?)<\/h2>/,
+      '<h2>$1</h2><p>$2</p>'
+    );
+  }
   if (event.sourceId === '6704677921900' || event.sourceId === '8699104705200') {
     transformed = transformed.replace(
       /<p>(?:<strong>)?四、合作方式(?:<\/strong>)?(?:<br \/>)?<\/p>[\s\S]*?(?=<p>(?:<strong>)?五、历届回顾)/i,
