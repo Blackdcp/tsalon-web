@@ -9,7 +9,6 @@ const allowedSourceIds = new Set([
   '1703870201300',
   '4704118639500',
   '8699104705200',
-  '7870619038900',
 ]);
 const blockedTerms = ['区块链'];
 const summaryOverrides = {
