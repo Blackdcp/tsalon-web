@@ -14,8 +14,8 @@ relatedEvents:
 cover: /images/events/hdx-7870619038900.jpg
 coverAlt: AI 从 Demo 到生产活动海报
 citations:
-  - link: https://mp.weixin.qq.com/s/z_9W5AsV0yLTlzt6f-QCTA
-    title: "AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践 活动回顾"
+  - url: https://mp.weixin.qq.com/s/z_9W5AsV0yLTlzt6f-QCTA
+    label: "AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践 活动回顾"
 featured: true
 draft: false
 seo:

@@ -14,8 +14,8 @@ relatedEvents:
 cover: /images/events/hdx-7870619038900.jpg
 coverAlt: AI From Demo to Production Event Poster
 citations:
-  - link: https://mp.weixin.qq.com/s/z_9W5AsV0yLTlzt6f-QCTA
-    title: "Event Recap: From AI Demo to Production｜Engineering Practices for Agent and AI Native Applications"
+  - url: https://mp.weixin.qq.com/s/z_9W5AsV0yLTlzt6f-QCTA
+    label: "Event Recap: From AI Demo to Production｜Engineering Practices for Agent and AI Native Applications"
 featured: true
 draft: false
 translationOf: ai-demo-to-production-recap
