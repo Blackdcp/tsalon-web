@@ -28,7 +28,7 @@ const {
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const socialImage = new URL(image, Astro.site);
 const resolvedAlternatePath = alternatePath ?? localizedPath(Astro.url.pathname, locale === 'zh' ? 'en' : 'zh');
-const alternate = alternatePath ? new URL(resolvedAlternatePath, Astro.site) : undefined;
+const alternate = resolvedAlternatePath ? new URL(resolvedAlternatePath, Astro.site) : undefined;
 const zhUrl = locale === 'zh' ? canonical : alternate;
 const enUrl = locale === 'en' ? canonical : alternate;
 ---
