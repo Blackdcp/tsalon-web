@@ -19,8 +19,8 @@ citations:
 featured: true
 draft: false
 seo:
-  title: 活动回顾：AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践
-  description: 8 月 1 日，我们在上海举办了 「AI 从 Demo 到生产」线下活动。本次活动回顾总结了来自记忆张量、PPIO、Zion 和 FastGPT 嘉宾的分享，涵盖 Agent、Vibe Coding 等技术实践。
+  title: "活动回顾：AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践"
+  description: "8 月 1 日，我们在上海举办了 「AI 从 Demo 到生产」线下活动。本次活动回顾总结了来自记忆张量、PPIO、Zion 和 FastGPT 嘉宾的分享，涵盖 Agent、Vibe Coding 等技术实践。"
 ---
 
 8 月 1 日，我们在上海举办了 「AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践」线下活动。
