@@ -21,8 +21,8 @@ draft: false
 translationOf: ai-demo-to-production-recap
 translationStatus: reviewed
 seo:
-  title: "Event Recap: From AI Demo to Production｜Agent & AI Native Applications"
-  description: "On August 1st, we hosted the \"From AI Demo to Production\" offline event in Shanghai. This recap summarizes the insights shared by our guests from MemTensor, PPIO, Zion, and FastGPT."
+  title: "Event Recap: From AI Demo to Production"
+  description: "On Aug 1st, we hosted the From AI Demo to Production event in Shanghai. Read insights shared by MemTensor, PPIO, Zion, and FastGPT on agents and AI applications."
 ---
 
 On August 1st, we hosted the "From AI Demo to Production | Engineering Practices for Agent and AI Native Applications" offline event in Shanghai.
