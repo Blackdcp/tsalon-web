@@ -49,9 +49,9 @@ if (session?.user?.id) {
               <h3>已登录为 {session.user?.name}</h3>
               <p style="margin-bottom: 2rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
               <div class="code-tabs" style="margin-top: 1.5rem; text-align: left;">
-                <div class="tab-buttons" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--color-border);">
-                  <button class="tab-btn active" data-target="mac-linux" style="padding: 0.75rem 1.5rem; border: none; background: transparent; color: var(--color-primary); font-size: 1.1rem; font-weight: bold; cursor: pointer; position: relative;">Mac / Linux</button>
-                  <button class="tab-btn" data-target="windows" style="padding: 0.75rem 1.5rem; border: none; background: transparent; color: var(--color-gray); font-size: 1.1rem; font-weight: bold; cursor: pointer; position: relative;">Windows</button>
+                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.5rem; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 6px; padding: 4px;">
+                  <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1.5rem; border: none; background: var(--color-text); color: var(--color-bg); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Mac / Linux</button>
+                  <button class="tab-btn" data-target="windows" style="padding: 0.5rem 1.5rem; border: none; background: transparent; color: var(--color-gray); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Windows</button>
                 </div>
                 
                 <div id="mac-linux" class="tab-content" style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
@@ -105,16 +105,15 @@ if (session?.user?.id) {
       // Remove active class from all buttons and hide all contents
       tabBtns.forEach(b => {
         b.classList.remove('active');
+        (b as HTMLElement).style.background = 'transparent';
         (b as HTMLElement).style.color = 'var(--color-gray)';
-        (b as HTMLElement).style.borderBottom = 'none';
       });
       tabContents.forEach(c => (c as HTMLElement).style.display = 'none');
       
       // Add active class to clicked button and show content
       btn.classList.add('active');
-      (btn as HTMLElement).style.color = 'var(--color-primary)';
-      (btn as HTMLElement).style.borderBottom = '2px solid var(--color-primary)';
-      (btn as HTMLElement).style.marginBottom = '-2px';
+      (btn as HTMLElement).style.background = 'var(--color-text)';
+      (btn as HTMLElement).style.color = 'var(--color-bg)';
       
       const targetId = btn.getAttribute('data-target');
       if (targetId) {
@@ -129,7 +128,7 @@ if (session?.user?.id) {
   // Set initial active state styling
   const activeBtn = document.querySelector('.tab-btn.active') as HTMLElement;
   if (activeBtn) {
-    activeBtn.style.borderBottom = '2px solid var(--color-primary)';
-    activeBtn.style.marginBottom = '-2px';
+    activeBtn.style.background = 'var(--color-text)';
+    activeBtn.style.color = 'var(--color-bg)';
   }
 </script>
