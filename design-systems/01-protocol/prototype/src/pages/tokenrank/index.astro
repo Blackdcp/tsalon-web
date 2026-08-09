@@ -7,11 +7,14 @@ import { getLeaderboard, getGlobalStats } from '../../lib/kv';
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
+const timeFilter = Astro.url.searchParams.get('time') || '30d';
+const modeFilter = Astro.url.searchParams.get('mode') || 'withcache';
+
 let leaderboard: any[] = [];
 let stats = { totalUsers: 0, totalTokens: 0 };
 try {
-  leaderboard = await getLeaderboard(100);
-  stats = await getGlobalStats();
+  leaderboard = await getLeaderboard(100, timeFilter);
+  stats = await getGlobalStats(leaderboard); // Pass filtered leaderboard to get accurate stats
 } catch (e) {
   console.error('Failed to fetch leaderboard data:', e);
 }
@@ -66,6 +69,21 @@ const getToolEstimatedCost = (tool: string, tokens: number) => {
   return (cacheHitTokens * p.cache) + (freshTokens * (0.9 * p.in + 0.1 * p.out));
 };
 
+const getToolNoCache = (tool: string, tokens: number) => {
+  let cacheRate = 0.5;
+  if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') cacheRate = 0.93;
+  else if (tool === 'antigravity') cacheRate = 0.1;
+  else if (tool === 'claude') cacheRate = 0.8;
+  return tokens * (1 - cacheRate);
+};
+
+const formatDisplayAmount = (num: number, mode: string) => {
+  if (mode === 'cost') return '$' + num.toFixed(2);
+  if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
+  if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
+  return num.toFixed(0);
+};
+
 const formatAmountStr = (num: number) => {
   if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
   if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
@@ -90,29 +108,38 @@ const formatAmountStr = (num: number) => {
       
       <div class="filter-row flex-between">
         <div class="filter-options">
-          <button class="filter-pill">今天</button>
-          <button class="filter-pill">昨天</button>
-          <button class="filter-pill">前天</button>
-          <button class="filter-pill">近 3 天</button>
-          <button class="filter-pill">近 7 天</button>
-          <button class="filter-pill active">近 30 天</button>
-          <button class="filter-pill">更多 3</button>
+          <a href={`?time=today&mode=${modeFilter}`} class={`filter-pill ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+          <a href={`?time=yesterday&mode=${modeFilter}`} class={`filter-pill ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
+          <a href={`?time=3d&mode=${modeFilter}`} class={`filter-pill ${timeFilter === '3d' ? 'active' : ''}`}>近 3 天</a>
+          <a href={`?time=7d&mode=${modeFilter}`} class={`filter-pill ${timeFilter === '7d' ? 'active' : ''}`}>近 7 天</a>
+          <a href={`?time=30d&mode=${modeFilter}`} class={`filter-pill ${timeFilter === '30d' ? 'active' : ''}`}>近 30 天</a>
+          <a href={`?time=all&mode=${modeFilter}`} class={`filter-pill ${timeFilter === 'all' ? 'active' : ''}`}>全部历史</a>
         </div>
         
         <div class="filter-options display-mode">
-          <button class="filter-pill active">含缓存</button>
-          <button class="filter-pill">不含缓存</button>
-          <button class="filter-pill">预估费用</button>
+          <a href={`?time=${timeFilter}&mode=withcache`} class={`filter-pill ${modeFilter === 'withcache' ? 'active' : ''}`}>含缓存</a>
+          <a href={`?time=${timeFilter}&mode=nocache`} class={`filter-pill ${modeFilter === 'nocache' ? 'active' : ''}`}>不含缓存</a>
+          <a href={`?time=${timeFilter}&mode=cost`} class={`filter-pill ${modeFilter === 'cost' ? 'active' : ''}`}>预估费用</a>
         </div>
       </div>
     </div>
 
     <!-- Stats Row -->
     <div class="stats-row">
-      今天全员累计消耗 <strong>{(stats.totalTokens / 100000000).toFixed(2)}亿</strong> tokens · 总参与人数 {stats.totalUsers} <a href="#" class="stats-link">统计规则</a>
+      <span>{timeFilter === 'all' ? '全史' : timeFilter === 'today' ? '今天' : timeFilter === 'yesterday' ? '昨天' : `近${timeFilter.replace('d', '天')}`}</span>全员累计消耗 <strong>{formatDisplayAmount(stats.totalTokens, modeFilter)}</strong> {modeFilter === 'cost' ? '' : 'tokens'} · 总参与人数 {stats.totalUsers} <a href="#" class="stats-link">统计规则</a>
     </div>
 
     <div class="leaderboard-list">
+      
+      <!-- Table Headers (Desktop Only) -->
+      <div class="lb-header-row">
+        <div class="lb-h-left">
+          <div class="lb-h-rank">排名</div>
+          <div class="lb-h-name">T友</div>
+          <div class="lb-h-details">消耗详情 (多端工具)</div>
+        </div>
+        <div class="lb-h-right">总 {modeFilter === 'cost' ? '花费' : 'Tokens'}</div>
+      </div>
       
       <!-- Current User Section -->
       {currentUser ? (
@@ -153,15 +180,25 @@ const formatAmountStr = (num: number) => {
 
       <!-- Main Leaderboard -->
       {leaderboard.length === 0 ? (
-        <div class="content-section" style="margin-top: 1rem;"><p>暂时还没有人上榜，快去抢首发吧！</p></div>
+        <div class="content-section" style="margin-top: 1rem;"><p>该时间段内暂无数据，快去抢首发吧！</p></div>
       ) : (
         leaderboard.map((user, idx) => {
           let userTotalEstimatedCost = 0;
+          let userTotalDisplay = 0;
+          
           const toolsBreakdown = Object.entries(user.tokens)
             .filter(([k]) => k !== 'total')
             .map(([tool, amount]: [string, any]) => {
-              userTotalEstimatedCost += getToolEstimatedCost(tool, amount);
-              return { tool, amount };
+              const cost = getToolEstimatedCost(tool, amount);
+              const noCacheTokens = getToolNoCache(tool, amount);
+              userTotalEstimatedCost += cost;
+              
+              let displayAmount = amount;
+              if (modeFilter === 'nocache') displayAmount = noCacheTokens;
+              else if (modeFilter === 'cost') displayAmount = cost;
+              
+              userTotalDisplay += displayAmount;
+              return { tool, amount: displayAmount };
             });
 
           return (
@@ -187,22 +224,32 @@ const formatAmountStr = (num: number) => {
                       else if (t.includes('antigravity')) tagClass = 'tag-antigravity';
                       else if (t.includes('cherry')) tagClass = 'tag-cherry';
                       else if (t.includes('claude')) tagClass = 'tag-claude';
-                      return <span class={`tool-tag ${tagClass}`}>{toolName} {formatAmountStr(amount)}</span>;
+                      return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, modeFilter)}</span>;
                     })}
                   </div>
                 </div>
               </div>
               <div class="lb-card-right">
-                <div class="lb-star-icon">★</div>
                 <div class="lb-totals">
-                  <div class="lb-total-tokens">{(user.tokens.total / 100000000).toFixed(2)}亿</div>
-                  <div class="lb-total-cost">tokens · ≈${userTotalEstimatedCost.toFixed(0)}</div>
+                  <div class="lb-total-tokens">{formatDisplayAmount(userTotalDisplay, modeFilter)}</div>
+                  {modeFilter !== 'cost' && <div class="lb-total-cost">≈${userTotalEstimatedCost.toFixed(0)}</div>}
                 </div>
               </div>
             </div>
           );
         })
       )}
+    </div>
+
+    <!-- Onboarding Footer -->
+    <div class="onboarding-footer">
+      <h3>如何参与统计？</h3>
+      <p>想要让你的 AI 编程实力在榜单上闪耀吗？只需简单的两步：</p>
+      <ol>
+        <li>在页面上方点击“绑定 GitHub 上榜 ↗”进行身份认证。</li>
+        <li>在本地运行 T Salon 提供的终端统计脚本 <code>bash &lt;(curl -s https://tsalon.tech/install.sh)</code>。</li>
+      </ol>
+      <p>我们保证本地数据的隐私与安全，脚本开源透明，欢迎<a href="/tokenrank/about">查看提取原理与源码</a>。</p>
     </div>
 
   </main>
@@ -256,12 +303,14 @@ const formatAmountStr = (num: number) => {
   }
 
   .filter-pill {
+    display: inline-block;
     background: transparent;
     border: 1px solid var(--color-border);
     color: var(--color-text);
     padding: 0.35rem 0.8rem;
     border-radius: 6px;
     font-size: 0.85rem;
+    text-decoration: none;
     cursor: pointer;
     transition: all 0.2s;
   }
@@ -301,6 +350,28 @@ const formatAmountStr = (num: number) => {
     text-decoration: underline;
     margin-left: 0.5rem;
   }
+
+  /* Table Headers */
+  .lb-header-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 1.5rem 0.5rem 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-gray);
+  }
+  
+  .lb-h-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .lb-h-rank { width: 40px; text-align: center; }
+  .lb-h-name { width: 150px; }
+  .lb-h-details { flex: 1; }
+  .lb-h-right { text-align: right; width: 100px; }
 
   /* Leaderboard List */
   .leaderboard-list {
@@ -376,8 +447,9 @@ const formatAmountStr = (num: number) => {
 
   .lb-user-info {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 1;
   }
 
   .lb-name-row {
@@ -386,6 +458,7 @@ const formatAmountStr = (num: number) => {
     gap: 0.5rem;
     font-size: 1.1rem;
     color: var(--color-text);
+    width: 150px;
   }
 
   .tag-me {
@@ -403,7 +476,7 @@ const formatAmountStr = (num: number) => {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-    margin-top: 0.25rem;
+    flex: 1;
   }
 
   .tool-tag {
@@ -482,12 +555,53 @@ const formatAmountStr = (num: number) => {
   .btn-onboard:hover {
     opacity: 0.9;
   }
+  
+  .onboarding-footer {
+    margin-top: 3rem;
+    padding: 2rem;
+    background: var(--color-bg-alt);
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+  }
+  .onboarding-footer h3 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
+  .onboarding-footer p {
+    color: var(--color-gray);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  .onboarding-footer ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-gray);
+    line-height: 1.8;
+  }
+  .onboarding-footer code {
+    background: var(--color-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-border);
+    font-family: monospace;
+  }
 
   @media (max-width: 768px) {
     .filter-row {
       flex-direction: column;
       align-items: flex-start;
       gap: 0.5rem;
+    }
+    .lb-header-row {
+      display: none; /* Hide headers on mobile */
+    }
+    .lb-user-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .lb-name-row {
+      width: auto;
     }
     .lb-card {
       flex-direction: column;
@@ -497,17 +611,6 @@ const formatAmountStr = (num: number) => {
     .lb-card-right {
       width: 100%;
       justify-content: flex-end;
-    }
-    .lb-user-info {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .lb-details-row {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
     }
   }
 </style>

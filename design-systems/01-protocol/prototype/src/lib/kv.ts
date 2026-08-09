@@ -270,26 +270,109 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   await kv.zadd('leaderboard:total', finalTotal, userId);
 }
 
-export async function getLeaderboard(limit = 100): Promise<UserRankData[]> {
+export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRankData[]> {
   if (!kv) return [];
-  // ioredis zrevrange returns highest score first
-  const userIds = await kv.zrevrange('leaderboard:total', 0, limit - 1);
-  if (!userIds || userIds.length === 0) return [];
   
-  if (userIds.length > 0) {
+  if (time === 'all') {
+    // ioredis zrevrange returns highest score first
+    const userIds = await kv.zrevrange('leaderboard:total', 0, limit - 1);
+    if (!userIds || userIds.length === 0) return [];
+    
     const keys = userIds.map(id => `user:${id}:data`);
     const results = await kv.mget(keys);
-    const parsedResults = results.filter(Boolean).map(res => JSON.parse(res as string));
-    return parsedResults;
+    return results.filter(Boolean).map(res => JSON.parse(res as string));
   }
-  return [];
+  
+  // Dynamic aggregation for time windows
+  const userIds = await kv.zrevrange('leaderboard:total', 0, 500);
+  if (!userIds || userIds.length === 0) return [];
+
+  let days = 1;
+  if (time === 'today') days = 1;
+  else if (time === 'yesterday') days = 2;
+  else if (time === '3d') days = 3;
+  else if (time === '7d') days = 7;
+  else if (time === '30d') days = 30;
+
+  const datesToFetch: string[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    datesToFetch.push(d.toISOString().split('T')[0]);
+  }
+  
+  let targetDates = datesToFetch;
+  if (time === 'yesterday') {
+    targetDates = [datesToFetch[1]];
+  }
+
+  const baseDataKeys = userIds.map(id => `user:${id}:data`);
+  const baseDataResults = await kv.mget(baseDataKeys);
+  const userMap: Record<string, UserRankData> = {};
+  userIds.forEach((id, idx) => {
+    if (baseDataResults[idx]) {
+      userMap[id] = JSON.parse(baseDataResults[idx] as string);
+    }
+  });
+
+  const pipe = kv.pipeline();
+  for (const id of userIds) {
+    for (const dateStr of targetDates) {
+      pipe.lrange(`user:${id}:timeseries:${dateStr}`, 0, -1);
+    }
+  }
+  
+  const tsResults = await pipe.exec();
+  
+  const aggregatedList: UserRankData[] = [];
+  let resultIdx = 0;
+  
+  for (const id of userIds) {
+    const baseData = userMap[id];
+    if (!baseData) {
+      resultIdx += targetDates.length;
+      continue;
+    }
+    
+    let userTotal = 0;
+    const tokens: Record<string, number> = {};
+    
+    for (let i = 0; i < targetDates.length; i++) {
+      const [err, events] = tsResults![resultIdx++] as [Error | null, string[]];
+      if (!err && events && events.length > 0) {
+        for (const evStr of events) {
+          try {
+            const ev = JSON.parse(evStr);
+            tokens[ev.tool] = (tokens[ev.tool] || 0) + ev.tokens;
+            userTotal += ev.tokens;
+          } catch(e) {}
+        }
+      }
+    }
+    
+    if (userTotal > 0) {
+      tokens['total'] = userTotal;
+      aggregatedList.push({
+        ...baseData,
+        tokens
+      });
+    }
+  }
+  
+  aggregatedList.sort((a, b) => b.tokens.total - a.tokens.total);
+  return aggregatedList.slice(0, limit);
 }
 
-export async function getGlobalStats() {
+export async function getGlobalStats(leaderboardData: UserRankData[] | null = null) {
   if (!kv) return { totalUsers: 0, totalTokens: 0 };
-  const totalUsers = await kv.zcard('leaderboard:total');
   
-  // zrange with WITHSCORES returns ['user1', '100', 'user2', '200']
+  if (leaderboardData) {
+    const totalUsers = leaderboardData.length;
+    const totalTokens = leaderboardData.reduce((acc, user) => acc + (user.tokens.total || 0), 0);
+    return { totalUsers, totalTokens };
+  }
+  
+  const totalUsers = await kv.zcard('leaderboard:total');
   const allScores = await kv.zrange('leaderboard:total', 0, -1, 'WITHSCORES');
   let totalTokens = 0;
   for (let i = 1; i < allScores.length; i += 2) {
