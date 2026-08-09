@@ -11,9 +11,11 @@ let uploadToken = null;
 if (session?.user?.id) {
   uploadToken = await getOrCreateUploadToken(session.user.id);
   // Also store user info so the CLI agent can pick it up
-  const name = session.user.name || 'Anonymous';
-  const image = session.user.image || '/icon-512x512.png';
-  await kv.set(`user:${session.user.id}:info`, JSON.stringify({ name, image }));
+  const name = session.user?.name || 'Anonymous';
+  const image = session.user?.image || '/icon-512x512.png';
+  if (kv) {
+    await kv.set(`user:${session.user.id}:info`, JSON.stringify({ name, image }));
+  }
 }
 ---
 
@@ -43,8 +45,8 @@ if (session?.user?.id) {
             </div>
           ) : (
             <div>
-              <img src={session.user.image} alt={session.user.name} style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 1rem;" />
-              <h3>已登录为 {session.user.name}</h3>
+              <img src={session.user?.image} alt={session.user?.name} style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 1rem;" />
+              <h3>已登录为 {session.user?.name}</h3>
               <p style="margin-bottom: 2rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
               
               <div style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; text-align: left; overflow-x: auto;">

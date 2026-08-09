@@ -15,9 +15,11 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ success: false, message: 'Invalid token' }), { status: 401 });
     }
 
-    // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it,
-    // or we can fetch it. For now, let's assume we saved it during auth login or we get it from auth session.
-    // Wait, the API receives the request from the CLI agent, so no browser session cookie exists.
+    if (!kv) {
+      return new Response(JSON.stringify({ success: false, message: 'KV Database not configured' }), { status: 500 });
+    }
+
+    // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.
     const rawInfo = await kv.get(`user:${userId}:info`);
     const userInfo = rawInfo ? JSON.parse(rawInfo) : null;
     const name = userInfo?.name || 'Anonymous Developer';
