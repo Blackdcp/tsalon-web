@@ -161,9 +161,8 @@ const formatAmountStr = (num: number) => {
             .filter(([k]) => k !== 'total')
             .map(([tool, amount]: [string, any]) => {
               userTotalEstimatedCost += getToolEstimatedCost(tool, amount);
-              const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
-              return `${toolName} ${formatAmountStr(amount)}`;
-            }).join('  ');
+              return { tool, amount };
+            });
 
           return (
             <div class="lb-card" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
@@ -180,7 +179,16 @@ const formatAmountStr = (num: number) => {
                     <strong>{user.name}</strong>
                   </div>
                   <div class="lb-details-row">
-                    {toolsBreakdown}
+                    {toolsBreakdown.map(({ tool, amount }) => {
+                      const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+                      let tagClass = 'tag-default';
+                      const t = tool.toLowerCase();
+                      if (t.includes('codex')) tagClass = 'tag-codex';
+                      else if (t.includes('antigravity')) tagClass = 'tag-antigravity';
+                      else if (t.includes('cherry')) tagClass = 'tag-cherry';
+                      else if (t.includes('claude')) tagClass = 'tag-claude';
+                      return <span class={`tool-tag ${tagClass}`}>{toolName} {formatAmountStr(amount)}</span>;
+                    })}
                   </div>
                 </div>
               </div>
@@ -392,7 +400,23 @@ const formatAmountStr = (num: number) => {
   .lb-details-row {
     font-size: 0.85rem;
     color: var(--color-gray);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
   }
+
+  .tool-tag {
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .tag-codex { background: rgba(16, 185, 129, 0.1); color: #059669; }
+  .tag-antigravity { background: rgba(139, 92, 246, 0.1); color: #7c3aed; }
+  .tag-cherry { background: var(--color-bg-alt); color: var(--color-text); }
+  .tag-claude { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+  .tag-default { background: var(--color-border); color: var(--color-gray); }
 
   .lb-card-right {
     display: flex;
