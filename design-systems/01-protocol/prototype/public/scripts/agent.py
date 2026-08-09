@@ -107,31 +107,49 @@ def get_codex_tokens(home):
                 if f.startswith('state_') and f.endswith('.sqlite'):
                     db_paths.append(os.path.join(dp, f))
     
-    tokens = {'codex': 0, 'codex_proxy': 0}
+    tokens = {'codex': 0, 'codex_proxy': 0, 'history': {}}
+    
+    def add_history(date_str, tool_key, amount):
+        if date_str not in tokens['history']:
+            tokens['history'][date_str] = {}
+        if tool_key not in tokens['history'][date_str]:
+            tokens['history'][date_str][tool_key] = 0
+        tokens['history'][date_str][tool_key] += amount
+
     for p in db_paths:
         if not p or not os.path.exists(p):
             continue
             
         # Try state_*.sqlite schema (threads table)
         try:
-            rows = query_locked_sqlite(p, "SELECT SUM(tokens_used) FROM threads")
-            if rows and rows[0][0]:
-                tokens['codex'] += int(rows[0][0])
+            rows = query_locked_sqlite(p, "SELECT date(created_at, 'unixepoch'), SUM(tokens_used) FROM threads GROUP BY 1")
+            if rows:
+                for row in rows:
+                    dt = row[0]
+                    t = int(row[1]) if row[1] else 0
+                    tokens['codex'] += t
+                    if dt:
+                        add_history(dt, 'codex', t)
                 continue
         except:
             pass
             
         # Try request_token_stats schema
         try:
-            rows = query_locked_sqlite(p, "SELECT actual_source_kind, SUM(input_tokens + output_tokens + cached_input_tokens + reasoning_output_tokens) FROM request_token_stats GROUP BY actual_source_kind")
+            rows = query_locked_sqlite(p, "SELECT actual_source_kind, date(created_at, 'unixepoch'), SUM(input_tokens + output_tokens + cached_input_tokens + reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2")
             if rows:
                 for row in rows:
                     source = row[0]
-                    t = int(row[1]) if row[1] else 0
+                    dt = row[1]
+                    t = int(row[2]) if row[2] else 0
                     if not source or 'proxy' in source.lower() or source != 'openai_account':
                         tokens['codex_proxy'] += t
+                        if dt:
+                            add_history(dt, 'codex_proxy', t)
                     else:
                         tokens['codex'] += t
+                        if dt:
+                            add_history(dt, 'codex', t)
                 continue
         except:
             pass
@@ -228,6 +246,7 @@ def main():
     
     # Plugin Registry
     results = {}
+    history = {}
     
     print("Scanning Cursor...")
     results['cursor'] = get_cursor_tokens(home)
@@ -236,6 +255,8 @@ def main():
     codex_data = get_codex_tokens(home)
     results['codex'] = codex_data.get('codex', 0)
     results['codex_proxy'] = codex_data.get('codex_proxy', 0)
+    if 'history' in codex_data:
+        history = codex_data['history']
     
     print("Scanning Claude Code...")
     results['claude'] = get_claude_tokens(home)
@@ -268,6 +289,8 @@ def main():
     final_tokens = {k: v for k, v in results.items() if v > 0}
     total = sum(final_tokens.values())
     final_tokens['total'] = total
+    if history:
+        final_tokens['history'] = history
     
     print(f"📊 Extracted Data:")
     for k, v in final_tokens.items():

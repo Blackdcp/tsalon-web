@@ -32,13 +32,15 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Extract all dynamic tokens, ensuring they are numbers
     const dynamicTokens: Record<string, number> = {};
+    const historyData = data.history || null;
+    
     for (const [key, val] of Object.entries(data)) {
-      if (key !== 'total') {
+      if (key !== 'total' && key !== 'history') {
         dynamicTokens[key] = Number(val) || 0;
       }
     }
 
-    await updateTokenUsage(userId, name, image, dynamicTokens, actualDeviceId);
+    await updateTokenUsage(userId, name, image, dynamicTokens, actualDeviceId, historyData);
 
     return new Response(JSON.stringify({ success: true, message: 'Tokens updated' }), {
       status: 200,

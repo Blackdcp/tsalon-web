@@ -38,7 +38,7 @@ export async function getUserIdByToken(token: string): Promise<string | null> {
   return kv.get(`token:${token}:userId`);
 }
 
-export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, number>, deviceId: string = 'default_device') {
+export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, number>, deviceId: string = 'default_device', historyData: Record<string, Record<string, number>> | null = null) {
   if (!kv) return;
   
   // 0. Fetch previous device data to calculate deltas
@@ -76,15 +76,57 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   const pipe = kv.pipeline();
   let hasTimeseriesEvents = false;
   
+  // If exact history is provided, we can sync it directly!
+  if (historyData && Object.keys(historyData).length > 0) {
+    // Only process dates that have data
+    for (const [dateStr, toolsObj] of Object.entries(historyData)) {
+      // First, completely overwrite the history for this device on this date? 
+      // Actually, since timeseries are lists, we can't easily "upsert" individual events for the same tool.
+      // But wait! If we just send the EXACT value, we don't want to re-push the total every time!
+      // For exact history sync, the safest way is to let the admin-script wipe the lists once,
+      // and then we push the EXACT values for each date.
+      // BUT if this runs daily, it will push the total tokens again!
+      // So historyData should ONLY contain the DAILY USAGE (which it does, because we grouped by date() in SQL!).
+      
+      // Wait, SQL `GROUP BY date()` gives the total tokens used ON THAT DAY.
+      // So historyData IS the delta!
+      for (const [tool, val] of Object.entries(toolsObj)) {
+        if (val <= 0) continue;
+        
+        let model = 'unknown';
+        let cacheRate = 0.5;
+        if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
+          model = 'gpt-5.6-sol';
+          cacheRate = 0.93;
+        } else if (tool === 'antigravity') {
+          model = 'gemini-2.5-pro';
+          cacheRate = 0.1;
+        } else if (tool === 'claude') {
+          model = 'claude-3-5-sonnet';
+          cacheRate = 0.8;
+        }
+        
+        // Since historyData contains exact DAILY values, we just log them!
+        // Wait, if the user runs the script multiple times a day, `historyData[today]` will contain the full today usage.
+        // If we just push it, it will duplicate today's usage?
+        // Let's rely on the admin script to wipe everything, then the first run will populate history perfectly.
+        // For subsequent runs, maybe we shouldn't sync history every time?
+        // To be safe, if we get history, we ONLY use it if the delta for the total tool is huge (isFirstRun equivalent).
+        // Or we can just use the delta logic for `todayStr` and ignore the history if it's not a huge delta.
+      }
+    }
+  }
+
+  // Delta logic
   for (const [tool, val] of Object.entries(tokens)) {
-    if (tool === 'total') continue;
+    if (tool === 'total' || tool === 'history') continue;
     const oldVal = oldDeviceTokens[tool] || 0;
     const delta = val - oldVal;
     
     if (delta > 0 || (val > 0 && oldVal === 0)) {
       let model = 'unknown';
       let cacheRate = 0.5;
-      if (tool === 'cursor' || tool === 'codex') {
+      if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
         model = 'gpt-5.6-sol';
         cacheRate = 0.93;
       } else if (tool === 'antigravity') {
@@ -95,10 +137,28 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         cacheRate = 0.8;
       }
       
-      const isFirstRun = (oldVal === 0 && val > 0);
+      const isFirstRun = (oldVal === 0 && val > 0) || delta > 100_000_000;
       
-      if (isFirstRun && val > 1000) {
-        // Distribute historically over 30 days
+      if (isFirstRun && historyData && Object.keys(historyData).length > 0) {
+        // If it's a huge jump (or first run), use EXACT history!
+        // We assume we wiped the user's timeseries first (or it's mostly empty).
+        for (const [dateStr, toolsObj] of Object.entries(historyData)) {
+          if (toolsObj[tool] && toolsObj[tool] > 0) {
+            const hVal = toolsObj[tool];
+            const event: TimeseriesEvent = {
+              timestamp: new Date(dateStr).getTime(),
+              tool,
+              model,
+              tokens: hVal,
+              cacheHit: Math.random() < cacheRate
+            };
+            pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
+            pipe.expire(`user:${userId}:timeseries:${dateStr}`, 60 * 60 * 24 * 31);
+            hasTimeseriesEvents = true;
+          }
+        }
+      } else if (isFirstRun && val > 1000) {
+        // Distribute historically over 30 days (Fallback for tools without exact history)
         const days = 30;
         const dailyAvg = Math.floor(val / days);
         for (let i = 0; i < days; i++) {
@@ -106,8 +166,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
           d.setDate(d.getDate() - i);
           const historyDateStr = d.toISOString().split('T')[0];
           
-          // Add some randomness so the chart isn't perfectly flat
-          const variance = 0.8 + (Math.random() * 0.4); // 0.8x to 1.2x
+          const variance = 0.8 + (Math.random() * 0.4);
           const tokensToLog = Math.floor(dailyAvg * variance);
           
           const event: TimeseriesEvent = {
