@@ -64,7 +64,7 @@ if (session?.user?.id) {
                 <div id="windows" class="tab-content" style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
                   <p style="font-size: 0.85rem; color: var(--color-gray); margin-bottom: 0.5rem;">在 PowerShell (管理员模式) 中粘贴并运行此命令：</p>
                   <code style="word-break: break-all; color: var(--color-primary); font-family: monospace;">
-                    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://www.tsalon.tech/scripts/token-agent.ps1')) -token "{uploadToken}"
+                    Invoke-RestMethod -Uri "https://www.tsalon.tech/scripts/token-agent.ps1" -OutFile "$env:TEMP\agent.ps1"; & "$env:TEMP\agent.ps1" -token "{uploadToken}"
                   </code>
                 </div>
               </div>
