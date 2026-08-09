@@ -65,340 +65,460 @@ const getToolEstimatedCost = (tool: string, tokens: number) => {
   const freshTokens = millions * (1 - cacheRate);
   return (cacheHitTokens * p.cache) + (freshTokens * (0.9 * p.in + 0.1 * p.out));
 };
+
+const formatAmountStr = (num: number) => {
+  if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
+  if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
+  return num.toString();
+};
 ---
 
 <BaseLayout alternatePath="/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
-  <main>
-    <header class="hero-stats">
-      <div class="container hero-stats-inner">
-        <div class="hero-badge"><span class="pulse-dot"></span> 全网排行榜活跃中</div>
-        <h1 class="hero-title">Token 排行榜</h1>
-        <p class="hero-subtitle">开发者本地 AI 编码能耗大比拼</p>
-        
-        <div class="hero-metrics">
-          <div class="metric-card">
-            <span class="metric-label">参与总人数</span>
-            <strong class="metric-value">{stats.totalUsers} <span class="metric-unit">人</span></strong>
-          </div>
-          <div class="metric-card highlight">
-            <span class="metric-label">全员总消耗</span>
-            <strong class="metric-value">{(stats.totalTokens / 100000000).toFixed(2)} <span class="metric-unit">亿 Tokens</span></strong>
-          </div>
-          <div class="metric-card glowing">
-            <span class="metric-label">预计总花费</span>
-            <strong class="metric-value">≈ ${(stats.totalTokens / 1000000 * 3).toFixed(0)}</strong>
-          </div>
-        </div>
+  <main class="container page-content">
+    
+    <header class="page-title" style="margin-bottom: 1rem; border-bottom: none; padding-bottom: 0;">
+      <div class="page-title-main">
+        <h1>Token 排行榜</h1>
+      </div>
+      <div class="page-title-side">
+        <span class="mono">STATS / TOKEN RANK</span>
       </div>
     </header>
 
-    <div class="container content-container" style="display: flex; flex-direction: column;">
-      
-      <div class="join-banner">
-        <div class="join-banner-text">
-          <h3>如何上榜？</h3>
-          <p>将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。</p>
-        </div>
-        <div class="join-banner-action">
-          <a class="btn btn-blue" href="/tokenrank/connect/" style="padding: 0.6rem 1.25rem;">生成专属接入命令 <span>↗</span></a>
-          <button class="btn btn-dark" onclick="openShareModal()">分享榜单 ↗</button>
+    <!-- Filters Section -->
+    <div class="filter-panel">
+      <div class="filter-row">
+        <span class="filter-label">工具</span>
+        <div class="filter-options">
+          <button class="filter-pill active">全部</button>
+          <button class="filter-pill">Codex</button>
+          <button class="filter-pill">Claude Code</button>
+          <button class="filter-pill">Hermes</button>
+          <button class="filter-pill">Workbuddy</button>
+          <button class="filter-pill">更多 16</button>
         </div>
       </div>
-
-      <div class="event-main" style="width: 100%; margin-top: 2rem;">
-        {leaderboard.length === 0 ? (
-          <div class="content-section"><p>暂时还没有人上榜，快去抢首发吧！</p></div>
-        ) : (
-          <table class="tokenrank-table">
-            <thead>
-              <tr>
-                <th>排名</th>
-                <th>T 友</th>
-                <th>消耗详情 (多端工具)</th>
-                <th>总 Tokens</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((user, idx) => (
-                <tr class="rank-row-wrapper" onclick={`window.location.href='/tokenrank/user/${user.userId}'`} style="cursor: pointer;">
-                  <td class="rank-num">
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
-                  </td>
-                  <td>
-                    <div class="rank-user">
-                      <img src={user.image} alt={user.name} class="rank-avatar" crossorigin="anonymous" />
-                      <strong>{user.name}</strong>
-                    </div>
-                  </td>
-                  <td class="rank-details">
-                    {Object.entries(user.tokens).filter(([k]) => k !== 'total').map(([tool, amount]: [string, any]) => (
-                      <span class={`badge ${tool}`}>
-                        {tool.charAt(0).toUpperCase() + tool.slice(1)} ~${getToolEstimatedCost(tool, amount).toFixed(0)}
-                      </span>
-                    ))}
-                  </td>
-                  <td class="rank-total">
-                    <strong>{(user.tokens.total / 100000000).toFixed(2)} 亿</strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      
+      <div class="filter-row">
+        <span class="filter-label">模型</span>
+        <div class="filter-options">
+          <button class="filter-pill active">全部</button>
+          <button class="filter-pill">claude-3-5-sonnet</button>
+          <button class="filter-pill">gpt-5.6-sol</button>
+          <button class="filter-pill">gemini-2.5-pro</button>
+          <button class="filter-pill">更多 35</button>
+        </div>
+      </div>
+      
+      <div class="filter-row">
+        <span class="filter-label">城市</span>
+        <div class="filter-options">
+          <button class="filter-pill active">全部</button>
+          <button class="filter-pill">上海 113</button>
+          <button class="filter-pill">杭州 203</button>
+          <button class="filter-pill">深圳 159</button>
+          <button class="filter-pill">北京 153</button>
+          <button class="filter-pill">广州 115</button>
+          <button class="filter-pill">更多 159</button>
+        </div>
+      </div>
+      
+      <div class="filter-row flex-between">
+        <div class="filter-options">
+          <button class="filter-pill">今天</button>
+          <button class="filter-pill">昨天</button>
+          <button class="filter-pill">前天</button>
+          <button class="filter-pill">近 3 天</button>
+          <button class="filter-pill">近 7 天</button>
+          <button class="filter-pill active">近 30 天</button>
+          <button class="filter-pill">更多 3</button>
+        </div>
+        
+        <div class="filter-options display-mode">
+          <button class="filter-pill active">含缓存</button>
+          <button class="filter-pill">不含缓存</button>
+          <button class="filter-pill">预估费用</button>
+        </div>
       </div>
     </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      今天全员累计消耗 <strong>{(stats.totalTokens / 100000000).toFixed(2)}亿</strong> tokens · 总参与人数 {stats.totalUsers} <a href="#" class="stats-link">统计规则</a>
+    </div>
+
+    <div class="leaderboard-list">
+      
+      <!-- Current User Section -->
+      {currentUser ? (
+        <div class="lb-card user-highlight-card">
+          <div class="lb-card-left">
+            <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
+            <div class="lb-user-info">
+              <div class="lb-name-row">
+                <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
+              </div>
+              <div class="lb-details-row">
+                {(currentUser.tokens.total / 100000000).toFixed(2)}亿 tokens · {Object.keys(currentUser.tokens).length - 1} 个工具
+              </div>
+            </div>
+          </div>
+          <div class="lb-card-right">
+            <div class="lb-highlight-rank">#{currentUserRank}</div>
+            <button class="btn-share" onclick="openShareModal()">分享</button>
+          </div>
+        </div>
+      ) : (
+        <div class="lb-card user-onboard-card">
+          <div class="lb-card-left">
+            <div class="lb-user-info">
+              <div class="lb-name-row">
+                <strong>你尚未登榜</strong>
+              </div>
+              <div class="lb-details-row">
+                将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。
+              </div>
+            </div>
+          </div>
+          <div class="lb-card-right">
+            <a href="/tokenrank/connect/" class="btn-onboard">绑定 GitHub 上榜 ↗</a>
+          </div>
+        </div>
+      )}
+
+      <!-- Main Leaderboard -->
+      {leaderboard.length === 0 ? (
+        <div class="content-section" style="margin-top: 1rem;"><p>暂时还没有人上榜，快去抢首发吧！</p></div>
+      ) : (
+        leaderboard.map((user, idx) => {
+          let userTotalEstimatedCost = 0;
+          const toolsBreakdown = Object.entries(user.tokens)
+            .filter(([k]) => k !== 'total')
+            .map(([tool, amount]: [string, any]) => {
+              userTotalEstimatedCost += getToolEstimatedCost(tool, amount);
+              const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+              return `${toolName} ${formatAmountStr(amount)}`;
+            }).join('  ');
+
+          return (
+            <div class="lb-card" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
+              <div class="lb-card-left">
+                <div class="lb-rank">
+                  {idx === 0 ? <span class="medal">🥇</span> : 
+                   idx === 1 ? <span class="medal">🥈</span> : 
+                   idx === 2 ? <span class="medal">🥉</span> : 
+                   <span class="rank-number">{idx + 1}</span>}
+                </div>
+                <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
+                <div class="lb-user-info">
+                  <div class="lb-name-row">
+                    <strong>{user.name}</strong>
+                  </div>
+                  <div class="lb-details-row">
+                    {toolsBreakdown}
+                  </div>
+                </div>
+              </div>
+              <div class="lb-card-right">
+                <div class="lb-star-icon">★</div>
+                <div class="lb-totals">
+                  <div class="lb-total-tokens">{(user.tokens.total / 100000000).toFixed(2)}亿</div>
+                  <div class="lb-total-cost">tokens · ≈${userTotalEstimatedCost.toFixed(0)}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+
   </main>
 
   <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} />
 </BaseLayout>
 
 <style>
-  /* HERO STATS STYLES */
-  .hero-stats {
-    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
-    color: white;
-    padding: 5rem 0 6rem 0;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    margin-bottom: -3rem; /* overlap with content container */
-  }
-  .hero-stats::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 50%);
-    z-index: 1;
-    pointer-events: none;
-  }
-  .hero-stats-inner {
-    position: relative;
-    z-index: 2;
-  }
-  .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(4px);
-    padding: 0.35rem 1rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-    color: #e5e7eb;
-    border: 1px solid rgba(255,255,255,0.2);
-  }
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    background-color: #10B981;
-    border-radius: 50%;
-    margin-right: 8px;
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-  }
-  .hero-title {
-    font-size: 3.5rem;
-    font-weight: 900;
-    margin: 0 0 0.5rem 0;
-    letter-spacing: -0.02em;
-    color: #ffffff;
-  }
-  .hero-subtitle {
-    font-size: 1.25rem;
-    color: #9ca3af;
-    margin-bottom: 3rem;
-  }
-  .hero-metrics {
-    display: flex;
-    justify-content: center;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-  }
-  .metric-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px);
-    border-radius: 20px;
-    padding: 2rem 2.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 220px;
-    transition: transform 0.3s ease;
-  }
-  .metric-card:hover {
-    transform: translateY(-5px);
-  }
-  .metric-card.highlight {
-    background: rgba(59, 130, 246, 0.1);
-    border-color: rgba(59, 130, 246, 0.3);
-  }
-  .metric-card.glowing {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.4);
-    box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
-  }
-  .metric-label {
-    font-size: 0.9rem;
-    color: #9ca3af;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .metric-value {
-    font-size: 2.25rem;
-    font-weight: 800;
-    color: #ffffff;
-    line-height: 1;
-  }
-  .metric-card.glowing .metric-value {
-    color: #34d399;
-  }
-  .metric-unit {
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: #d1d5db;
+  .page-content {
+    padding-top: 2rem;
+    padding-bottom: 4rem;
   }
 
-  /* JOIN BANNER STYLES */
-  .join-banner {
-    background: white;
-    border-radius: 16px;
-    padding: 2rem 2.5rem;
+  /* Filters */
+  .filter-panel {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .filter-row.flex-between {
+    justify-content: space-between;
+  }
+
+  .filter-label {
+    width: 60px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-gray);
+  }
+
+  .filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .display-mode {
+    background: var(--color-bg-alt);
+    padding: 0.25rem;
+    border-radius: 8px;
+    gap: 0.25rem;
+  }
+
+  .filter-pill {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-pill:hover {
+    border-color: var(--color-primary);
+  }
+
+  .filter-pill.active {
+    background: var(--color-bg-alt);
+    border-color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .display-mode .filter-pill {
+    border: none;
+  }
+  .display-mode .filter-pill.active {
+    background: var(--color-bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+
+  /* Stats Row */
+  .stats-row {
+    font-size: 0.9rem;
+    color: var(--color-gray);
+    margin-bottom: 1.5rem;
+  }
+
+  .stats-row strong {
+    color: var(--color-text);
+    font-size: 1.1rem;
+  }
+
+  .stats-link {
+    color: var(--color-gray);
+    text-decoration: underline;
+    margin-left: 0.5rem;
+  }
+
+  /* Leaderboard List */
+  .leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .lb-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--color-border);
-    position: relative;
-    z-index: 10;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-  }
-  @media (prefers-color-scheme: dark) {
-    .join-banner {
-      background: var(--color-bg-alt);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-    }
-  }
-  .join-banner-text h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.5rem;
-  }
-  .join-banner-text p {
-    margin: 0;
-    color: var(--color-gray);
-    font-size: 1rem;
-  }
-  .join-banner-action {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-  }
-  .btn-dark {
-    background: var(--color-text);
-    color: var(--color-bg);
-    padding: 0.6rem 1.25rem;
-    border-radius: 6px;
-    font-weight: 500;
-    text-decoration: none;
-    border: none;
     cursor: pointer;
-    font-size: 1rem;
-  }
-  .btn-dark:hover {
-    opacity: 0.9;
+    transition: background-color 0.2s;
   }
 
-  /* TABLE STYLES */
-  .tokenrank-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
+  .lb-card:hover {
+    background: var(--color-bg-alt);
   }
-  .tokenrank-table th {
-    text-align: left;
-    padding: 1rem;
-    border-bottom: 2px solid var(--color-border);
-    color: var(--color-gray);
-    font-size: 0.9rem;
-    font-weight: 500;
+
+  .user-highlight-card {
+    background: rgba(16, 185, 129, 0.05);
+    border-color: rgba(16, 185, 129, 0.2);
+    margin-bottom: 1rem;
+    cursor: default;
   }
-  .tokenrank-table td {
-    padding: 1rem;
-    border-bottom: 1px solid var(--color-border);
-    vertical-align: middle;
+  .user-highlight-card:hover {
+    background: rgba(16, 185, 129, 0.08);
   }
-  .rank-num {
-    font-size: 1.25rem;
-    font-weight: bold;
-    color: var(--color-gray);
+
+  .user-onboard-card {
+    background: var(--color-bg-alt);
+    border-style: dashed;
+    margin-bottom: 1rem;
+    cursor: default;
   }
-  .rank-user {
+  .user-onboard-card:hover {
+    background: var(--color-bg-alt);
+  }
+
+  .lb-card-left {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
+    flex: 1;
   }
-  .rank-avatar {
-    width: 2.5rem;
-    height: 2.5rem;
+
+  .lb-rank {
+    width: 40px;
+    text-align: center;
+  }
+
+  .medal {
+    font-size: 1.5rem;
+  }
+
+  .rank-number {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-gray);
+  }
+
+  .lb-avatar {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
   }
-  .rank-details {
+
+  .lb-user-info {
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 0.25rem;
   }
-  .badge {
-    padding: 0.35rem 0.6rem;
-    border-radius: 6px;
-    font-size: 0.8rem;
+
+  .lb-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--color-text);
+  }
+
+  .tag-me {
+    background: #10B981;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
     font-weight: 600;
   }
-  .badge.cursor { background: rgba(56, 189, 248, 0.1); color: #0284c7; }
-  .badge.claude { background: rgba(245, 158, 11, 0.1); color: #d97706; }
-  .badge.codex { background: rgba(34, 197, 94, 0.1); color: #15803d; }
-  .badge.antigravity { background: rgba(168, 85, 247, 0.1); color: #7e22ce; }
-  .badge.openclaw { background: rgba(239, 68, 68, 0.1); color: #b91c1c; }
-  .badge.hermes { background: rgba(236, 72, 153, 0.1); color: #be185d; }
-  .badge.kimi { background: rgba(249, 115, 22, 0.1); color: #c2410c; }
-  .badge.qorder { background: rgba(14, 165, 233, 0.1); color: #0369a1; }
-  .badge.workbuddy { background: rgba(20, 184, 166, 0.1); color: #0f766e; }
-  .rank-total {
-    font-size: 1.15rem;
-    color: var(--color-primary);
+
+  .lb-details-row {
+    font-size: 0.85rem;
+    color: var(--color-gray);
   }
-  
-  .rank-row-wrapper:hover {
-    background-color: var(--color-bg-alt);
-    transition: background-color 0.2s;
+
+  .lb-card-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
   }
-  
-  @media (prefers-color-scheme: dark) {
-    .badge.cursor { color: #38bdf8; }
-    .badge.claude { color: #f59e0b; }
-    .badge.codex { color: #4ade80; }
-    .badge.antigravity { color: #c084fc; }
-    .badge.openclaw { color: #f87171; }
-    .badge.hermes { color: #f472b6; }
-    .badge.kimi { color: #fb923c; }
-    .badge.qorder { color: #38bdf8; }
-    .badge.workbuddy { color: #2dd4bf; }
+
+  .lb-star-icon {
+    color: var(--color-gray);
+    font-size: 1.25rem;
+    opacity: 0.5;
+  }
+
+  .lb-totals {
+    text-align: right;
+  }
+
+  .lb-total-tokens {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.2;
+  }
+
+  .lb-total-cost {
+    font-size: 0.8rem;
+    color: var(--color-gray);
+  }
+
+  .lb-highlight-rank {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-text);
+  }
+
+  .btn-share {
+    background: transparent;
+    border: 1px solid #10B981;
+    color: #10B981;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-share:hover {
+    background: rgba(16, 185, 129, 0.1);
+  }
+
+  .btn-onboard {
+    background: var(--color-text);
+    color: var(--color-bg);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .btn-onboard:hover {
+    opacity: 0.9;
   }
 
   @media (max-width: 768px) {
-    .hero-title { font-size: 2.5rem; }
-    .metric-value { font-size: 1.75rem; }
-    .join-banner { flex-direction: column; text-align: center; }
+    .filter-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .lb-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .lb-card-right {
+      width: 100%;
+      justify-content: flex-end;
+    }
+    .lb-user-info {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lb-details-row {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
   }
 </style>
