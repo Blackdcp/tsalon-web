@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "rm -rf .vercel && node scripts/content-i18n-check.mjs && astro check && astro build && node scripts/site-locale-check.mjs && node scripts/site-heading-check.mjs",
+    "build": "rm -rf .vercel ../../../.vercel && node scripts/content-i18n-check.mjs && astro check && astro build && node scripts/site-locale-check.mjs && node scripts/site-heading-check.mjs && mv .vercel ../../../",
     "preview": "astro preview",
     "astro": "astro",
     "content:new": "node scripts/content-new.mjs",
