@@ -49,28 +49,28 @@ if (session?.user?.id) {
               <h3>已登录为 {session.user?.name}</h3>
               <p style="margin-bottom: 2rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
               <div class="code-tabs" style="margin-top: 1.5rem; text-align: left;">
-                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.5rem; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: 6px; padding: 4px;">
-                  <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1.5rem; border: none; background: var(--color-text); color: var(--color-bg); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Mac / Linux</button>
-                  <button class="tab-btn" data-target="windows" style="padding: 0.5rem 1.5rem; border: none; background: transparent; color: var(--color-gray); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Windows</button>
+                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.5rem; background: var(--background-subtle); border: 1px solid var(--border-default); border-radius: 6px; padding: 4px;">
+                  <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1.5rem; border: none; background: var(--action-primary); color: var(--background-page); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Mac / Linux</button>
+                  <button class="tab-btn" data-target="windows" style="padding: 0.5rem 1.5rem; border: none; background: transparent; color: var(--text-secondary); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Windows</button>
                 </div>
                 
-                <div id="mac-linux" class="tab-content" style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
-                  <p style="font-size: 0.85rem; color: var(--color-gray); margin-bottom: 0.5rem;">在终端 (Terminal) 中粘贴并运行此命令：</p>
-                  <code style="word-break: break-all; color: var(--color-primary); font-family: monospace;">
+                <div id="mac-linux" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端 (Terminal) 中粘贴并运行此命令：</p>
+                  <code style="word-break: break-all; color: var(--action-link); font-family: monospace;">
                     bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)" -- --token="{uploadToken}"
                   </code>
                 </div>
 
-                <div id="windows" class="tab-content" style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
-                  <p style="font-size: 0.85rem; color: var(--color-gray); margin-bottom: 0.5rem;">在 PowerShell (管理员模式) 中粘贴并运行此命令：</p>
-                  <code style="word-break: break-all; color: var(--color-primary); font-family: monospace;">
+                <div id="windows" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell (管理员模式) 中粘贴并运行此命令：</p>
+                  <code style="word-break: break-all; color: var(--action-link); font-family: monospace;">
                     Invoke-RestMethod -Uri "https://www.tsalon.tech/scripts/token-agent.ps1" -OutFile "$env:TEMP\agent.ps1"; & "$env:TEMP\agent.ps1" -token "{uploadToken}"
                   </code>
                 </div>
               </div>
               
               <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                完成后刷新 <a href="/tokenrank/" style="color: var(--color-primary); text-decoration: underline;">排行榜页面</a> 即可看到数据。
+                完成后刷新 <a href="/tokenrank/" style="color: var(--action-link); text-decoration: underline;">排行榜页面</a> 即可看到数据。
               </p>
               
               <button id="logout" class="btn btn-outline" style="margin-top: 2rem;">退出登录</button>
@@ -106,14 +106,14 @@ if (session?.user?.id) {
       tabBtns.forEach(b => {
         b.classList.remove('active');
         (b as HTMLElement).style.background = 'transparent';
-        (b as HTMLElement).style.color = 'var(--color-gray)';
+        (b as HTMLElement).style.color = 'var(--text-secondary)';
       });
       tabContents.forEach(c => (c as HTMLElement).style.display = 'none');
       
       // Add active class to clicked button and show content
       btn.classList.add('active');
-      (btn as HTMLElement).style.background = 'var(--color-text)';
-      (btn as HTMLElement).style.color = 'var(--color-bg)';
+      (btn as HTMLElement).style.background = 'var(--action-primary)';
+      (btn as HTMLElement).style.color = 'var(--background-page)';
       
       const targetId = btn.getAttribute('data-target');
       if (targetId) {
@@ -128,7 +128,7 @@ if (session?.user?.id) {
   // Set initial active state styling
   const activeBtn = document.querySelector('.tab-btn.active') as HTMLElement;
   if (activeBtn) {
-    activeBtn.style.background = 'var(--color-text)';
-    activeBtn.style.color = 'var(--color-bg)';
+    activeBtn.style.background = 'var(--action-primary)';
+    activeBtn.style.color = 'var(--background-page)';
   }
 </script>
