@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getLeaderboard, getGlobalStats } from '../../../lib/kv';
 
+export const prerender = false;
+
 export const GET: APIRoute = async () => {
   try {
     const leaderboard = await getLeaderboard(100);

@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 
+export const prerender = false;
+
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();

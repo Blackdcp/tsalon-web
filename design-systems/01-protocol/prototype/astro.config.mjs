@@ -5,7 +5,7 @@ import auth from 'auth-astro';
 
 export default defineConfig({
   site: 'https://www.tsalon.tech',
-  output: 'server',
+  output: 'static',
   adapter: vercel(),
   i18n: {
     defaultLocale: 'zh',
