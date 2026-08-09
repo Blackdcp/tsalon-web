@@ -1,0 +1,356 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getSession } from 'auth-astro/server';
+import { kv, getUserAnalytics } from '../../../lib/kv';
+
+const { id } = Astro.params;
+const session = await getSession(Astro.request);
+
+// Verify user exists
+const userDataStr = await kv?.get(`user:${id}:data`);
+if (!userDataStr) {
+  return Astro.redirect('/tokenrank');
+}
+const userData = JSON.parse(userDataStr);
+
+// Fetch analytics
+const events = await getUserAnalytics(id, 30);
+
+// Basic aggregations
+const todayDateStr = new Date().toISOString().split('T')[0];
+const todayEvents = events.filter(e => {
+  const d = new Date(e.timestamp);
+  return d.toISOString().split('T')[0] === todayDateStr;
+});
+
+const todayTokens = todayEvents.reduce((acc, e) => acc + e.tokens, 0);
+const todayCost = (todayTokens / 1_000_000) * 15; // Assume avg $15 per 1M tokens
+const cacheHitTokens = todayEvents.filter(e => e.cacheHit).reduce((acc, e) => acc + e.tokens, 0);
+const cacheHitRate = todayTokens > 0 ? (cacheHitTokens / todayTokens * 100).toFixed(1) : '0.0';
+
+const toolsUsed = new Set(todayEvents.map(e => e.tool)).size;
+const conversations = todayEvents.length; // Approximate
+
+// For charts
+const last30Days = [];
+for(let i=29; i>=0; i--) {
+  const d = new Date();
+  d.setDate(d.getDate() - i);
+  last30Days.push(d.toISOString().split('T')[0]);
+}
+
+const dailyUsage = last30Days.map(date => {
+  return events
+    .filter(e => new Date(e.timestamp).toISOString().split('T')[0] === date)
+    .reduce((acc, e) => acc + e.tokens, 0);
+});
+
+const dailyCost = dailyUsage.map(t => (t / 1_000_000 * 15).toFixed(2));
+
+const toolBreakdown: Record<string, number> = {};
+const modelBreakdown: Record<string, number> = {};
+
+events.forEach(e => {
+  toolBreakdown[e.tool] = (toolBreakdown[e.tool] || 0) + e.tokens;
+  modelBreakdown[e.model] = (modelBreakdown[e.model] || 0) + e.tokens;
+});
+
+const toolKeys = Object.keys(toolBreakdown).sort((a,b) => toolBreakdown[b] - toolBreakdown[a]);
+const toolValues = toolKeys.map(k => toolBreakdown[k]);
+
+const modelKeys = Object.keys(modelBreakdown).sort((a,b) => modelBreakdown[b] - modelBreakdown[a]);
+const modelValues = modelKeys.map(k => modelBreakdown[k]);
+
+// Pass data to client
+const chartData = {
+  last30Days: last30Days.map(d => d.substring(5)), // MM-DD
+  dailyUsage,
+  dailyCost,
+  toolKeys,
+  toolValues,
+  modelKeys,
+  modelValues
+};
+---
+
+<BaseLayout title={`${userData.name} 的数据看板 - T Salon`}>
+  <div class="dashboard-container">
+    <header class="dashboard-header">
+      <div class="user-info">
+        <img src={userData.image} alt={userData.name} class="avatar" />
+        <div>
+          <h1>{userData.name}</h1>
+          <span class="location">🌍 远程协作节点</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="/tokenrank" class="back-link">返回排行榜 ↗</a>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="active">今天</button>
+      <button>昨天</button>
+      <button>近7天</button>
+      <button>近30天</button>
+      <span class="current-date">{todayDateStr}</span>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="label">当日消耗 ❔</span>
+        <div class="value">{(todayTokens / 10000).toFixed(1)}<span class="unit">万</span></div>
+        <div class="trend positive">+15% 日均</div>
+      </div>
+      <div class="stat-card">
+        <span class="label">预估成本 ❔</span>
+        <div class="value"><span class="unit">$</span>{todayCost.toFixed(2)}</div>
+        <div class="subtext">缓存节省 ${(todayCost*0.6).toFixed(2)}</div>
+      </div>
+      <div class="stat-card">
+        <span class="label">缓存命中 ❔</span>
+        <div class="value">{cacheHitRate}<span class="unit">%</span></div>
+        <div class="subtext">命中 {(cacheHitTokens/10000).toFixed(1)}万</div>
+      </div>
+      <div class="stat-card">
+        <span class="label">使用工具 ❔</span>
+        <div class="value">{toolsUsed} <span class="unit">个</span></div>
+        <div class="subtext">主力 {toolKeys[0] || '无'}</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-box">
+        <h3>近 30 天每天用量</h3>
+        <div id="usageChart" style="height: 300px; width: 100%;"></div>
+      </div>
+      <div class="chart-box">
+        <h3>近 30 天每日成本</h3>
+        <div id="costChart" style="height: 300px; width: 100%;"></div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-box">
+        <h3>按工具 (Tokens)</h3>
+        <div id="toolChart" style="height: 200px; width: 100%;"></div>
+      </div>
+      <div class="chart-box">
+        <h3>按模型 (Tokens)</h3>
+        <div id="modelChart" style="height: 200px; width: 100%;"></div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script is:inline define:vars={{ chartData }}>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Usage Chart
+    const usageChart = echarts.init(document.getElementById('usageChart'));
+    usageChart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      xAxis: { type: 'category', data: chartData.last30Days, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { color: '#6b7280', formatter: (val) => (val/10000) + '万' } },
+      series: [{ data: chartData.dailyUsage, type: 'bar', itemStyle: { color: '#3b82f6', borderRadius: [4,4,0,0] }, barWidth: '60%' }]
+    });
+
+    // Cost Chart
+    const costChart = echarts.init(document.getElementById('costChart'));
+    costChart.setOption({
+      tooltip: { trigger: 'axis', formatter: '${c}' },
+      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      xAxis: { type: 'category', data: chartData.last30Days, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { color: '#6b7280', formatter: '${value}' } },
+      series: [{ data: chartData.dailyCost, type: 'bar', itemStyle: { color: '#10b981', borderRadius: [4,4,0,0] }, barWidth: '60%' }]
+    });
+
+    // Tool Chart (Horizontal Bar)
+    const toolChart = echarts.init(document.getElementById('toolChart'));
+    toolChart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
+      xAxis: { type: 'value', show: false },
+      yAxis: { type: 'category', data: chartData.toolKeys.reverse(), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#374151', fontWeight: 500 } },
+      series: [{ data: chartData.toolValues.reverse(), type: 'bar', itemStyle: { color: '#6366f1', borderRadius: 4 }, barWidth: 16 }]
+    });
+
+    // Model Chart (Horizontal Bar)
+    const modelChart = echarts.init(document.getElementById('modelChart'));
+    modelChart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
+      xAxis: { type: 'value', show: false },
+      yAxis: { type: 'category', data: chartData.modelKeys.reverse(), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#374151', fontWeight: 500 } },
+      series: [{ data: chartData.modelValues.reverse(), type: 'bar', itemStyle: { color: '#8b5cf6', borderRadius: 4 }, barWidth: 16 }]
+    });
+
+    window.addEventListener('resize', () => {
+      usageChart.resize();
+      costChart.resize();
+      toolChart.resize();
+      modelChart.resize();
+    });
+  });
+</script>
+
+<style>
+  .dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text-primary);
+  }
+  
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+  }
+  
+  .user-info h1 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.5rem;
+  }
+  
+  .location {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+  
+  .back-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    transition: all 0.2s;
+  }
+  
+  .back-link:hover {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+    align-items: center;
+  }
+
+  .tabs button {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tabs button:hover {
+    background: var(--background-hover, rgba(0,0,0,0.05));
+  }
+
+  .tabs button.active {
+    background: var(--text-primary);
+    color: var(--background-page);
+  }
+  
+  .current-date {
+    margin-left: auto;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .stat-card .label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .stat-card .value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0.5rem 0;
+    color: #111827;
+  }
+
+  .stat-card .unit {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
+  .stat-card .trend {
+    font-size: 0.875rem;
+  }
+  
+  .stat-card .trend.positive {
+    color: #10b981;
+  }
+
+  .stat-card .subtext {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .charts-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .chart-box {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .chart-box h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+  }
+</style>

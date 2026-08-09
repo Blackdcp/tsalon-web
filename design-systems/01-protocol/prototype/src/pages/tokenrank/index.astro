@@ -56,7 +56,7 @@ const seoJsonLd = {
             </thead>
             <tbody>
               {leaderboard.map((user, idx) => (
-                <tr>
+                <tr class="rank-row-wrapper" onclick={`window.location.href='/tokenrank/user/${user.userId}'`} style="cursor: pointer;">
                   <td class="rank-num">
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
                   </td>
@@ -159,6 +159,11 @@ const seoJsonLd = {
   .rank-total {
     font-size: 1.1rem;
     color: var(--color-primary);
+  }
+  
+  .rank-row-wrapper:hover {
+    background-color: var(--color-bg-alt);
+    transition: background-color 0.2s;
   }
   
   @media (prefers-color-scheme: dark) {
