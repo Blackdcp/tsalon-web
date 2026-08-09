@@ -144,52 +144,50 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     const oldVal = oldDeviceTokens[tool] || 0;
     const delta = val - oldVal;
     
-    if (delta > 0 || (val > 0 && oldVal === 0)) {
-      let model = 'unknown';
-      let cacheRate = 0.5;
-      if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
-        model = 'gpt-5.6-sol';
-        cacheRate = 0.93;
-      } else if (tool === 'antigravity') {
-        model = 'gemini-2.5-pro';
-        cacheRate = 0.1;
-      } else if (tool === 'claude') {
-        model = 'claude-3-5-sonnet';
-        cacheRate = 0.8;
+    let model = 'unknown';
+    let cacheRate = 0.5;
+    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
+      model = 'gpt-5.6-sol';
+      cacheRate = 0.93;
+    } else if (tool === 'antigravity') {
+      model = 'gemini-2.5-pro';
+      cacheRate = 0.1;
+    } else if (tool === 'claude') {
+      model = 'claude-3-5-sonnet';
+      cacheRate = 0.8;
+    }
+
+    let toolHasHistory = false;
+    if (historyData) {
+      for (const toolsObj of Object.values(historyData)) {
+        if (toolsObj[tool]) {
+          toolHasHistory = true;
+          break;
+        }
       }
-      
+    }
+
+    if (toolHasHistory) {
+      for (const [dateStr, toolsObj] of Object.entries(historyData!)) {
+        if (toolsObj[tool] && toolsObj[tool] > 0) {
+          const hVal = toolsObj[tool];
+          const event: TimeseriesEvent = {
+            timestamp: new Date(dateStr).getTime(),
+            tool,
+            model,
+            tokens: hVal,
+            cacheHit: Math.random() < cacheRate,
+            deviceId: deviceId
+          };
+          pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
+          pipe.expire(`user:${userId}:timeseries:${dateStr}`, 60 * 60 * 24 * 31);
+        }
+      }
+      hasTimeseriesEvents = true;
+    } else if (delta > 0 || (val > 0 && oldVal === 0)) {
       const isFirstRun = (oldVal === 0 && val > 0) || delta > 100_000_000;
       
-      let toolHasHistory = false;
-      if (historyData) {
-        for (const toolsObj of Object.values(historyData)) {
-          if (toolsObj[tool]) {
-            toolHasHistory = true;
-            break;
-          }
-        }
-      }
-      
-      if (isFirstRun && toolHasHistory) {
-        // If it's a huge jump (or first run), use EXACT history!
-        // We assume we wiped the user's timeseries first (or it's mostly empty).
-        for (const [dateStr, toolsObj] of Object.entries(historyData!)) {
-          if (toolsObj[tool] && toolsObj[tool] > 0) {
-            const hVal = toolsObj[tool];
-            const event: TimeseriesEvent = {
-              timestamp: new Date(dateStr).getTime(),
-              tool,
-              model,
-              tokens: hVal,
-              cacheHit: Math.random() < cacheRate,
-              deviceId: deviceId
-            };
-            pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
-            pipe.expire(`user:${userId}:timeseries:${dateStr}`, 60 * 60 * 24 * 31);
-            hasTimeseriesEvents = true;
-          }
-        }
-      } else if (isFirstRun && val > 1000) {
+      if (isFirstRun && val > 1000) {
         // Distribute historically over 30 days (Fallback for tools without exact history)
         const days = 30;
         const dailyAvg = Math.floor(val / days);
@@ -198,9 +196,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
           d.setDate(d.getDate() - i);
           const historyDateStr = d.toISOString().split('T')[0];
           
-          const variance = 0.8 + (Math.random() * 0.4);
-          const tokensToLog = Math.floor(dailyAvg * variance);
-          
+          const tokensToLog = i === 0 ? dailyAvg + (val % days) : dailyAvg;
           const event: TimeseriesEvent = {
             timestamp: d.getTime(),
             tool,
