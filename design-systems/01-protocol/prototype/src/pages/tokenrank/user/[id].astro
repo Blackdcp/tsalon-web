@@ -19,17 +19,13 @@ const events = await getUserAnalytics(id as string, days);
 
 // Basic aggregations
 const todayDateStr = new Date().toISOString().split('T')[0];
-const todayEvents = events.filter(e => {
-  const d = new Date(e.timestamp);
-  return d.toISOString().split('T')[0] === todayDateStr;
-});
 
-const todayTokens = todayEvents.reduce((acc, e) => acc + e.tokens, 0);
-const todayCost = (todayTokens / 1_000_000) * 15; // Assume avg $15 per 1M tokens
-const cacheHitTokens = todayEvents.filter(e => e.cacheHit).reduce((acc, e) => acc + e.tokens, 0);
-const cacheHitRate = todayTokens > 0 ? (cacheHitTokens / todayTokens * 100).toFixed(1) : '0.0';
+const periodTokens = events.reduce((acc, e) => acc + e.tokens, 0);
+const periodCost = (periodTokens / 1_000_000) * 15; // Assume avg $15 per 1M tokens
+const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + e.tokens, 0);
+const cacheHitRate = periodTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : '0.0';
 
-const toolsUsed = new Set(todayEvents.map(e => e.tool)).size;
+const toolsUsed = new Set(events.map(e => e.tool)).size;
 
 // For charts
 const lastXDays = [];
@@ -103,14 +99,14 @@ const chartData = {
 
     <div class="stats-grid">
       <div class="stat-card">
-        <span class="label">当日消耗 ❔</span>
-        <div class="value">{(todayTokens / 10000).toFixed(1)}<span class="unit">万</span></div>
-        <div class="trend positive">+15% 日均</div>
+        <span class="label">{days === 1 ? '当日消耗' : `近${days}天消耗`} ❔</span>
+        <div class="value">{(periodTokens / 10000).toFixed(1)}<span class="unit">万</span></div>
+        <div class="trend positive">已更新</div>
       </div>
       <div class="stat-card">
         <span class="label">预估成本 ❔</span>
-        <div class="value"><span class="unit">$</span>{todayCost.toFixed(2)}</div>
-        <div class="subtext">缓存节省 ${(todayCost*0.6).toFixed(2)}</div>
+        <div class="value"><span class="unit">$</span>{periodCost.toFixed(2)}</div>
+        <div class="subtext">缓存节省 ${(periodCost*0.6).toFixed(2)}</div>
       </div>
       <div class="stat-card">
         <span class="label">缓存命中 ❔</span>
