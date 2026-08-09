@@ -78,6 +78,12 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   
   // If exact history is provided, we can sync it directly!
   if (historyData && Object.keys(historyData).length > 0) {
+    // 1. Wipe old timeseries data for this user to avoid duplicates/mess
+    const keysToDelete = await kv.keys(`user:${userId}:timeseries:*`);
+    if (keysToDelete.length > 0) {
+      await kv.del(...keysToDelete);
+    }
+    
     // Only process dates that have data
     for (const [dateStr, toolsObj] of Object.entries(historyData)) {
       // First, completely overwrite the history for this device on this date? 
