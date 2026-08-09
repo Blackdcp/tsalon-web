@@ -90,16 +90,31 @@ def get_cursor_tokens(home):
     return tokens
 
 def get_codex_tokens(home):
-    db_path = os.path.join(home, '.codex', 'sqlite', 'codex-dev.db')
+    db_paths = [
+        os.path.join(home, 'Library', 'Application Support', 'com.codexmanager.desktop', 'codexmanager.db'),
+        os.path.join(home, '.config', 'codexmanager', 'codexmanager.db'),
+        os.path.join(os.environ.get('APPDATA', ''), 'CodexManager', 'codexmanager.db'),
+        os.path.join(os.environ.get('APPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
+        os.path.join(home, '.codex', 'sqlite', 'codex-dev.db')
+    ]
     tokens = 0
-    if os.path.exists(db_path):
+    for p in db_paths:
+        if not p or not os.path.exists(p):
+            continue
+        # Try new schema first
         try:
-            rows = query_locked_sqlite(db_path, "SELECT payload_json FROM thread_timeline_ledger")
-            for row in rows:
-                if row[0]:
-                    tokens += len(str(row[0])) // 3
+            rows = query_locked_sqlite(p, "SELECT SUM(total_tokens) FROM request_token_stats")
+            if rows and rows[0][0]:
+                tokens += int(rows[0][0])
         except:
-            pass
+            # Fallback to old schema
+            try:
+                rows = query_locked_sqlite(p, "SELECT payload_json FROM thread_timeline_ledger")
+                for row in rows:
+                    if row[0]:
+                        tokens += len(str(row[0])) // 3
+            except:
+                pass
     return tokens
 
 def get_claude_tokens(home):
