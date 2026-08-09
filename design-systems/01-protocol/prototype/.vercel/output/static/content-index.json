@@ -1,0 +1,501 @@
+{
+  "name": "T Salon",
+  "description": "面向开发者的线上与线下技术交流平台",
+  "language": "zh-CN",
+  "updated": "2026-07-18",
+  "pages": {
+    "events": "https://www.tsalon.tech/events/",
+    "content": "https://www.tsalon.tech/articles/",
+    "about": "https://www.tsalon.tech/about/",
+    "history": "https://www.tsalon.tech/history/",
+    "join": "https://www.tsalon.tech/about/#join"
+  },
+  "preparationTopics": [
+    {
+      "id": "ai",
+      "name": "AI",
+      "collaboration": [
+        "guest",
+        "content"
+      ]
+    },
+    {
+      "id": "embodied-intelligence",
+      "name": "具身智能",
+      "collaboration": [
+        "guest",
+        "content"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "hdx-7870619038900",
+      "title": "AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践",
+      "summary": "做出一个能跑的 AI Demo 已经不难，难的是把它变成一个能够持续运行、迭代和交付的产品。本次活动邀请记忆张量、Zion、PPIO 的一线实践者分享架构设计。",
+      "startDate": "2026-08-01T05:30:00.000Z",
+      "endDate": "2026-08-01T09:30:00.000Z",
+      "attendanceMode": "offline",
+      "registrationStatus": "closed",
+      "url": "https://www.tsalon.tech/events/hdx-7870619038900/",
+      "registrationUrl": "https://www.huodongxing.com/event/7870619038900"
+    },
+    {
+      "id": "tchat-series-launch",
+      "title": "T Chat「我在大厂做研发」系列首发",
+      "summary": "T Salon 联合老司机周报发起 T Chat 在线访谈系列，以主题分享与一对一交流记录一线互联网研发团队和工程师的真实实践。",
+      "startDate": "2022-04-28T12:00:00.000Z",
+      "endDate": "2022-04-28T13:00:00.000Z",
+      "attendanceMode": "online",
+      "registrationStatus": "archived",
+      "url": "https://www.tsalon.tech/events/tchat-series-launch/"
+    }
+  ],
+  "historicalEvents": [
+    {
+      "id": "hdx-1703870201300",
+      "title": "WWDC 之夜（北京场）",
+      "summary": "T 技术沙龙在北京发起的 WWDC 之夜，与本地开发者一起关注 Apple 开发者大会并交流新技术带来的变化。",
+      "startDate": "2023-06-05T15:00:00.000Z",
+      "endDate": "2023-06-05T19:00:00.000Z",
+      "mode": "offline",
+      "province": "北京",
+      "city": "海淀",
+      "address": "北三环西路甲18号大钟寺中坤广场C座1号楼F3-17报告厅",
+      "status": "ended",
+      "url": "https://www.tsalon.tech/events/archive/hdx-1703870201300/",
+      "sourceUrl": "https://www.huodongxing.com/event/1703870201300",
+      "sourceName": "活动行"
+    },
+    {
+      "id": "hdx-3711187585200",
+      "title": "货拉拉移动技术开放日",
+      "summary": "货拉拉移动团队与行业嘉宾围绕 Android 功耗、云真机、动态路由、AI 与出海开发，分享移动技术的一线实践。",
+      "startDate": "2023-07-29T02:00:00.000Z",
+      "endDate": "2023-07-29T10:00:00.000Z",
+      "mode": "online",
+      "province": "广东",
+      "city": "深圳",
+      "address": "线上活动",
+      "status": "ended",
+      "url": "https://www.tsalon.tech/events/archive/hdx-3711187585200/",
+      "sourceUrl": "https://www.huodongxing.com/event/3711187585200",
+      "sourceName": "活动行"
+    },
+    {
+      "id": "hdx-4704118639500",
+      "title": "WWDC 之夜（深圳场）",
+      "summary": "T 技术沙龙在深圳发起的 WWDC 之夜，与本地开发者一起关注 Apple 开发者大会并交流新技术带来的变化。",
+      "startDate": "2023-06-05T15:00:00.000Z",
+      "endDate": "2023-06-05T19:00:00.000Z",
+      "mode": "offline",
+      "province": "广东",
+      "city": "深圳",
+      "address": "福田区梅林街道中康路136号深圳新一代产业园2栋20楼",
+      "status": "ended",
+      "url": "https://www.tsalon.tech/events/archive/hdx-4704118639500/",
+      "sourceUrl": "https://www.huodongxing.com/event/4704118639500",
+      "sourceName": "活动行"
+    },
+    {
+      "id": "hdx-6704677921900",
+      "title": "ChatGPT 实践日 - T 技术沙龙",
+      "summary": "T 技术沙龙在深圳发起的 ChatGPT 开发者实践日，邀请 GPT 领域专家、开发者与跨界实践者讨论大模型应用的机遇与挑战。",
+      "startDate": "2023-06-17T06:00:00.000Z",
+      "endDate": "2023-06-17T10:00:00.000Z",
+      "mode": "offline",
+      "province": "广东",
+      "city": "深圳",
+      "address": "南山区科技园科发路1号富利臻大厦三楼领感空间",
+      "status": "ended",
+      "url": "https://www.tsalon.tech/events/archive/hdx-6704677921900/",
+      "sourceUrl": "https://www.huodongxing.com/event/6704677921900",
+      "sourceName": "活动行"
+    },
+    {
+      "id": "hdx-7732324341700",
+      "title": "货拉拉质量沙龙-录制回放专场",
+      "summary": "货拉拉质量保障部年度 Open Day，聚焦录制回放在 Java、C++、App 与小程序中的实践，并邀请得物、携程测试专家共同分享。",
+      "startDate": "2024-01-13T05:30:00.000Z",
+      "endDate": "2024-01-13T10:00:00.000Z",
+      "mode": "offline",
+      "province": "广东",
+      "city": "深圳",
+      "address": "福田区上梅林新一代产业园2栋20楼 有成长有未来会议厅",
+      "status": "ended",
+      "url": "https://www.tsalon.tech/events/archive/hdx-7732324341700/",
+      "sourceUrl": "https://www.huodongxing.com/event/7732324341700",
+      "sourceName": "活动行"
+    },
+    {
+      "id": "hdx-8699104705200",
+      "title": "GPT Prompt Engineering 实践日 - T 技术沙龙",
+      "summary": "T 技术沙龙在上海发起的 Prompt Engineering 实践日，围绕大模型应用、开源项目与提示工程的真实实践展开分享。",
+      "startDate": "2023-05-13T06:00:00.000Z",
+      "endDate": "2023-05-13T10:00:00.000Z",
+      "mode": "offline",
+      "province": "上海",
+      "city": "闵行",
+      "address": "田林路1036号科技绿洲16号楼一楼路演厅",
+      "status": "ended",
+      "url": "https://www.tsalon.tech/events/archive/hdx-8699104705200/",
+      "sourceUrl": "https://www.huodongxing.com/event/8699104705200",
+      "sourceName": "活动行"
+    }
+  ],
+  "eventSeries": [
+    {
+      "id": "t-chat",
+      "name": "T Chat",
+      "englishName": "T Chat — 我在大厂做研发",
+      "status": "archive",
+      "modes": [
+        "online"
+      ],
+      "topics": [
+        "移动端",
+        "前端",
+        "后端",
+        "架构",
+        "跨端",
+        "研发文化"
+      ],
+      "url": "https://www.tsalon.tech/events/series/t-chat/"
+    }
+  ],
+  "content": [
+    {
+      "id": "agent-swarm-sqlite",
+      "type": "insight",
+      "title": "代理群（Agent Swarm）重写 SQLite：万字解析多智能体协作的 5 大致命缺陷与架构重构",
+      "summary": "深度解析最新 Agent Swarm 实验：通过树状分解、专用极速 VCS 以及引入“解决冲突第三方智能体”、“Field Guide 环境场”等机制，代理群在四小时内用 Grok 4.5 达到 80% 的 SQLite (Rust 版) 测试通过率，并最终实现 100% 通过。",
+      "topics": [
+        "Agent",
+        "Engineering",
+        "Rust"
+      ],
+      "publishedAt": "2026-07-21T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/articles/agent-swarm-sqlite/"
+    },
+    {
+      "id": "ai-demo-to-production-recap",
+      "type": "field-note",
+      "title": "活动回顾：AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践",
+      "summary": "回顾了 8 月 1 日在上海举办的「AI 从 Demo 到生产」线下活动，四位嘉宾分享了关于 Agent 长期记忆、多模型协同、Vibe Coding 以及 Agent 真实执行环境的工程实践。",
+      "topics": [
+        "AI Native",
+        "Agent",
+        "工程实践"
+      ],
+      "publishedAt": "2026-08-03T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/articles/ai-demo-to-production-recap/"
+    },
+    {
+      "id": "hf-ai-hack",
+      "type": "insight",
+      "title": "Hugging Face 遭自主 AI 智能体入侵：AI 攻防战与“对齐”的反噬",
+      "summary": "Hugging Face 披露了一场完全由自主 AI 智能体框架发起的数千次操作攻击。而在防御与取证阶段，商业大模型的“安全护栏（Guardrails）”反而成为了阻碍，揭示了 AI 安全领域的全新挑战。",
+      "topics": [
+        "AI Security",
+        "Engineering"
+      ],
+      "publishedAt": "2026-07-20T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/articles/hf-ai-hack/"
+    },
+    {
+      "id": "nvidia-cosmos-edge",
+      "type": "insight",
+      "title": "NVIDIA 开源 Cosmos 3 Edge：4B 参数的世界模型如何重塑端侧具身智能",
+      "summary": "NVIDIA 正式开源 Cosmos 3 Edge。这个拥有 40 亿参数的轻量级模型不只是视觉模型，而是一个真正的“世界模型”，专为边缘设备打造，让机器人无需云端即可实时理解物理规律并生成动作。",
+      "topics": [
+        "Open Source",
+        "Embodied AI",
+        "Edge Computing"
+      ],
+      "publishedAt": "2026-07-20T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/articles/nvidia-cosmos-edge/"
+    },
+    {
+      "id": "shenzhen-frontend-recap",
+      "type": "field-note",
+      "title": "大前端时代的挑战与机遇（深圳场）：五位嘉宾的技术分享与现场回顾",
+      "summary": "2022 年 5 月，T 技术沙龙在深圳邀请五位一线研发从业者，围绕前端监控、Flutter、小程序、工程化与 Webpack 性能展开分享。",
+      "topics": [
+        "前端工程",
+        "Flutter",
+        "工程化",
+        "Webpack"
+      ],
+      "publishedAt": "2022-05-10T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/articles/shenzhen-frontend-recap/"
+    },
+    {
+      "id": "tchat-launch",
+      "type": "news",
+      "title": "T Chat｜「我在大厂做研发」系列直播首发",
+      "summary": "T 技术沙龙联合老司机周报发起 T Chat 系列直播，邀请一线互联网研发专家，在线分享团队与个人的真实研发实践。",
+      "topics": [
+        "T Chat",
+        "Engineering",
+        "Community"
+      ],
+      "publishedAt": "2022-04-25T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/articles/tchat-launch/"
+    }
+  ],
+  "videoArchive": [
+    {
+      "id": "tchat-1",
+      "type": "video-interview",
+      "title": "我在 Google 做研发",
+      "summary": "T Chat 首期，关于 Google 研发团队与个人实践。",
+      "guest": "老驴",
+      "series": "我在大厂做研发",
+      "episode": 1,
+      "topics": [
+        "研发文化",
+        "工程"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-1/",
+      "sourceUrl": "https://www.bilibili.com/video/BV18Z4y1y7S6"
+    },
+    {
+      "id": "tchat-10",
+      "type": "video-interview",
+      "title": "我在百度做阅读器",
+      "summary": "百度阅读器产品的研发实践。",
+      "guest": "李泽磊",
+      "series": "我在大厂做研发",
+      "episode": 10,
+      "topics": [
+        "客户端",
+        "阅读器"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-10/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1At4y1775f"
+    },
+    {
+      "id": "tchat-11",
+      "type": "video-interview",
+      "title": "我在字节做前端",
+      "summary": "字节跳动前端研发实践。",
+      "guest": "范文杰",
+      "series": "我在大厂做研发",
+      "episode": 11,
+      "topics": [
+        "前端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-11/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1vD4y1v7ok"
+    },
+    {
+      "id": "tchat-12",
+      "type": "video-interview",
+      "title": "我在知乎做埋点治理",
+      "summary": "知乎埋点治理的系统化实践。",
+      "guest": "张彦瑞 & 武蕴",
+      "series": "我在大厂做研发",
+      "episode": 12,
+      "topics": [
+        "数据",
+        "治理"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-12/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1rm4y1c7Nh"
+    },
+    {
+      "id": "tchat-13",
+      "type": "video-interview",
+      "title": "我在 1688 做终端架构",
+      "summary": "1688 终端架构团队的实践分享。",
+      "guest": "曹立成",
+      "series": "我在大厂做研发",
+      "episode": 13,
+      "topics": [
+        "终端",
+        "架构"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-13/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1YD4y1b7T9"
+    },
+    {
+      "id": "tchat-14",
+      "type": "video-interview",
+      "title": "我在 PayPal 做前端",
+      "summary": "PayPal 前端团队的工程实践与技术判断。",
+      "guest": "于航",
+      "series": "我在大厂做研发",
+      "episode": 14,
+      "topics": [
+        "前端",
+        "工程化"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-14/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1cD4y147QN"
+    },
+    {
+      "id": "tchat-15",
+      "type": "video-interview",
+      "title": "我在字节做跨端",
+      "summary": "字节跳动跨端研发的一线方法与选择。",
+      "guest": "Bill",
+      "series": "我在大厂做研发",
+      "episode": 15,
+      "topics": [
+        "跨端",
+        "前端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-15/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1q44y1D7rL"
+    },
+    {
+      "id": "tchat-16",
+      "type": "video-interview",
+      "title": "我在 CoDesign 做后端",
+      "summary": "CoDesign 产品背后的后端工程实践。",
+      "guest": "overtrue",
+      "series": "我在大厂做研发",
+      "episode": 16,
+      "topics": [
+        "后端",
+        "产品工程"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-16/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1s14y1K7HY"
+    },
+    {
+      "id": "tchat-17",
+      "type": "video-interview",
+      "title": "我在腾讯做 PAG 动效方案",
+      "summary": "来自腾讯的 PAG 动效方案研发实践。",
+      "guest": "陈仁健",
+      "series": "我在大厂做研发",
+      "episode": 17,
+      "topics": [
+        "动效",
+        "客户端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-17/",
+      "sourceUrl": "https://www.bilibili.com/video/BV11A411X7K5"
+    },
+    {
+      "id": "tchat-2",
+      "type": "video-interview",
+      "title": "我在闲鱼做 Flutter",
+      "summary": "闲鱼 Flutter 团队的跨端研发实践。",
+      "guest": "新宿",
+      "series": "我在大厂做研发",
+      "episode": 2,
+      "topics": [
+        "Flutter",
+        "跨端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-2/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1P34y1a7vw"
+    },
+    {
+      "id": "tchat-3",
+      "type": "video-interview",
+      "title": "我在 B 站做架构",
+      "summary": "哔哩哔哩架构研发的一线实践。",
+      "guest": "卡比",
+      "series": "我在大厂做研发",
+      "episode": 3,
+      "topics": [
+        "架构",
+        "客户端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-3/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1jB4y1R7fj"
+    },
+    {
+      "id": "tchat-4",
+      "type": "video-interview",
+      "title": "聊聊「被毕业」这件事",
+      "summary": "开发者职业变化与个人选择的公开讨论。",
+      "guest": "T 技术沙龙",
+      "series": "我在大厂做研发",
+      "episode": 4,
+      "topics": [
+        "职业",
+        "社区"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-4/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1GZ4y1i7uV"
+    },
+    {
+      "id": "tchat-5",
+      "type": "video-interview",
+      "title": "我在字节做 APM",
+      "summary": "字节跳动 APM 体系的研发实践。",
+      "guest": "亚东",
+      "series": "我在大厂做研发",
+      "episode": 5,
+      "topics": [
+        "APM",
+        "稳定性"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-5/",
+      "sourceUrl": "https://www.bilibili.com/video/BV17U4y1Q7uz"
+    },
+    {
+      "id": "tchat-6",
+      "type": "video-interview",
+      "title": "我在快手做移动端",
+      "summary": "快手移动端研发与工程实践。",
+      "guest": "戴铭",
+      "series": "我在大厂做研发",
+      "episode": 6,
+      "topics": [
+        "移动端",
+        "iOS"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-6/",
+      "sourceUrl": "https://www.bilibili.com/video/BV18T411g7HC"
+    },
+    {
+      "id": "tchat-7",
+      "type": "video-interview",
+      "title": "我在领英做移动端",
+      "summary": "领英移动端团队的研发实践。",
+      "guest": "Yuu",
+      "series": "我在大厂做研发",
+      "episode": 7,
+      "topics": [
+        "移动端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-7/",
+      "sourceUrl": "https://www.bilibili.com/video/BV11r4y177E5"
+    },
+    {
+      "id": "tchat-8",
+      "type": "video-interview",
+      "title": "我在 UC 做音视频",
+      "summary": "UC 音视频研发的一线经验。",
+      "guest": "莲叔",
+      "series": "我在大厂做研发",
+      "episode": 8,
+      "topics": [
+        "音视频",
+        "客户端"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-8/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1bd4y1m73H"
+    },
+    {
+      "id": "tchat-9",
+      "type": "video-interview",
+      "title": "我在大厂做国际化",
+      "summary": "面向全球产品的国际化研发实践。",
+      "guest": "龙熠",
+      "series": "我在大厂做研发",
+      "episode": 9,
+      "topics": [
+        "国际化",
+        "产品工程"
+      ],
+      "url": "https://www.tsalon.tech/articles/tchat-9/",
+      "sourceUrl": "https://www.bilibili.com/video/BV1HN4y1F7pV"
+    }
+  ]
+}

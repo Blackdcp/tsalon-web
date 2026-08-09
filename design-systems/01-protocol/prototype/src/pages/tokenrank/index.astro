@@ -40,23 +40,8 @@ const seoJsonLd = {
       </div>
     </header>
 
-    <div class="container content-container">
-      <aside class="registration-panel tokenrank-sidebar">
-        <h3>如何上榜？</h3>
-        <p>上榜需要将你的 GitHub 账号与本地环境绑定，运行专属提取脚本。</p>
-        <a class="btn btn-blue btn-block" href="/tokenrank/connect/">生成专属接入命令 <span>↗</span></a>
-        
-        <div class="tokenrank-note" style="margin-top: 2rem;">
-          <h4>支持统计的工具</h4>
-          <ul>
-            <li><strong>IDE 级</strong>: Cursor, Claude Code, Codex, Kimi, 通义灵码, Workbuddy</li>
-            <li><strong>Agent 级</strong>: Antigravity, OpenClaw (小龙虾), Hermes</li>
-          </ul>
-          <p style="font-size: 0.8rem; margin-top: 1rem; color: var(--color-gray);">*我们致力于保护隐私，提取脚本开源且仅计算使用量，绝不上报代码内容。</p>
-        </div>
-      </aside>
-
-      <div class="event-main">
+    <div class="container content-container" style="display: flex; flex-direction: column;">
+      <div class="event-main" style="width: 100%;">
         {leaderboard.length === 0 ? (
           <div class="content-section"><p>暂时还没有人上榜，快去抢首发吧！</p></div>
         ) : (
@@ -97,6 +82,21 @@ const seoJsonLd = {
           </table>
         )}
       </div>
+
+      <aside class="registration-panel" style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--color-border); width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; text-align: center;">
+        <h3 style="font-size: 1.5rem; margin-bottom: 1rem;">如何上榜？</h3>
+        <p style="margin-bottom: 2rem; color: var(--color-gray);">上榜需要将你的 GitHub 账号与本地环境绑定，运行专属提取脚本。</p>
+        <a class="btn btn-blue" href="/tokenrank/connect/" style="display: inline-block; padding: 1rem 3rem; font-size: 1.1rem;">生成专属接入命令 <span>↗</span></a>
+        
+        <div class="tokenrank-note" style="margin-top: 3rem; text-align: left; background: var(--color-bg-alt); padding: 2rem; border-radius: 8px;">
+          <h4 style="margin-bottom: 1rem;">支持统计的工具</h4>
+          <ul style="margin-bottom: 1.5rem; line-height: 1.6;">
+            <li><strong>IDE 级</strong>: Cursor, Claude Code, Codex, Kimi, 通义灵码, Workbuddy</li>
+            <li><strong>Agent 级</strong>: Antigravity, OpenClaw (小龙虾), Hermes</li>
+          </ul>
+          <p style="font-size: 0.85rem; color: var(--color-gray);">*我们致力于保护隐私，提取脚本完全开源且仅在本地计算使用量，绝不上报代码内容。</p>
+        </div>
+      </aside>
     </div>
   </main>
 </BaseLayout>

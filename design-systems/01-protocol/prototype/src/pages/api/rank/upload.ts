@@ -27,10 +27,15 @@ export const POST: APIRoute = async ({ request }) => {
     const name = userInfo?.name || 'Anonymous Developer';
     const image = userInfo?.image || '/icon-512x512.png';
 
-    const cursor = Number(data.cursor) || 0;
-    const claude = Number(data.claude) || 0;
+    // Extract all dynamic tokens, ensuring they are numbers
+    const dynamicTokens: Record<string, number> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (key !== 'total') {
+        dynamicTokens[key] = Number(val) || 0;
+      }
+    }
 
-    await updateTokenUsage(userId, name, image, cursor, claude);
+    await updateTokenUsage(userId, name, image, dynamicTokens);
 
     return new Response(JSON.stringify({ success: true, message: 'Tokens updated' }), {
       status: 200,

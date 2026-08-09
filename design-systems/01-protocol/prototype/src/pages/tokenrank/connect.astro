@@ -48,15 +48,28 @@ if (session?.user?.id) {
               <img src={session.user?.image} alt={session.user?.name} style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 1rem;" />
               <h3>已登录为 {session.user?.name}</h3>
               <p style="margin-bottom: 2rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
-              
-              <div style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; text-align: left; overflow-x: auto;">
-                <code style="word-break: break-all; color: var(--color-primary); font-family: monospace;">
-                  bash -c "$(curl -fsSL https://tsalon.tech/scripts/token-agent.sh)" -- --token="{uploadToken}"
-                </code>
+              <div class="code-tabs" style="margin-top: 1.5rem; text-align: left;">
+                <div class="tab-buttons" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                  <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1rem; border: none; background: var(--color-primary); color: white; border-radius: 4px; cursor: pointer;">Mac / Linux</button>
+                  <button class="tab-btn" data-target="windows" style="padding: 0.5rem 1rem; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); border-radius: 4px; cursor: pointer;">Windows</button>
+                </div>
+                
+                <div id="mac-linux" class="tab-content" style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
+                  <p style="font-size: 0.85rem; color: var(--color-gray); margin-bottom: 0.5rem;">在终端 (Terminal) 中粘贴并运行此命令：</p>
+                  <code style="word-break: break-all; color: var(--color-primary); font-family: monospace;">
+                    bash -c "$(curl -fsSL https://tsalon.tech/scripts/token-agent.sh)" -- --token="{uploadToken}"
+                  </code>
+                </div>
+
+                <div id="windows" class="tab-content" style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
+                  <p style="font-size: 0.85rem; color: var(--color-gray); margin-bottom: 0.5rem;">在 PowerShell (管理员模式) 中粘贴并运行此命令：</p>
+                  <code style="word-break: break-all; color: var(--color-primary); font-family: monospace;">
+                    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://tsalon.tech/scripts/token-agent.ps1')) -token "{uploadToken}"
+                  </code>
+                </div>
               </div>
               
               <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                在 Mac 或 Linux 的终端 (Terminal) 中粘贴并运行此命令。<br />
                 完成后刷新 <a href="/tokenrank/" style="color: var(--color-primary); text-decoration: underline;">排行榜页面</a> 即可看到数据。
               </p>
               
@@ -82,4 +95,35 @@ if (session?.user?.id) {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => signOut());
   }
+
+  // Tab switching logic
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Remove active class from all buttons and hide all contents
+      tabBtns.forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'var(--color-bg)';
+        b.style.color = 'var(--color-text)';
+        b.style.border = '1px solid var(--color-border)';
+      });
+      tabContents.forEach(c => (c as HTMLElement).style.display = 'none');
+      
+      // Add active class to clicked button and show content
+      btn.classList.add('active');
+      (btn as HTMLElement).style.background = 'var(--color-primary)';
+      (btn as HTMLElement).style.color = 'white';
+      (btn as HTMLElement).style.border = 'none';
+      
+      const targetId = btn.getAttribute('data-target');
+      if (targetId) {
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          targetEl.style.display = 'block';
+        }
+      }
+    });
+  });
 </script>

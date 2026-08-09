@@ -8,11 +8,7 @@ export interface UserRankData {
   userId: string;
   name: string;
   image: string;
-  tokens: {
-    cursor: number;
-    claude: number;
-    total: number;
-  };
+  tokens: Record<string, number>;
   updatedAt: string;
 }
 
@@ -33,14 +29,17 @@ export async function getUserIdByToken(token: string): Promise<string | null> {
   return kv.get(`token:${token}:userId`);
 }
 
-export async function updateTokenUsage(userId: string, name: string, image: string, cursor: number, claude: number) {
+export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, number>) {
   if (!kv) return;
-  const total = cursor + claude;
+  
+  const total = Object.values(tokens).reduce((acc, val) => acc + val, 0);
+  tokens['total'] = total;
+  
   const data: UserRankData = {
     userId,
     name,
     image,
-    tokens: { cursor, claude, total },
+    tokens,
     updatedAt: new Date().toISOString()
   };
   

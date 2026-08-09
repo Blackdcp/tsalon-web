@@ -6,6 +6,28 @@ import argparse
 import sys
 from pathlib import Path
 import glob
+import shutil
+import tempfile
+
+def query_locked_sqlite(db_path, query):
+    tmp_path = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
+        os.close(tmp_fd)
+        shutil.copy2(db_path, tmp_path)
+        
+        conn = sqlite3.connect(tmp_path)
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        os.remove(tmp_path)
+        return rows
+    except Exception as e:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise e
 
 def get_file_size(path):
     try:
@@ -25,7 +47,6 @@ def estimate_tokens_from_dirs(dirs, exts):
                         total_bytes += os.path.getsize(os.path.join(root, f))
                     except:
                         pass
-    # Estimate 1 token = 3 bytes of raw log/json data
     return total_bytes // 3
 
 def get_cursor_tokens(home):
@@ -38,14 +59,10 @@ def get_cursor_tokens(home):
     for p in db_paths:
         if os.path.exists(p):
             try:
-                conn = sqlite3.connect(p)
-                cursor = conn.cursor()
-                cursor.execute("SELECT value FROM ItemTable WHERE key LIKE '%chat%' OR key LIKE '%history%'")
-                rows = cursor.fetchall()
+                rows = query_locked_sqlite(p, "SELECT value FROM ItemTable WHERE key LIKE '%chat%' OR key LIKE '%history%'")
                 for row in rows:
                     if row[0]:
                         tokens += len(str(row[0])) // 3
-                conn.close()
             except:
                 pass
     return tokens
@@ -55,14 +72,10 @@ def get_codex_tokens(home):
     tokens = 0
     if os.path.exists(db_path):
         try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT payload_json FROM thread_timeline_ledger")
-            rows = cursor.fetchall()
+            rows = query_locked_sqlite(db_path, "SELECT payload_json FROM thread_timeline_ledger")
             for row in rows:
                 if row[0]:
                     tokens += len(str(row[0])) // 3
-            conn.close()
         except:
             pass
     return tokens
