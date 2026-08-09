@@ -6,3 +6,4 @@ dist/
 .qa-v2/
 previews/
 public/images/home-community-group.png
+.vercel
