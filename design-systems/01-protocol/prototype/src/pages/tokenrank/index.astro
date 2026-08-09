@@ -141,7 +141,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
 <BaseLayout alternatePath="/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main class="container page-content">
     
-    <header class="page-title" style="margin-bottom: 2.5rem; border-bottom: none; padding-bottom: 0;">
+    <header class="page-title" style="margin-bottom: 1.5rem; border-bottom: none; padding-bottom: 0;">
       <div class="page-title-main">
         <h1>Token 排行榜</h1>
         <p class="page-subtitle">开发者本地 AI 编码能耗大比拼</p>
@@ -149,8 +149,23 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       <div class="page-title-side">
         <span class="mono">STATS / TOKEN RANK</span>
       </div>
-
     </header>
+
+    <!-- Time Filters -->
+    <div class="filter-panel-premium">
+      <div class="time-filter-pills">
+        <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+        <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+        <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+        <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+        <a href={`?time=90d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+        <a href={`?time=all&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+      </div>
+      
+      <div class="date-display">
+        {new Date().toISOString().split('T')[0]}
+      </div>
+    </div>
 
     <!-- Bento Grid Dashboard -->
     <div class="bento-grid">
@@ -248,21 +263,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       </div>
     </div>
 
-    <!-- Time Filters moved below the Bento Grid -->
-    <div class="filter-panel-premium">
-      <div class="time-filter-pills">
-        <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近 3 天</a>
-        <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近 7 天</a>
-        <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近 30 天</a>
-        <a href={`?time=90d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近 90 天</a>
-        <a href={`?time=all&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
-      </div>
-      
-      <div class="date-display">
-        {new Date().toISOString().split('T')[0]}
-      </div>
-    </div>
+    <!-- Filters have been moved above the grid -->
 
     <div class="leaderboard-list">
       
