@@ -1,5 +1,8 @@
-import { kv } from '@vercel/kv';
-export { kv };
+import Redis from 'ioredis';
+
+// Fallback for development if no REDIS_URL is provided, or throw
+const redisUrl = process.env.REDIS_URL || '';
+export const kv = redisUrl ? new Redis(redisUrl) : null;
 
 export interface UserRankData {
   userId: string;
@@ -13,9 +16,9 @@ export interface UserRankData {
   updatedAt: string;
 }
 
-// Generate or retrieve a unique upload token for a user
 export async function getOrCreateUploadToken(userId: string): Promise<string> {
-  const existingToken = await kv.get<string>(`user:${userId}:token`);
+  if (!kv) return 'mock-token-' + crypto.randomUUID();
+  const existingToken = await kv.get(`user:${userId}:token`);
   if (existingToken) {
     return existingToken;
   }
@@ -26,10 +29,12 @@ export async function getOrCreateUploadToken(userId: string): Promise<string> {
 }
 
 export async function getUserIdByToken(token: string): Promise<string | null> {
-  return kv.get<string>(`token:${token}:userId`);
+  if (!kv) return 'mock-user-123';
+  return kv.get(`token:${token}:userId`);
 }
 
 export async function updateTokenUsage(userId: string, name: string, image: string, cursor: number, claude: number) {
+  if (!kv) return;
   const total = cursor + claude;
   const data: UserRankData = {
     userId,
@@ -39,38 +44,34 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     updatedAt: new Date().toISOString()
   };
   
-  // Store detailed user data
-  await kv.hset(`user:${userId}:data`, data);
-  
-  // Add to Sorted Set for ranking (score = total tokens)
-  await kv.zadd('leaderboard:total', { score: total, member: userId });
+  await kv.set(`user:${userId}:data`, JSON.stringify(data));
+  await kv.zadd('leaderboard:total', total, userId);
 }
 
 export async function getLeaderboard(limit = 100): Promise<UserRankData[]> {
-  // Get top users from sorted set (highest score first)
-  const userIds = await kv.zrange('leaderboard:total', 0, limit - 1, { rev: true });
+  if (!kv) return [];
+  // ioredis zrevrange returns highest score first
+  const userIds = await kv.zrevrange('leaderboard:total', 0, limit - 1);
   if (!userIds || userIds.length === 0) return [];
   
-  // Fetch detailed data for each user
-  const pipeline = kv.pipeline();
-  for (const id of userIds) {
-    pipeline.hgetall(`user:${id}:data`);
+  if (userIds.length > 0) {
+    const keys = userIds.map(id => `user:${id}:data`);
+    const results = await kv.mget(keys);
+    const parsedResults = results.filter(Boolean).map(res => JSON.parse(res as string));
+    return parsedResults;
   }
-  const results = await pipeline.exec<UserRankData[]>();
-  return results.filter(Boolean);
+  return [];
 }
 
 export async function getGlobalStats() {
+  if (!kv) return { totalUsers: 0, totalTokens: 0 };
   const totalUsers = await kv.zcard('leaderboard:total');
   
-  // To get global tokens, we can sum them up (or maintain a global counter)
-  // For simplicity, we just fetch all scores and sum
-  const allScores = await kv.zrange('leaderboard:total', 0, -1, { withScores: true });
+  // zrange with WITHSCORES returns ['user1', '100', 'user2', '200']
+  const allScores = await kv.zrange('leaderboard:total', 0, -1, 'WITHSCORES');
   let totalTokens = 0;
-  // allScores returns [member, score, member, score...] or [{member, score}...] depending on ioredis wrapper.
-  // @vercel/kv zrange withScores returns an array of objects: [{ member: '...', score: 100 }]
-  for (const item of allScores as any[]) {
-     totalTokens += Number(item.score) || 0;
+  for (let i = 1; i < allScores.length; i += 2) {
+     totalTokens += Number(allScores[i]) || 0;
   }
   
   return { totalUsers, totalTokens };

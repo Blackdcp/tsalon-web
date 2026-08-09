@@ -13,7 +13,7 @@ if (session?.user?.id) {
   // Also store user info so the CLI agent can pick it up
   const name = session.user.name || 'Anonymous';
   const image = session.user.image || '/icon-512x512.png';
-  await kv.hset(`user:${session.user.id}:info`, { name, image });
+  await kv.set(`user:${session.user.id}:info`, JSON.stringify({ name, image }));
 }
 ---
 
