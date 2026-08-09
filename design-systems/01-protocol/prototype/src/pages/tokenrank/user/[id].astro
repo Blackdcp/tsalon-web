@@ -2,6 +2,8 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { kv, getUserAnalytics } from '../../../lib/kv';
 
+export const prerender = false;
+
 const { id } = Astro.params;
 
 // Verify user exists
