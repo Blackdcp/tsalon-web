@@ -86,7 +86,8 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     }
     
     for (const key of keysToFilter) {
-      const events: TimeseriesEvent[] = await kv.lrange(key, 0, -1);
+      const rawEvents = await kv.lrange(key, 0, -1);
+      const events: TimeseriesEvent[] = rawEvents.map((str: any) => typeof str === 'string' ? JSON.parse(str) : str);
       const filteredEvents = events.filter(e => !toolsInHistory.has(e.tool));
       await kv.del(key);
       if (filteredEvents.length > 0) {

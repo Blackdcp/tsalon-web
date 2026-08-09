@@ -20,16 +20,16 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ success: false, message: 'Invalid token' }), { status: 401 });
     }
     
+    if (!kv) {
+      return new Response(JSON.stringify({ success: false, message: 'KV Database not configured' }), { status: 500 });
+    }
+    
     if (reset) {
       const tsKeys = await kv.keys(`user:${userId}:timeseries:*`);
       if (tsKeys.length > 0) await kv.del(...tsKeys);
       const devKeys = await kv.keys(`user:${userId}:device:*`);
       if (devKeys.length > 0) await kv.del(...devKeys);
       return new Response(JSON.stringify({ success: true, message: 'User data reset' }), { status: 200 });
-    }
-
-    if (!kv) {
-      return new Response(JSON.stringify({ success: false, message: 'KV Database not configured' }), { status: 500 });
     }
 
     // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.

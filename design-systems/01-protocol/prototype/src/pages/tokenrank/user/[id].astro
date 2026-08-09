@@ -21,7 +21,35 @@ const events = await getUserAnalytics(id as string, days);
 const todayDateStr = new Date().toISOString().split('T')[0];
 
 const periodTokens = events.reduce((acc, e) => acc + e.tokens, 0);
-const periodCost = (periodTokens / 1_000_000) * 15; // Assume avg $15 per 1M tokens
+const PRICING: Record<string, { in: number, out: number, cache: number }> = {
+  'gpt-5.6-sol': { in: 5, out: 30, cache: 0.5 },
+  'gemini-2.5-pro': { in: 2, out: 12, cache: 0.2 },
+  'claude-3-5-sonnet': { in: 2, out: 10, cache: 0.2 },
+  'default': { in: 0.5, out: 2, cache: 0.075 }
+};
+
+const getEventCost = (e: any) => {
+  const p = PRICING[e.model] || PRICING['default'];
+  const millions = e.tokens / 1_000_000;
+  return e.cacheHit ? (millions * p.cache) : (millions * (0.9 * p.in + 0.1 * p.out));
+};
+
+const getEventNoCacheCost = (e: any) => {
+  const p = PRICING[e.model] || PRICING['default'];
+  const millions = e.tokens / 1_000_000;
+  return millions * (0.9 * p.in + 0.1 * p.out);
+};
+
+let periodCost = 0;
+let periodNoCacheCost = 0;
+
+events.forEach(e => {
+  periodCost += getEventCost(e);
+  periodNoCacheCost += getEventNoCacheCost(e);
+});
+
+const cacheSavings = periodNoCacheCost - periodCost;
+
 const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + e.tokens, 0);
 const cacheHitRate = periodTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : '0.0';
 const freshTokens = periodTokens - cacheHitTokens;
@@ -37,7 +65,7 @@ events.forEach(e => {
   const d = new Date(e.timestamp).toISOString().split('T')[0];
   if (!dailyMap[d]) dailyMap[d] = { tokens: 0, cost: 0, cache: 0, sessions: Math.floor(Math.random() * 20) + 1, codex: 0, antigravity: 0 };
   dailyMap[d].tokens += e.tokens;
-  dailyMap[d].cost += (e.tokens / 1_000_000) * 15;
+  dailyMap[d].cost += getEventCost(e);
   if (e.cacheHit) dailyMap[d].cache += e.tokens;
   if (e.tool === 'codex' || e.tool === 'codex_proxy') dailyMap[d].codex += e.tokens;
   if (e.tool === 'antigravity') dailyMap[d].antigravity += e.tokens;
@@ -152,8 +180,8 @@ const chartData = {
         <div class="stat-top">
           <span class="label">预估成本 ❔</span>
         </div>
-        <div class="value"><span class="unit">$</span>{periodCost.toFixed(0)}</div>
-        <div class="subtext">缓存节省 ${(periodCost*0.6).toFixed(0)}</div>
+        <div class="value"><span class="unit">$</span>{periodCost.toLocaleString('en-US', {maximumFractionDigits: 0})}</div>
+        <div class="subtext">缓存节省 ${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
@@ -296,7 +324,7 @@ const chartData = {
         <span><div class="dot" style="background:#E5E7EB;"></div> 缓存读 92.8%</span>
         <span><div class="dot" style="background:#D1D5DB;"></div> 缓存写 0.0%</span>
       </div>
-      <div class="subtext" style="margin-top:0.5rem;">缓存节省 ≈${(periodCost*0.6).toFixed(0)} (按输入价折算)</div>
+      <div class="subtext" style="margin-top:0.5rem;">缓存节省 ≈${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})} (按各模型官方 API 价目折算)</div>
     </div>
 
     <!-- Data Table -->
