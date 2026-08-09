@@ -99,22 +99,39 @@ def get_codex_tokens(home):
         os.path.join(os.environ.get('LOCALAPPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
         os.path.join(home, '.codex', 'sqlite', 'codex-dev.db')
     ]
-    tokens = 0
+    tokens = {'codex': 0, 'codex_proxy': 0}
     for p in db_paths:
         if not p or not os.path.exists(p):
             continue
         try:
+            rows = query_locked_sqlite(p, "SELECT actual_source_kind, SUM(total_tokens) FROM request_token_stats GROUP BY actual_source_kind")
+            if rows:
+                for row in rows:
+                    source = row[0]
+                    t = int(row[1]) if row[1] else 0
+                    if not source or 'proxy' in source.lower() or source != 'openai_account':
+                        tokens['codex_proxy'] += t
+                    else:
+                        tokens['codex'] += t
+                continue
+        except:
+            pass
+            
+        try:
             rows = query_locked_sqlite(p, "SELECT SUM(total_tokens) FROM request_token_stats")
             if rows and rows[0][0]:
-                tokens += int(rows[0][0])
+                tokens['codex'] += int(rows[0][0])
+                continue
         except:
-            try:
-                rows = query_locked_sqlite(p, "SELECT payload_json FROM thread_timeline_ledger")
-                for row in rows:
-                    if row[0]:
-                        tokens += len(str(row[0])) // 3
-            except:
-                pass
+            pass
+            
+        try:
+            rows = query_locked_sqlite(p, "SELECT payload_json FROM thread_timeline_ledger")
+            for row in rows:
+                if row[0]:
+                    tokens['codex'] += len(str(row[0])) // 3
+        except:
+            pass
     return tokens
 
 def get_claude_tokens(home):
@@ -130,7 +147,6 @@ def get_claude_tokens(home):
             try:
                 with open(cp, 'r') as f:
                     data = json.load(f)
-                    # Support multiple formats of token storage in claude configs
                     if 'total_tokens' in data:
                         tokens += data['total_tokens']
                     elif 'usage' in data and 'total_tokens' in data['usage']:
@@ -138,6 +154,24 @@ def get_claude_tokens(home):
             except:
                 pass
     return tokens
+
+def scan_generic_app(home, folder_names):
+    dirs_to_scan = []
+    # Mac
+    for fn in folder_names:
+        dirs_to_scan.append(os.path.join(home, 'Library', 'Application Support', fn))
+    # Windows
+    appdata = os.environ.get('APPDATA', '')
+    localappdata = os.environ.get('LOCALAPPDATA', '')
+    for fn in folder_names:
+        if appdata: dirs_to_scan.append(os.path.join(appdata, fn))
+        if localappdata: dirs_to_scan.append(os.path.join(localappdata, fn))
+    # Linux
+    for fn in folder_names:
+        dirs_to_scan.append(os.path.join(home, '.config', fn))
+        
+    exts = ['.json', '.log', '.txt', '.db', '.sqlite', '.vscdb', '.jsonl']
+    return estimate_tokens_from_dirs(dirs_to_scan, exts)
 
 def scan_generic_extension(home, keywords):
     dirs_to_scan = []
@@ -179,11 +213,19 @@ def main():
     print("Scanning Cursor...")
     results['cursor'] = get_cursor_tokens(home)
     
+    print("Scanning CodexManager...")
+    codex_data = get_codex_tokens(home)
+    results['codex'] = codex_data.get('codex', 0)
+    results['codex_proxy'] = codex_data.get('codex_proxy', 0)
+    
     print("Scanning Claude Code...")
     results['claude'] = get_claude_tokens(home)
     
-    print("Scanning Codex...")
-    results['codex'] = get_codex_tokens(home)
+    print("Scanning Cherry Studio...")
+    results['cherry'] = scan_generic_app(home, ['cherry-studio', 'CherryStudio'])
+    
+    print("Scanning Kimi Code...")
+    results['kimi'] = scan_generic_extension(home, ['kimi', 'moonshot'])
     
     print("Scanning Antigravity...")
     results['antigravity'] = scan_agent_logs(home, '.gemini/antigravity')
