@@ -155,7 +155,9 @@ const formatAmountStr = (num: number) => {
       {currentUser ? (
         <div class="lb-card user-highlight-card">
           <div class="lb-card-left">
-            <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
+            <div class="lb-avatar-wrapper">
+              <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
+            </div>
             <div class="lb-user-info">
               <div class="lb-name-row">
                 <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
@@ -488,6 +490,10 @@ const formatAmountStr = (num: number) => {
     border-radius: 50%;
     padding: 2px;
     background: linear-gradient(135deg, var(--color-border) 0%, transparent 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
   .lb-avatar {
     width: 100%;
