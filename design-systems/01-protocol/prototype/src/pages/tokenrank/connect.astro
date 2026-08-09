@@ -105,9 +105,9 @@ if (session?.user?.id) {
       // Remove active class from all buttons and hide all contents
       tabBtns.forEach(b => {
         b.classList.remove('active');
-        b.style.background = 'var(--color-bg)';
-        b.style.color = 'var(--color-text)';
-        b.style.border = '1px solid var(--color-border)';
+        (b as HTMLElement).style.background = 'var(--color-bg)';
+        (b as HTMLElement).style.color = 'var(--color-text)';
+        (b as HTMLElement).style.border = '1px solid var(--color-border)';
       });
       tabContents.forEach(c => (c as HTMLElement).style.display = 'none');
       
