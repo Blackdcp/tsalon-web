@@ -1,0 +1,159 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getLeaderboard, getGlobalStats } from '../../lib/kv';
+
+// Opt-out of static rendering for real-time leaderboard
+export const prerender = false;
+
+// Fetch data on the server
+let leaderboard = [];
+let stats = { totalUsers: 0, totalTokens: 0 };
+try {
+  leaderboard = await getLeaderboard(100);
+  stats = await getGlobalStats();
+} catch (e) {
+  console.error("Failed to load leaderboard", e);
+}
+
+const seoJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'T Salon Token 排行榜',
+  description: '全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。'
+};
+---
+
+<BaseLayout alternatePath="/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
+  <main>
+    <header class="container page-title">
+      <div class="page-title-main">
+        <div class="event-page-status is-open"><span aria-hidden="true">●</span>活跃中</div>
+        <h1>Token 排行榜</h1>
+        <p class="lead">开发者本地 AI 编码能耗大比拼</p>
+      </div>
+      <div class="page-title-side">
+        <span class="mono">STATS / TOKEN RANK</span>
+      </div>
+      <div class="page-title-main event-quickfacts">
+        <div class="quickfact"><span class="mono">参与总人数</span><strong>{stats.totalUsers} 人</strong></div>
+        <div class="quickfact"><span class="mono">全员总消耗</span><strong>{(stats.totalTokens / 100000000).toFixed(2)} 亿 Tokens</strong></div>
+        <div class="quickfact"><span class="mono">预计总花费</span><strong>≈ ${(stats.totalTokens / 1000000 * 3).toFixed(0)}</strong></div>
+      </div>
+    </header>
+
+    <div class="container content-container">
+      <aside class="registration-panel tokenrank-sidebar">
+        <h3>如何上榜？</h3>
+        <p>上榜需要将你的 GitHub 账号与本地环境绑定，运行专属提取脚本。</p>
+        <a class="btn btn-blue btn-block" href="/tokenrank/connect/">生成专属接入命令 <span>↗</span></a>
+        
+        <div class="tokenrank-note" style="margin-top: 2rem;">
+          <h4>支持统计的工具</h4>
+          <ul>
+            <li>Cursor (解析 state.vscdb)</li>
+            <li>Claude Code (解析本地配置)</li>
+          </ul>
+          <p style="font-size: 0.8rem; margin-top: 1rem; color: var(--color-gray);">*我们致力于保护隐私，提取脚本开源且仅计算使用量，绝不上报代码内容。</p>
+        </div>
+      </aside>
+
+      <div class="event-main">
+        {leaderboard.length === 0 ? (
+          <div class="content-section"><p>暂时还没有人上榜，快去抢首发吧！</p></div>
+        ) : (
+          <table class="tokenrank-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>开发者</th>
+                <th>消耗详情 (Cursor/Claude)</th>
+                <th>总 Tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboard.map((user, idx) => (
+                <tr>
+                  <td class="rank-num">
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                  </td>
+                  <td>
+                    <div class="rank-user">
+                      <img src={user.image} alt={user.name} class="rank-avatar" />
+                      <strong>{user.name}</strong>
+                    </div>
+                  </td>
+                  <td class="rank-details">
+                    <span class="badge cursor">Cursor {(user.tokens.cursor / 10000).toFixed(0)}w</span>
+                    <span class="badge claude">Claude {(user.tokens.claude / 10000).toFixed(0)}w</span>
+                  </td>
+                  <td class="rank-total">
+                    <strong>{(user.tokens.total / 100000000).toFixed(2)} 亿</strong>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .tokenrank-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2rem;
+  }
+  .tokenrank-table th {
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid var(--color-border);
+    color: var(--color-gray);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .tokenrank-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+  }
+  .rank-num {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--color-gray);
+  }
+  .rank-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .rank-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .rank-details {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge.cursor { background: rgba(56, 189, 248, 0.1); color: #0284c7; }
+  .badge.claude { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+  .rank-total {
+    font-size: 1.1rem;
+    color: var(--color-primary);
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .badge.cursor { color: #38bdf8; }
+    .badge.claude { color: #f59e0b; }
+  }
+</style>
