@@ -24,6 +24,7 @@
     "@auth/core": "^0.37.4",
     "astro": "7.1.1",
     "auth-astro": "^4.2.0",
+    "html-to-image": "^1.11.13",
     "ioredis": "^5.11.1"
   },
   "devDependencies": {

@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import ShareModal from '../../components/ShareModal.astro';
+import { getSession } from 'auth-astro/server';
 import { getLeaderboard, getGlobalStats } from '../../lib/kv';
 
 // Opt-out of static rendering for real-time leaderboard
@@ -13,6 +15,22 @@ try {
 } catch (e) {
   console.error('Failed to fetch leaderboard data:', e);
 }
+
+let session: any = null;
+let currentUser = null;
+let currentUserRank = 0;
+
+try {
+  session = await getSession(Astro.request);
+  if (session?.user) {
+    // Find user in leaderboard
+    const userIndex = leaderboard.findIndex(u => u.name === session.user.name); // Using name as fallback, ideally user id
+    if (userIndex !== -1) {
+      currentUser = leaderboard[userIndex];
+      currentUserRank = userIndex + 1;
+    }
+  }
+} catch(e) {}
 
 const seoJsonLd = {
   '@context': 'https://schema.org',
@@ -37,6 +55,7 @@ const seoJsonLd = {
         <div class="quickfact"><span class="mono">参与总人数</span><strong>{stats.totalUsers} 人</strong></div>
         <div class="quickfact"><span class="mono">全员总消耗</span><strong>{(stats.totalTokens / 100000000).toFixed(2)} 亿 Tokens</strong></div>
         <div class="quickfact"><span class="mono">预计总花费</span><strong>≈ ${(stats.totalTokens / 1000000 * 3).toFixed(0)}</strong></div>
+        <button class="btn btn-blue" onclick="openShareModal()" style="padding: 0.5rem 1rem; border: none; border-radius: 8px; cursor: pointer; align-self: center;">分享榜单 ↗</button>
       </div>
     </header>
 
@@ -99,6 +118,8 @@ const seoJsonLd = {
       </aside>
     </div>
   </main>
+
+  <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} />
 </BaseLayout>
 
 <style>
