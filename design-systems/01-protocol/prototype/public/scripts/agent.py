@@ -5,66 +5,91 @@ import urllib.request
 import argparse
 import sys
 from pathlib import Path
+import glob
 
-def get_cursor_tokens():
-    # Attempt to read Cursor's state.vscdb
-    # This is a mocked logic for MVP. A real implementation would parse the workspaceStorage databases
-    # and use tiktoken or heuristics to count characters.
-    home = str(Path.home())
+def get_file_size(path):
+    try:
+        return os.path.getsize(path)
+    except:
+        return 0
+
+def estimate_tokens_from_files(file_patterns):
+    total_bytes = 0
+    for pattern in file_patterns:
+        for filepath in glob.glob(pattern, recursive=True):
+            if os.path.isfile(filepath):
+                total_bytes += get_file_size(filepath)
+    # Estimate 1 token = 3 bytes of raw log/json data
+    return total_bytes // 3
+
+def get_cursor_tokens(home):
     db_paths = [
         os.path.join(home, 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'state.vscdb'),
         os.path.join(home, '.config', 'Cursor', 'User', 'globalStorage', 'state.vscdb'),
         os.path.join(os.environ.get('APPDATA', ''), 'Cursor', 'User', 'globalStorage', 'state.vscdb')
     ]
-    
     tokens = 0
-    found = False
     for p in db_paths:
         if os.path.exists(p):
-            found = True
             try:
-                # Mock token calculation logic: in reality, we'd query sqlite here
                 conn = sqlite3.connect(p)
                 cursor = conn.cursor()
-                # Dummy query: SELECT length(value) FROM ItemTable WHERE key LIKE '%chat%'
                 cursor.execute("SELECT value FROM ItemTable WHERE key LIKE '%chat%' OR key LIKE '%history%'")
                 rows = cursor.fetchall()
                 for row in rows:
                     if row[0]:
-                        tokens += len(str(row[0])) // 3 # rough heuristic: 1 token = 3 chars
+                        tokens += len(str(row[0])) // 3
                 conn.close()
-            except Exception as e:
-                print(f"[Warning] Failed to parse Cursor DB at {p}: {e}")
-                
-    if not found:
-        print("[Info] No Cursor database found locally. Skipping Cursor token extraction.")
-        
-    # Mock fallback for demonstration if no DB is found
-    if tokens == 0 and not found:
-        # Just to have data in the demo, we mock it. In production, remove this!
-        tokens = 15300000 
-        
+            except:
+                pass
     return tokens
 
-def get_claude_tokens():
-    # Attempt to read Claude Code config / logs
-    home = str(Path.home())
-    claude_path = os.path.join(home, '.claude.json')
+def get_codex_tokens(home):
+    db_path = os.path.join(home, '.codex', 'sqlite', 'codex-dev.db')
     tokens = 0
+    if os.path.exists(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT payload_json FROM thread_timeline_ledger")
+            rows = cursor.fetchall()
+            for row in rows:
+                if row[0]:
+                    tokens += len(str(row[0])) // 3
+            conn.close()
+        except:
+            pass
+    return tokens
+
+def get_claude_tokens(home):
+    claude_path = os.path.join(home, '.claude.json')
     if os.path.exists(claude_path):
         try:
             with open(claude_path, 'r') as f:
                 data = json.load(f)
-                # Parse mock tokens
-                tokens = data.get('total_tokens', 0)
-        except Exception as e:
-            print(f"[Warning] Failed to parse Claude config at {claude_path}: {e}")
-    
-    # Mock fallback
-    if tokens == 0 and not os.path.exists(claude_path):
-        tokens = 4500000
-    
-    return tokens
+                return data.get('total_tokens', 0)
+        except:
+            pass
+    return 0
+
+def scan_generic_extension(home, keywords):
+    patterns = []
+    for kw in keywords:
+        # VSCode Extensions
+        patterns.append(os.path.join(home, '.vscode', 'extensions', f'*{kw}*', '**', '*.json'))
+        patterns.append(os.path.join(home, '.vscode', 'extensions', f'*{kw}*', '**', '*.log'))
+        # VSCode Global Storage
+        patterns.append(os.path.join(home, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', f'*{kw}*', '**', '*'))
+        patterns.append(os.path.join(home, '.config', 'Code', 'User', 'globalStorage', f'*{kw}*', '**', '*'))
+    return estimate_tokens_from_files(patterns)
+
+def scan_agent_logs(home, folder_name):
+    patterns = [
+        os.path.join(home, folder_name, '**', '*.jsonl'),
+        os.path.join(home, folder_name, '**', '*.json'),
+        os.path.join(home, folder_name, '**', '*.log')
+    ]
+    return estimate_tokens_from_files(patterns)
 
 def main():
     parser = argparse.ArgumentParser(description='T Salon Token Agent')
@@ -73,19 +98,52 @@ def main():
     args = parser.parse_args()
 
     print("🚀 [T Salon Token Agent] Starting extraction...")
-    cursor_tokens = get_cursor_tokens()
-    claude_tokens = get_claude_tokens()
+    home = str(Path.home())
     
-    total = cursor_tokens + claude_tokens
-    print(f"📊 Extracted Data: Cursor: {cursor_tokens:,} tokens | Claude: {claude_tokens:,} tokens | Total: {total:,} tokens")
+    # Plugin Registry
+    results = {}
+    
+    print("Scanning Cursor...")
+    results['cursor'] = get_cursor_tokens(home)
+    
+    print("Scanning Claude Code...")
+    results['claude'] = get_claude_tokens(home)
+    
+    print("Scanning Codex...")
+    results['codex'] = get_codex_tokens(home)
+    
+    print("Scanning Antigravity...")
+    results['antigravity'] = scan_agent_logs(home, '.gemini/antigravity')
+    
+    print("Scanning OpenClaw...")
+    results['openclaw'] = scan_agent_logs(home, '.openclaw')
+    
+    print("Scanning Hermes...")
+    results['hermes'] = scan_agent_logs(home, '.hermes')
+    
+    print("Scanning Kimi Code...")
+    results['kimi'] = scan_generic_extension(home, ['kimi', 'moonshot'])
+    
+    print("Scanning Qorder...")
+    results['qorder'] = scan_generic_extension(home, ['qorder', 'lingma', 'tongyi'])
+    
+    print("Scanning Workbuddy...")
+    results['workbuddy'] = scan_generic_extension(home, ['workbuddy'])
+    
+    # Filter out empty ones to keep the payload clean
+    final_tokens = {k: v for k, v in results.items() if v > 0}
+    total = sum(final_tokens.values())
+    final_tokens['total'] = total
+    
+    print(f"📊 Extracted Data:")
+    for k, v in final_tokens.items():
+        if k != 'total':
+            print(f"  - {k.capitalize()}: {v:,} tokens")
+    print(f"  => Total: {total:,} tokens")
     
     payload = {
         'token': args.token,
-        'data': {
-            'cursor': cursor_tokens,
-            'claude': claude_tokens,
-            'total': total
-        }
+        'data': final_tokens
     }
     
     # Send data
