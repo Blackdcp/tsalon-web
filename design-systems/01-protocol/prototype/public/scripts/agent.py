@@ -96,15 +96,34 @@ def get_codex_tokens(home):
         os.path.join(os.environ.get('APPDATA', ''), 'CodexManager', 'codexmanager.db'),
         os.path.join(os.environ.get('APPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
         os.path.join(os.environ.get('LOCALAPPDATA', ''), 'CodexManager', 'codexmanager.db'),
-        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
-        os.path.join(home, '.codex', 'sqlite', 'codex-dev.db')
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db')
     ]
+    
+    # Also discover state_*.sqlite in ~/.codex and ~/.opencodex
+    for d in ['.codex', '.opencodex']:
+        dp = os.path.join(home, d)
+        if os.path.exists(dp):
+            for f in os.listdir(dp):
+                if f.startswith('state_') and f.endswith('.sqlite'):
+                    db_paths.append(os.path.join(dp, f))
+    
     tokens = {'codex': 0, 'codex_proxy': 0}
     for p in db_paths:
         if not p or not os.path.exists(p):
             continue
+            
+        # Try state_*.sqlite schema (threads table)
         try:
-            rows = query_locked_sqlite(p, "SELECT actual_source_kind, SUM(total_tokens) FROM request_token_stats GROUP BY actual_source_kind")
+            rows = query_locked_sqlite(p, "SELECT SUM(tokens_used) FROM threads")
+            if rows and rows[0][0]:
+                tokens['codex'] += int(rows[0][0])
+                continue
+        except:
+            pass
+            
+        # Try request_token_stats schema
+        try:
+            rows = query_locked_sqlite(p, "SELECT actual_source_kind, SUM(input_tokens + output_tokens + cached_input_tokens + reasoning_output_tokens) FROM request_token_stats GROUP BY actual_source_kind")
             if rows:
                 for row in rows:
                     source = row[0]
