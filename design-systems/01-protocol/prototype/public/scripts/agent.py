@@ -294,8 +294,9 @@ def main():
     
     print(f"📊 Extracted Data:")
     for k, v in final_tokens.items():
-        if k != 'total':
-            print(f"  - {k.capitalize()}: {v:,} tokens")
+        if k == 'history' or not isinstance(v, (int, float)):
+            continue
+        print(f"  - {k.capitalize()}: {v:,} tokens")
     print(f"  => Total: {total:,} tokens")
     
     device_id = get_or_create_device_id(home)
