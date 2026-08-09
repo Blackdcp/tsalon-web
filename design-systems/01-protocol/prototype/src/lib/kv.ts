@@ -18,6 +18,7 @@ export interface TimeseriesEvent {
   model: string;
   tokens: number;
   cacheHit: boolean;
+  deviceId?: string;
 }
 
 
@@ -88,7 +89,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     for (const key of keysToFilter) {
       const rawEvents = await kv.lrange(key, 0, -1);
       const events: TimeseriesEvent[] = rawEvents.map((str: any) => typeof str === 'string' ? JSON.parse(str) : str);
-      const filteredEvents = events.filter(e => !toolsInHistory.has(e.tool));
+      const filteredEvents = events.filter(e => !(toolsInHistory.has(e.tool) && e.deviceId === deviceId));
       await kv.del(key);
       if (filteredEvents.length > 0) {
         const pipeline = kv.pipeline();
@@ -180,7 +181,8 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
               tool,
               model,
               tokens: hVal,
-              cacheHit: Math.random() < cacheRate
+              cacheHit: Math.random() < cacheRate,
+              deviceId: deviceId
             };
             pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
             pipe.expire(`user:${userId}:timeseries:${dateStr}`, 60 * 60 * 24 * 31);
@@ -204,7 +206,8 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
             tool,
             model,
             tokens: tokensToLog,
-            cacheHit: Math.random() < cacheRate
+            cacheHit: Math.random() < cacheRate,
+            deviceId: deviceId
           };
           pipe.rpush(`user:${userId}:timeseries:${historyDateStr}`, JSON.stringify(event));
           pipe.expire(`user:${userId}:timeseries:${historyDateStr}`, 60 * 60 * 24 * 31);
@@ -217,7 +220,8 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
           tool,
           model,
           tokens: delta > 0 ? delta : val,
-          cacheHit: Math.random() < cacheRate
+          cacheHit: Math.random() < cacheRate,
+          deviceId: deviceId
         };
         pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
         pipe.expire(`user:${userId}:timeseries:${todayStr}`, 60 * 60 * 24 * 31);
