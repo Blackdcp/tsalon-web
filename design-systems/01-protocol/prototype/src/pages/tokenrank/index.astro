@@ -38,29 +38,74 @@ const seoJsonLd = {
   name: 'T Salon Token 排行榜',
   description: '全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。'
 };
+
+const PRICING: Record<string, { in: number, out: number, cache: number }> = {
+  'gpt-5.6-sol': { in: 5, out: 30, cache: 0.5 },
+  'gemini-2.5-pro': { in: 2, out: 12, cache: 0.2 },
+  'claude-3-5-sonnet': { in: 2, out: 10, cache: 0.2 },
+  'default': { in: 0.5, out: 2, cache: 0.075 }
+};
+
+const getToolEstimatedCost = (tool: string, tokens: number) => {
+  let model = 'default';
+  let cacheRate = 0.5;
+  if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
+    model = 'gpt-5.6-sol';
+    cacheRate = 0.93;
+  } else if (tool === 'antigravity') {
+    model = 'gemini-2.5-pro';
+    cacheRate = 0.1;
+  } else if (tool === 'claude') {
+    model = 'claude-3-5-sonnet';
+    cacheRate = 0.8;
+  }
+  const p = PRICING[model] || PRICING['default'];
+  const millions = tokens / 1_000_000;
+  const cacheHitTokens = millions * cacheRate;
+  const freshTokens = millions * (1 - cacheRate);
+  return (cacheHitTokens * p.cache) + (freshTokens * (0.9 * p.in + 0.1 * p.out));
+};
 ---
 
 <BaseLayout alternatePath="/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main>
-    <header class="container page-title">
-      <div class="page-title-main">
-        <div class="event-page-status is-open"><span aria-hidden="true">●</span>活跃中</div>
-        <h1>Token 排行榜</h1>
-        <p class="lead">开发者本地 AI 编码能耗大比拼</p>
-      </div>
-      <div class="page-title-side">
-        <span class="mono">STATS / TOKEN RANK</span>
-      </div>
-      <div class="page-title-main event-quickfacts">
-        <div class="quickfact"><span class="mono">参与总人数</span><strong>{stats.totalUsers} 人</strong></div>
-        <div class="quickfact"><span class="mono">全员总消耗</span><strong>{(stats.totalTokens / 100000000).toFixed(2)} 亿 Tokens</strong></div>
-        <div class="quickfact"><span class="mono">预计总花费</span><strong>≈ ${(stats.totalTokens / 1000000 * 3).toFixed(0)}</strong></div>
-        <button class="btn btn-blue" onclick="openShareModal()" style="padding: 0.5rem 1rem; border: none; border-radius: 8px; cursor: pointer; align-self: center;">分享榜单 ↗</button>
+    <header class="hero-stats">
+      <div class="container hero-stats-inner">
+        <div class="hero-badge"><span class="pulse-dot"></span> 全网排行榜活跃中</div>
+        <h1 class="hero-title">Token 排行榜</h1>
+        <p class="hero-subtitle">开发者本地 AI 编码能耗大比拼</p>
+        
+        <div class="hero-metrics">
+          <div class="metric-card">
+            <span class="metric-label">参与总人数</span>
+            <strong class="metric-value">{stats.totalUsers} <span class="metric-unit">人</span></strong>
+          </div>
+          <div class="metric-card highlight">
+            <span class="metric-label">全员总消耗</span>
+            <strong class="metric-value">{(stats.totalTokens / 100000000).toFixed(2)} <span class="metric-unit">亿 Tokens</span></strong>
+          </div>
+          <div class="metric-card glowing">
+            <span class="metric-label">预计总花费</span>
+            <strong class="metric-value">≈ ${(stats.totalTokens / 1000000 * 3).toFixed(0)}</strong>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="container content-container" style="display: flex; flex-direction: column;">
-      <div class="event-main" style="width: 100%;">
+      
+      <div class="join-banner">
+        <div class="join-banner-text">
+          <h3>如何上榜？</h3>
+          <p>将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。</p>
+        </div>
+        <div class="join-banner-action">
+          <a class="btn btn-blue" href="/tokenrank/connect/" style="padding: 0.6rem 1.25rem;">生成专属接入命令 <span>↗</span></a>
+          <button class="btn btn-dark" onclick="openShareModal()">分享榜单 ↗</button>
+        </div>
+      </div>
+
+      <div class="event-main" style="width: 100%; margin-top: 2rem;">
         {leaderboard.length === 0 ? (
           <div class="content-section"><p>暂时还没有人上榜，快去抢首发吧！</p></div>
         ) : (
@@ -68,7 +113,7 @@ const seoJsonLd = {
             <thead>
               <tr>
                 <th>排名</th>
-                <th>开发者</th>
+                <th>T 友</th>
                 <th>消耗详情 (多端工具)</th>
                 <th>总 Tokens</th>
               </tr>
@@ -81,14 +126,14 @@ const seoJsonLd = {
                   </td>
                   <td>
                     <div class="rank-user">
-                      <img src={user.image} alt={user.name} class="rank-avatar" />
+                      <img src={user.image} alt={user.name} class="rank-avatar" crossorigin="anonymous" />
                       <strong>{user.name}</strong>
                     </div>
                   </td>
                   <td class="rank-details">
                     {Object.entries(user.tokens).filter(([k]) => k !== 'total').map(([tool, amount]: [string, any]) => (
                       <span class={`badge ${tool}`}>
-                        {tool.charAt(0).toUpperCase() + tool.slice(1)} {amount >= 10000 ? (amount / 10000).toFixed(0) + 'w' : amount}
+                        {tool.charAt(0).toUpperCase() + tool.slice(1)} ~${getToolEstimatedCost(tool, amount).toFixed(0)}
                       </span>
                     ))}
                   </td>
@@ -101,21 +146,6 @@ const seoJsonLd = {
           </table>
         )}
       </div>
-
-      <aside class="registration-panel" style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--color-border); width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; text-align: center;">
-        <h3 style="font-size: 1.5rem; margin-bottom: 1rem;">如何上榜？</h3>
-        <p style="margin-bottom: 2rem; color: var(--color-gray);">上榜需要将你的 GitHub 账号与本地环境绑定，运行专属提取脚本。</p>
-        <a class="btn btn-blue" href="/tokenrank/connect/" style="display: inline-block; padding: 1rem 3rem; font-size: 1.1rem;">生成专属接入命令 <span>↗</span></a>
-        
-        <div class="tokenrank-note" style="margin-top: 3rem; text-align: left; background: var(--color-bg-alt); padding: 2rem; border-radius: 8px;">
-          <h4 style="margin-bottom: 1rem;">支持统计的工具</h4>
-          <ul style="margin-bottom: 1.5rem; line-height: 1.6;">
-            <li><strong>IDE 级</strong>: Cursor, Claude Code, Codex, Kimi, 通义灵码, Workbuddy</li>
-            <li><strong>Agent 级</strong>: Antigravity, OpenClaw (小龙虾), Hermes</li>
-          </ul>
-          <p style="font-size: 0.85rem; color: var(--color-gray);">*我们致力于保护隐私，提取脚本完全开源且仅在本地计算使用量，绝不上报代码内容。</p>
-        </div>
-      </aside>
     </div>
   </main>
 
@@ -123,10 +153,177 @@ const seoJsonLd = {
 </BaseLayout>
 
 <style>
+  /* HERO STATS STYLES */
+  .hero-stats {
+    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+    color: white;
+    padding: 5rem 0 6rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: -3rem; /* overlap with content container */
+  }
+  .hero-stats::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .hero-stats-inner {
+    position: relative;
+    z-index: 2;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #e5e7eb;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #10B981;
+    border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  }
+  .hero-title {
+    font-size: 3.5rem;
+    font-weight: 900;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+  }
+  .hero-subtitle {
+    font-size: 1.25rem;
+    color: #9ca3af;
+    margin-bottom: 3rem;
+  }
+  .hero-metrics {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .metric-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 2rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 220px;
+    transition: transform 0.3s ease;
+  }
+  .metric-card:hover {
+    transform: translateY(-5px);
+  }
+  .metric-card.highlight {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+  .metric-card.glowing {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
+  }
+  .metric-label {
+    font-size: 0.9rem;
+    color: #9ca3af;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .metric-value {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+  }
+  .metric-card.glowing .metric-value {
+    color: #34d399;
+  }
+  .metric-unit {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #d1d5db;
+  }
+
+  /* JOIN BANNER STYLES */
+  .join-banner {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem 2.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-border);
+    position: relative;
+    z-index: 10;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    .join-banner {
+      background: var(--color-bg-alt);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+  }
+  .join-banner-text h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+  }
+  .join-banner-text p {
+    margin: 0;
+    color: var(--color-gray);
+    font-size: 1rem;
+  }
+  .join-banner-action {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  .btn-dark {
+    background: var(--color-text);
+    color: var(--color-bg);
+    padding: 0.6rem 1.25rem;
+    border-radius: 6px;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .btn-dark:hover {
+    opacity: 0.9;
+  }
+
+  /* TABLE STYLES */
   .tokenrank-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 2rem;
+    margin-top: 1rem;
   }
   .tokenrank-table th {
     text-align: left;
@@ -163,9 +360,9 @@ const seoJsonLd = {
     flex-wrap: wrap;
   }
   .badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
     font-weight: 600;
   }
   .badge.cursor { background: rgba(56, 189, 248, 0.1); color: #0284c7; }
@@ -178,7 +375,7 @@ const seoJsonLd = {
   .badge.qorder { background: rgba(14, 165, 233, 0.1); color: #0369a1; }
   .badge.workbuddy { background: rgba(20, 184, 166, 0.1); color: #0f766e; }
   .rank-total {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     color: var(--color-primary);
   }
   
@@ -197,5 +394,11 @@ const seoJsonLd = {
     .badge.kimi { color: #fb923c; }
     .badge.qorder { color: #38bdf8; }
     .badge.workbuddy { color: #2dd4bf; }
+  }
+
+  @media (max-width: 768px) {
+    .hero-title { font-size: 2.5rem; }
+    .metric-value { font-size: 1.75rem; }
+    .join-banner { flex-direction: column; text-align: center; }
   }
 </style>
