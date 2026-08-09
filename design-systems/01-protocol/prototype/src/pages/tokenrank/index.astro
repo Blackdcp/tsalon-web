@@ -141,113 +141,33 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
 <BaseLayout alternatePath="/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main class="container page-content">
     
-    <header class="page-title" style="margin-bottom: 1rem; border-bottom: none; padding-bottom: 0;">
+    <header class="page-title" style="margin-bottom: 2rem; border-bottom: none; padding-bottom: 0;">
       <div class="page-title-main">
         <h1>Token 排行榜</h1>
+        <p class="page-subtitle">开发者本地 AI 编码能耗大比拼</p>
       </div>
-      <div class="page-title-side">
-        <span class="mono">STATS / TOKEN RANK</span>
-      </div>
-
     </header>
 
-    <!-- Bento Grid Dashboard -->
-    <div class="bento-grid">
-      <!-- Card 1 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">{timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 <span class="help-icon">?</span></span>
-          {timeFilter !== 'today' && <span class="bc-trend positive">+558%</span>}
-        </div>
-        <div class="bc-value">
-          {formatDisplayAmount(globalTokens, modeFilter).replace('亿', '').replace('万', '')}
-          {formatDisplayAmount(globalTokens, modeFilter).includes('亿') ? <span class="bc-unit">亿</span> : formatDisplayAmount(globalTokens, modeFilter).includes('万') ? <span class="bc-unit">万</span> : ''}
-        </div>
-        <div class="bc-subtext">日均约 {(globalTokens / 100_000_000 / 30).toFixed(1)} 亿</div>
+    <!-- Global Stats Overview (Secondary Page Style) -->
+    <div class="global-stats-bar">
+      <div class="gs-item">
+        <div class="gs-label">参与总人数</div>
+        <div class="gs-value">{stats.totalUsers} <span class="gs-unit">人</span></div>
       </div>
-
-      <!-- Card 2 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">预估成本 <span class="help-icon">?</span></span>
-        </div>
-        <div class="bc-value">
-          <span class="bc-unit-prefix">$</span>{globalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}
-        </div>
-        <div class="bc-subtext">缓存节省 ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+      <div class="gs-item">
+        <div class="gs-label">全员总消耗</div>
+        <div class="gs-value">{formatDisplayAmount(globalTokens, modeFilter)} <span class="gs-unit">Tokens</span></div>
       </div>
-
-      <!-- Card 3 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">有效 token <span class="help-icon">?</span></span>
-          <span class="bc-trend positive">+473%</span>
-        </div>
-        <div class="bc-value">
-          {(effectiveTokens / 10000).toFixed(1)} <span class="bc-unit">万</span>
-        </div>
-        <div class="bc-subtext">占 {(globalTokens > 0 ? (effectiveTokens / globalTokens) * 100 : 0).toFixed(1)}%</div>
+      <div class="gs-item">
+        <div class="gs-label">预计总花费</div>
+        <div class="gs-value">≈ ${globalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
       </div>
-
-      <!-- Card 4 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">对话次数 <span class="help-icon">?</span></span>
-          <span class="bc-trend positive">+67%</span>
-        </div>
-        <div class="bc-value">
-          {conversations.toLocaleString()} <span class="bc-unit">次</span>
-        </div>
-        <div class="bc-subtext">次均 4,000 tokens</div>
-      </div>
-
-      <!-- Card 5 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">使用工具 <span class="help-icon">?</span></span>
-        </div>
-        <div class="bc-value">
-          {activeToolsCount} <span class="bc-unit">个</span>
-        </div>
-        <div class="bc-subtext">主力 {topTool}</div>
-      </div>
-
-      <!-- Card 6 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">AI 耗时 <span class="help-icon">?</span></span>
-          <span class="bc-trend positive">+785%</span>
-        </div>
-        <div class="bc-value">
-          {(globalTokens / 10_000_000).toFixed(1)} <span class="bc-unit">小时</span>
-        </div>
-        <div class="bc-subtext">日均 {(globalTokens / 10_000_000 / 30).toFixed(1)} 小时</div>
-      </div>
-
-      <!-- Card 7 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">缓存命中 <span class="help-icon">?</span></span>
-        </div>
-        <div class="bc-value">
-          {globalCacheHitRate} <span class="bc-unit">%</span>
-        </div>
-        <div class="bc-subtext">缓存读 {formatAmountStr(globalCacheHitTokens)}</div>
-      </div>
-
-      <!-- Card 8 -->
-      <div class="bento-card">
-        <div class="bc-header">
-          <span class="bc-title">连续活跃 <span class="help-icon">?</span></span>
-        </div>
-        <div class="bc-value">
-          {stats.totalUsers} <span class="bc-unit">人</span>
-        </div>
-        <div class="bc-subtext">接入以来 45 天</div>
+      <div class="gs-item gs-action">
+        <button class="btn-primary-share" onclick="openShareModal()">分享榜单 ↗</button>
       </div>
     </div>
 
-    <!-- Time Filters moved below the Bento Grid -->
+    <!-- Time Filters moved below the Global Stats -->
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
         <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
@@ -440,97 +360,91 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     font-weight: 500;
   }
 
-  /* Bento Grid Dashboard - Exact Match */
-  .bento-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+  /* Global Stats Bar (Secondary Page Style) */
+  .page-subtitle {
+    font-size: 1.1rem;
+    color: #666;
+    margin-top: 0.5rem;
+    font-weight: 400;
+  }
+
+  .global-stats-bar {
+    display: flex;
+    border-top: 1px solid #eaeaea;
+    border-bottom: 1px solid #eaeaea;
     margin-bottom: 2rem;
+    background: #fff;
   }
   
-  .bento-card {
-    background: #fff;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    padding: 20px;
+  .gs-item {
+    flex: 1;
+    padding: 1.5rem;
+    border-right: 1px solid #eaeaea;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    min-height: 124px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.01);
-  }
-
-  .bc-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+    justify-content: center;
   }
   
-  .bc-title {
-    font-size: 13px;
+  .gs-item:last-child {
+    border-right: none;
+  }
+  
+  .gs-label {
+    font-size: 0.75rem;
     color: #999;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+  }
+  
+  .gs-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111;
+  }
+  
+  .gs-unit {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .gs-action {
+    padding: 1rem;
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-weight: 400;
+    justify-content: center;
   }
   
-  .help-icon {
-    font-size: 11px;
-    color: #ccc;
-    font-weight: normal;
-    font-style: normal;
+  .btn-primary-share {
+    width: 100%;
+    height: 100%;
+    min-height: 48px;
+    background: #1877F2; /* Branded blue */
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
   }
   
-  .bc-trend {
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .bc-trend.positive { color: #10B981; }
-
-  .bc-value {
-    font-size: 30px;
-    font-weight: 700;
-    color: #1c1c1e;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-    line-height: 1;
-    display: flex;
-    align-items: baseline;
-    letter-spacing: -0.5px;
-    margin-bottom: 8px;
-  }
-  
-  .bc-unit {
-    font-size: 13px;
-    font-weight: 500;
-    color: #1c1c1e;
-    margin-left: 4px;
-    letter-spacing: 0;
-  }
-  
-  .bc-unit-prefix {
-    font-size: 16px;
-    font-weight: 500;
-    margin-right: 2px;
-    color: #666;
-  }
-
-  .bc-subtext {
-    font-size: 12px;
-    color: #999;
-    margin-top: 0;
-    font-weight: 400;
+  .btn-primary-share:hover {
+    background: #1664d8;
   }
 
   @media (prefers-color-scheme: dark) {
-    .bento-card {
-      background: #111;
-      border-color: #333;
-    }
-    .bc-value, .bc-unit { color: #fff; }
-    .pill-item { background: #111; border-color: #333; color: #888; }
-    .pill-item.active { background: #222; color: #fff; border-color: #444; }
+    .global-stats-bar { background: transparent; border-color: #333; }
+    .gs-item { border-color: #333; }
+    .gs-label { color: #888; }
+    .gs-value { color: #fff; }
+    .gs-unit { color: #ccc; }
+  }
+  
+  @media (max-width: 768px) {
+    .global-stats-bar { flex-direction: column; }
+    .gs-item { border-right: none; border-bottom: 1px solid #eaeaea; padding: 1rem; }
+    .gs-item:last-child { border-bottom: none; }
   }
 
   /* Table Headers */
