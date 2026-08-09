@@ -88,11 +88,12 @@ def main():
         }
     }
     
-    # Send data to API
-    req = urllib.request.Request(f"{args.host}/api/rank/upload", data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+    # Send data
     try:
-        response = urllib.request.urlopen(req)
-        result = json.loads(response.read().decode())
+        # Note: Added trailing slash to match Vercel's trailingSlash: true configuration
+        req = urllib.request.Request(f"{args.host}/api/rank/upload/", data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            result = json.loads(response.read().decode('utf-8'))
         if result.get('success'):
             print("✅ Successfully uploaded token data to T Salon Leaderboard!")
         else:
