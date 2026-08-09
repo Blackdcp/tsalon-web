@@ -78,10 +78,23 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   
   // If exact history is provided, we can sync it directly!
   if (historyData && Object.keys(historyData).length > 0) {
-    // 1. Wipe old timeseries data for this user to avoid duplicates/mess
-    const keysToDelete = await kv.keys(`user:${userId}:timeseries:*`);
-    if (keysToDelete.length > 0) {
-      await kv.del(...keysToDelete);
+    // 1. Wipe old timeseries data ONLY for tools present in historyData to avoid duplicates
+    const keysToFilter = await kv.keys(`user:${userId}:timeseries:*`);
+    const toolsInHistory = new Set<string>();
+    for (const toolsObj of Object.values(historyData)) {
+      Object.keys(toolsObj).forEach(t => toolsInHistory.add(t));
+    }
+    
+    for (const key of keysToFilter) {
+      const events: TimeseriesEvent[] = await kv.lrange(key, 0, -1);
+      const filteredEvents = events.filter(e => !toolsInHistory.has(e.tool));
+      await kv.del(key);
+      if (filteredEvents.length > 0) {
+        const pipeline = kv.pipeline();
+        filteredEvents.forEach(e => pipeline.rpush(key, JSON.stringify(e)));
+        pipeline.expire(key, 60 * 60 * 24 * 31);
+        await pipeline.exec();
+      }
     }
     
     // Only process dates that have data
