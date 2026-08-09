@@ -6,7 +6,7 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { token, data, device_id } = body;
+    const { token, data, device_id, reset } = body;
 
     if (!token) {
       return new Response(JSON.stringify({ success: false, message: 'Missing token' }), { status: 400 });
@@ -18,6 +18,14 @@ export const POST: APIRoute = async ({ request }) => {
     const userId = await getUserIdByToken(token);
     if (!userId) {
       return new Response(JSON.stringify({ success: false, message: 'Invalid token' }), { status: 401 });
+    }
+    
+    if (reset) {
+      const tsKeys = await kv.keys(`user:${userId}:timeseries:*`);
+      if (tsKeys.length > 0) await kv.del(...tsKeys);
+      const devKeys = await kv.keys(`user:${userId}:device:*`);
+      if (devKeys.length > 0) await kv.del(...devKeys);
+      return new Response(JSON.stringify({ success: true, message: 'User data reset' }), { status: 200 });
     }
 
     if (!kv) {

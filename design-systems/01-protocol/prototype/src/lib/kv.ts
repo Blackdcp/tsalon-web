@@ -145,10 +145,20 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       
       const isFirstRun = (oldVal === 0 && val > 0) || delta > 100_000_000;
       
-      if (isFirstRun && historyData && Object.keys(historyData).length > 0) {
+      let toolHasHistory = false;
+      if (historyData) {
+        for (const toolsObj of Object.values(historyData)) {
+          if (toolsObj[tool]) {
+            toolHasHistory = true;
+            break;
+          }
+        }
+      }
+      
+      if (isFirstRun && toolHasHistory) {
         // If it's a huge jump (or first run), use EXACT history!
         // We assume we wiped the user's timeseries first (or it's mostly empty).
-        for (const [dateStr, toolsObj] of Object.entries(historyData)) {
+        for (const [dateStr, toolsObj] of Object.entries(historyData!)) {
           if (toolsObj[tool] && toolsObj[tool] > 0) {
             const hVal = toolsObj[tool];
             const event: TimeseriesEvent = {
