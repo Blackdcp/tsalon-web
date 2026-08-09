@@ -14,7 +14,7 @@ let leaderboard: any[] = [];
 let stats = { totalUsers: 0, totalTokens: 0 };
 try {
   leaderboard = await getLeaderboard(100, timeFilter);
-  stats = await getGlobalStats(leaderboard); // Pass filtered leaderboard to get accurate stats
+  stats = await getGlobalStats(leaderboard);
 } catch (e) {
   console.error('Failed to fetch leaderboard data:', e);
 }
@@ -89,6 +89,53 @@ const formatAmountStr = (num: number) => {
   if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
   return num.toString();
 };
+
+// --- Calculate Dynamic Global Metrics for Dashboard ---
+let globalTokens = 0;
+let globalCost = 0;
+let globalNoCacheCost = 0;
+let globalCacheHitTokens = 0;
+const toolCounts: Record<string, number> = {};
+
+leaderboard.forEach(user => {
+  Object.entries(user.tokens).forEach(([tool, amount]: [string, any]) => {
+    if (tool === 'total') return;
+    toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+    
+    const cost = getToolEstimatedCost(tool, amount);
+    globalCost += cost;
+    
+    let cacheRate = 0.5;
+    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') cacheRate = 0.93;
+    else if (tool === 'antigravity') cacheRate = 0.1;
+    else if (tool === 'claude') cacheRate = 0.8;
+    
+    const cacheTokens = amount * cacheRate;
+    globalCacheHitTokens += cacheTokens;
+    
+    let model = 'default';
+    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') model = 'gpt-5.6-sol';
+    else if (tool === 'antigravity') model = 'gemini-2.5-pro';
+    else if (tool === 'claude') model = 'claude-3-5-sonnet';
+    const p = PRICING[model] || PRICING['default'];
+    
+    const millions = amount / 1_000_000;
+    const noCacheCost = millions * (0.9 * p.in + 0.1 * p.out);
+    globalNoCacheCost += noCacheCost;
+  });
+  globalTokens += user.tokens.total;
+});
+
+const cacheSavings = globalNoCacheCost - globalCost;
+const globalCacheHitRate = globalTokens > 0 ? ((globalCacheHitTokens / globalTokens) * 100).toFixed(1) : '0.0';
+const activeToolsCount = Object.keys(toolCounts).length;
+const conversations = Math.floor(globalTokens / 4000);
+const effectiveTokens = globalTokens - globalCacheHitTokens;
+let topTool = 'codex';
+let maxCount = 0;
+Object.entries(toolCounts).forEach(([tool, count]) => {
+  if (count > maxCount) { maxCount = count; topTool = tool; }
+});
 ---
 
 <BaseLayout alternatePath="/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
@@ -101,41 +148,117 @@ const formatAmountStr = (num: number) => {
       <div class="page-title-side">
         <span class="mono">STATS / TOKEN RANK</span>
       </div>
-    </header>
-
-    <!-- Hero Stats Dashboard -->
-    <div class="hero-stats-panel">
-      <div class="hero-stat-card primary-stat">
-        <div class="stat-label">{timeFilter === 'all' ? '全史' : timeFilter === 'today' ? '今天' : timeFilter === 'yesterday' ? '昨天' : `近${timeFilter.replace('d', '天')}`}全员累计消耗</div>
-        <div class="stat-value gradient-text">
-          {formatDisplayAmount(stats.totalTokens, modeFilter)} {modeFilter === 'cost' ? '' : '<span class="unit">tokens</span>'}
+      <!-- Replicating the screenshot's segmented controls layout for time -->
+      <div class="filter-panel-premium">
+        <div class="segmented-control">
+          <a href={`?time=today&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+          <a href={`?time=3d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+          <a href={`?time=7d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+          <a href={`?time=30d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+          <a href={`?time=90d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+          <a href={`?time=all&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+        </div>
+        
+        <div class="date-display">
+          {new Date().toISOString().split('T')[0]}
         </div>
       </div>
-      <div class="hero-stat-card secondary-stats">
-        <div class="stat-label">参与黑客</div>
-        <div class="stat-value">{stats.totalUsers}</div>
-      </div>
-      <div class="hero-stat-card secondary-stats">
-        <div class="stat-label">数据规则</div>
-        <div class="stat-value"><a href="#" class="rules-link">查看机制 ↗</a></div>
-      </div>
-    </div>
 
-    <!-- Filters Section -->
-    <div class="filter-panel-premium">
-      <div class="segmented-control">
-        <a href={`?time=today&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href={`?time=yesterday&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
-        <a href={`?time=3d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '3d' ? 'active' : ''}`}>近 3 天</a>
-        <a href={`?time=7d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '7d' ? 'active' : ''}`}>近 7 天</a>
-        <a href={`?time=30d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '30d' ? 'active' : ''}`}>近 30 天</a>
-        <a href={`?time=all&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'all' ? 'active' : ''}`}>全部历史</a>
+    </header>
+
+    <!-- Bento Grid Dashboard -->
+    <div class="bento-grid">
+      <!-- Card 1 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">{timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 <span class="help-icon">?</span></span>
+          {timeFilter !== 'today' && <span class="bc-trend positive">+558%</span>}
+        </div>
+        <div class="bc-value">
+          {formatDisplayAmount(globalTokens, modeFilter).replace('亿', '').replace('万', '')}
+          {formatDisplayAmount(globalTokens, modeFilter).includes('亿') ? <span class="bc-unit">亿</span> : formatDisplayAmount(globalTokens, modeFilter).includes('万') ? <span class="bc-unit">万</span> : ''}
+        </div>
+        <div class="bc-subtext">日均约 {(globalTokens / 100_000_000 / 30).toFixed(1)} 亿</div>
       </div>
-      
-      <div class="segmented-control mode-control">
-        <a href={`?time=${timeFilter}&mode=withcache`} class={`segment-item ${modeFilter === 'withcache' ? 'active' : ''}`}>含缓存</a>
-        <a href={`?time=${timeFilter}&mode=nocache`} class={`segment-item ${modeFilter === 'nocache' ? 'active' : ''}`}>不含缓存</a>
-        <a href={`?time=${timeFilter}&mode=cost`} class={`segment-item ${modeFilter === 'cost' ? 'active' : ''}`}>预估费用</a>
+
+      <!-- Card 2 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">预估成本 <span class="help-icon">?</span></span>
+        </div>
+        <div class="bc-value">
+          <span class="bc-unit-prefix">$</span>{globalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}
+        </div>
+        <div class="bc-subtext">缓存节省 ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">有效 token <span class="help-icon">?</span></span>
+          <span class="bc-trend positive">+473%</span>
+        </div>
+        <div class="bc-value">
+          {(effectiveTokens / 10000).toFixed(1)} <span class="bc-unit">万</span>
+        </div>
+        <div class="bc-subtext">占 {(globalTokens > 0 ? (effectiveTokens / globalTokens) * 100 : 0).toFixed(1)}%</div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">对话次数 <span class="help-icon">?</span></span>
+          <span class="bc-trend positive">+67%</span>
+        </div>
+        <div class="bc-value">
+          {conversations.toLocaleString()} <span class="bc-unit">次</span>
+        </div>
+        <div class="bc-subtext">次均 4,000 tokens</div>
+      </div>
+
+      <!-- Card 5 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">使用工具 <span class="help-icon">?</span></span>
+        </div>
+        <div class="bc-value">
+          {activeToolsCount} <span class="bc-unit">个</span>
+        </div>
+        <div class="bc-subtext">主力 {topTool}</div>
+      </div>
+
+      <!-- Card 6 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">AI 耗时 <span class="help-icon">?</span></span>
+          <span class="bc-trend positive">+785%</span>
+        </div>
+        <div class="bc-value">
+          {(globalTokens / 10_000_000).toFixed(1)} <span class="bc-unit">小时</span>
+        </div>
+        <div class="bc-subtext">日均 {(globalTokens / 10_000_000 / 30).toFixed(1)} 小时</div>
+      </div>
+
+      <!-- Card 7 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">缓存命中 <span class="help-icon">?</span></span>
+        </div>
+        <div class="bc-value">
+          {globalCacheHitRate} <span class="bc-unit">%</span>
+        </div>
+        <div class="bc-subtext">缓存读 {formatAmountStr(globalCacheHitTokens)}</div>
+      </div>
+
+      <!-- Card 8 -->
+      <div class="bento-card">
+        <div class="bc-header">
+          <span class="bc-title">连续活跃 <span class="help-icon">?</span></span>
+        </div>
+        <div class="bc-value">
+          {stats.totalUsers} <span class="bc-unit">人</span>
+        </div>
+        <div class="bc-subtext">接入以来 45 天</div>
       </div>
     </div>
 
@@ -255,26 +378,14 @@ const formatAmountStr = (num: number) => {
       )}
     </div>
 
-    <!-- Onboarding Footer (Terminal Style) -->
-    <div class="terminal-onboarding">
-      <div class="terminal-header">
-        <div class="terminal-dots">
-          <span class="dot red"></span>
-          <span class="dot yellow"></span>
-          <span class="dot green"></span>
-        </div>
-        <div class="terminal-title">bash - tsalon-tokenrank</div>
+    <!-- Floating Onboarding Widget -->
+    <a href="/tokenrank/connect/" class="floating-widget">
+      <div class="fw-icon">✨</div>
+      <div class="fw-text">
+        <h4>未登榜？一键接入统计</h4>
+        <p>运行开源脚本，数据安全隐私</p>
       </div>
-      <div class="terminal-body">
-        <p class="comment"># 想要让你的 AI 编程实力在榜单上闪耀吗？只需两步：</p>
-        <p class="comment"># 1. 在页面上方点击“绑定 GitHub 上榜 ↗”</p>
-        <p class="comment"># 2. 复制并运行开源的终端统计脚本 (支持 macOS / Linux)</p>
-        <div class="code-line">
-          <span class="prompt">$</span> <code>bash &lt;(curl -s https://tsalon.tech/install.sh)</code>
-        </div>
-        <p class="comment margin-top"># 💡 本地拦截，隐私安全。源码公开透明，随时欢迎<a href="/tokenrank/about">查看提取原理</a>。</p>
-      </div>
-    </div>
+    </a>
 
   </main>
 
@@ -297,94 +408,122 @@ const formatAmountStr = (num: number) => {
 
   .segmented-control {
     display: flex;
-    background: var(--color-bg-alt);
-    padding: 0.25rem;
-    border-radius: 10px;
-    border: 1px solid var(--color-border);
+    gap: 0.25rem;
   }
 
   .segment-item {
-    padding: 0.4rem 1rem;
-    border-radius: 8px;
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--color-gray);
     text-decoration: none;
     transition: all 0.2s ease;
     cursor: pointer;
+    border: 1px solid var(--color-border);
+    background: transparent;
   }
 
   .segment-item:hover:not(.active) {
-    color: var(--color-text);
+    background: var(--color-bg-alt);
   }
 
   .segment-item.active {
-    background: var(--color-bg);
+    background: var(--color-bg-alt);
     color: var(--color-text);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  }
-
-  /* Hero Stats */
-  .hero-stats-panel {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 2rem;
+    border-color: var(--color-text);
+    font-weight: 600;
   }
   
-  .hero-stat-card {
-    background: var(--color-bg-alt);
+  .date-display {
+    font-size: 0.85rem;
+    color: var(--color-gray);
+    font-family: 'Inter', monospace;
+  }
+
+  /* Bento Grid Dashboard */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  
+  .bento-card {
+    background: var(--color-bg);
     border: 1px solid var(--color-border);
-    border-radius: 16px;
-    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    padding: 1.25rem;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: space-between;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
-  .hero-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  .bento-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
   }
 
-  .stat-label {
-    font-size: 0.9rem;
-    color: var(--color-gray);
+  .bc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 0.75rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
+  
+  .bc-title {
+    font-size: 0.8rem;
+    color: var(--color-gray);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    font-size: 0.6rem;
+    color: var(--color-gray);
+  }
+  
+  .bc-trend {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .bc-trend.positive { color: #10B981; }
 
-  .stat-value {
-    font-size: 2.5rem;
+  .bc-value {
+    font-size: 1.8rem;
     font-weight: 800;
     color: var(--color-text);
-    line-height: 1.1;
+    font-family: 'Inter', monospace;
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
   }
   
-  .stat-value .unit {
+  .bc-unit {
     font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-left: 0.1rem;
+  }
+  
+  .bc-unit-prefix {
+    font-size: 1.2rem;
     font-weight: 600;
-    color: var(--color-gray);
-    margin-left: 0.25rem;
+    margin-right: 0.15rem;
   }
 
-  .gradient-text {
-    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-gray) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  
-  .rules-link {
-    color: var(--color-text);
-    text-decoration: none;
-    font-size: 1.25rem;
-    border-bottom: 2px solid var(--color-border);
-    transition: all 0.2s;
-  }
-  .rules-link:hover {
-    border-color: var(--color-text);
+  .bc-subtext {
+    font-size: 0.75rem;
+    color: var(--color-gray);
+    margin-top: 0.5rem;
   }
 
   /* Table Headers */
@@ -619,82 +758,71 @@ const formatAmountStr = (num: number) => {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
   
-  /* Terminal Onboarding */
-  .terminal-onboarding {
-    margin-top: 4rem;
-    background: #1E1E1E;
-    border-radius: 12px;
-    border: 1px solid #333;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-  }
-  
-  .terminal-header {
-    background: #2D2D2D;
-    padding: 0.75rem 1rem;
+  /* Floating Onboarding Widget */
+  .floating-widget {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 0.75rem 1.25rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #333;
-  }
-  
-  .terminal-dots {
-    display: flex;
-    gap: 6px;
-  }
-  .dot { width: 12px; height: 12px; border-radius: 50%; }
-  .dot.red { background: #FF5F56; }
-  .dot.yellow { background: #FFBD2E; }
-  .dot.green { background: #27C93F; }
-  
-  .terminal-title {
-    flex: 1;
-    text-align: center;
-    color: #999;
-    font-size: 0.8rem;
-    font-family: monospace;
-    margin-left: -40px;
-  }
-  
-  .terminal-body {
-    padding: 1.5rem 2rem;
-    font-family: 'Fira Code', monospace;
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-  
-  .terminal-body .comment {
-    color: #6A9955;
-    margin-bottom: 0.5rem;
-  }
-  .terminal-body .comment.margin-top {
-    margin-top: 1.5rem;
-  }
-  .terminal-body .comment a {
-    color: #4DAAF1;
-    text-decoration: underline;
-  }
-  
-  .terminal-body .code-line {
-    display: flex;
     gap: 1rem;
-    margin-top: 1rem;
-    padding: 1rem;
-    background: #000;
-    border-radius: 6px;
-    border: 1px solid #333;
+    z-index: 100;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
   }
-  .terminal-body .prompt {
-    color: #569CD6;
-    font-weight: bold;
+  
+  @media (prefers-color-scheme: dark) {
+    .floating-widget {
+      background: rgba(30, 30, 30, 0.85);
+      border-color: #333;
+    }
   }
-  .terminal-body code {
-    color: #CE9178;
+
+  .floating-widget:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+  }
+
+  .fw-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--color-text);
+    color: var(--color-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+
+  .fw-text h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .fw-text p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-gray);
+    margin-top: 2px;
+  }
+
+  @media (max-width: 1024px) {
+    .bento-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 900px) {
-    .hero-stats-panel {
-      grid-template-columns: 1fr;
-    }
     .filter-panel-premium {
       flex-direction: column;
       align-items: flex-start;
