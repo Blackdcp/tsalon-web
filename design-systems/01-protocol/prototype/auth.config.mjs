@@ -9,7 +9,7 @@ export default defineConfig({
     }),
   ],
   callbacks: {
-    jwt: ({ token, user, profile }) => {
+    jwt: ({ token, profile }) => {
       // Upon initial sign-in, profile contains the GitHub user profile
       if (profile?.id) {
         token.sub = profile.id.toString();

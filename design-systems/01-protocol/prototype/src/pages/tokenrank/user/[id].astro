@@ -1,10 +1,8 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { getSession } from 'auth-astro/server';
 import { kv, getUserAnalytics } from '../../../lib/kv';
 
 const { id } = Astro.params;
-const session = await getSession(Astro.request);
 
 // Verify user exists
 const userDataStr = await kv?.get(`user:${id}:data`);
@@ -14,7 +12,7 @@ if (!userDataStr) {
 const userData = JSON.parse(userDataStr);
 
 // Fetch analytics
-const events = await getUserAnalytics(id, 30);
+const events = await getUserAnalytics(id as string, 30);
 
 // Basic aggregations
 const todayDateStr = new Date().toISOString().split('T')[0];
@@ -29,7 +27,6 @@ const cacheHitTokens = todayEvents.filter(e => e.cacheHit).reduce((acc, e) => ac
 const cacheHitRate = todayTokens > 0 ? (cacheHitTokens / todayTokens * 100).toFixed(1) : '0.0';
 
 const toolsUsed = new Set(todayEvents.map(e => e.tool)).size;
-const conversations = todayEvents.length; // Approximate
 
 // For charts
 const last30Days = [];
@@ -73,7 +70,7 @@ const chartData = {
 };
 ---
 
-<BaseLayout title={`${userData.name} 的数据看板 - T Salon`}>
+<BaseLayout title={`${userData.name} 的数据看板 - T Salon`} description={`查看 ${userData.name} 的详细 Token 消耗趋势和 AI 数据看板。`}>
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div class="user-info">
