@@ -95,19 +95,19 @@ def get_codex_tokens(home):
         os.path.join(home, '.config', 'codexmanager', 'codexmanager.db'),
         os.path.join(os.environ.get('APPDATA', ''), 'CodexManager', 'codexmanager.db'),
         os.path.join(os.environ.get('APPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'CodexManager', 'codexmanager.db'),
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
         os.path.join(home, '.codex', 'sqlite', 'codex-dev.db')
     ]
     tokens = 0
     for p in db_paths:
         if not p or not os.path.exists(p):
             continue
-        # Try new schema first
         try:
             rows = query_locked_sqlite(p, "SELECT SUM(total_tokens) FROM request_token_stats")
             if rows and rows[0][0]:
                 tokens += int(rows[0][0])
         except:
-            # Fallback to old schema
             try:
                 rows = query_locked_sqlite(p, "SELECT payload_json FROM thread_timeline_ledger")
                 for row in rows:
@@ -118,15 +118,26 @@ def get_codex_tokens(home):
     return tokens
 
 def get_claude_tokens(home):
-    claude_path = os.path.join(home, '.claude.json')
-    if os.path.exists(claude_path):
-        try:
-            with open(claude_path, 'r') as f:
-                data = json.load(f)
-                return data.get('total_tokens', 0)
-        except:
-            pass
-    return 0
+    claude_paths = [
+        os.path.join(home, '.claude.json'),
+        os.path.join(home, '.claude', 'usage.json'),
+        os.path.join(os.environ.get('APPDATA', ''), 'Claude', 'usage.json'),
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Claude', 'usage.json')
+    ]
+    tokens = 0
+    for cp in claude_paths:
+        if cp and os.path.exists(cp):
+            try:
+                with open(cp, 'r') as f:
+                    data = json.load(f)
+                    # Support multiple formats of token storage in claude configs
+                    if 'total_tokens' in data:
+                        tokens += data['total_tokens']
+                    elif 'usage' in data and 'total_tokens' in data['usage']:
+                        tokens += data['usage']['total_tokens']
+            except:
+                pass
+    return tokens
 
 def scan_generic_extension(home, keywords):
     dirs_to_scan = []
