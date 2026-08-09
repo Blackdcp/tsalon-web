@@ -13,12 +13,18 @@ def get_file_size(path):
     except:
         return 0
 
-def estimate_tokens_from_files(file_patterns):
+def estimate_tokens_from_dirs(dirs, exts):
     total_bytes = 0
-    for pattern in file_patterns:
-        for filepath in glob.glob(pattern, recursive=True):
-            if os.path.isfile(filepath):
-                total_bytes += get_file_size(filepath)
+    for d in dirs:
+        if not os.path.exists(d):
+            continue
+        for root, _, files in os.walk(d):
+            for f in files:
+                if any(f.lower().endswith(ext) for ext in exts):
+                    try:
+                        total_bytes += os.path.getsize(os.path.join(root, f))
+                    except:
+                        pass
     # Estimate 1 token = 3 bytes of raw log/json data
     return total_bytes // 3
 
@@ -73,23 +79,29 @@ def get_claude_tokens(home):
     return 0
 
 def scan_generic_extension(home, keywords):
-    patterns = []
-    for kw in keywords:
-        # VSCode Extensions
-        patterns.append(os.path.join(home, '.vscode', 'extensions', f'*{kw}*', '**', '*.json'))
-        patterns.append(os.path.join(home, '.vscode', 'extensions', f'*{kw}*', '**', '*.log'))
-        # VSCode Global Storage
-        patterns.append(os.path.join(home, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', f'*{kw}*', '**', '*'))
-        patterns.append(os.path.join(home, '.config', 'Code', 'User', 'globalStorage', f'*{kw}*', '**', '*'))
-    return estimate_tokens_from_files(patterns)
+    dirs_to_scan = []
+    # VSCode Extensions
+    ext_dir = os.path.join(home, '.vscode', 'extensions')
+    if os.path.exists(ext_dir):
+        for d in os.listdir(ext_dir):
+            if any(kw.lower() in d.lower() for kw in keywords):
+                dirs_to_scan.append(os.path.join(ext_dir, d))
+                
+    # VSCode Global Storage
+    for base in [os.path.join(home, 'Library', 'Application Support', 'Code', 'User', 'globalStorage'),
+                 os.path.join(home, '.config', 'Code', 'User', 'globalStorage')]:
+        if os.path.exists(base):
+            for d in os.listdir(base):
+                if any(kw.lower() in d.lower() for kw in keywords):
+                    dirs_to_scan.append(os.path.join(base, d))
+                    
+    exts = ['.json', '.log', '.txt', '.db', '.sqlite', '.vscdb', '.jsonl']
+    return estimate_tokens_from_dirs(dirs_to_scan, exts)
 
 def scan_agent_logs(home, folder_name):
-    patterns = [
-        os.path.join(home, folder_name, '**', '*.jsonl'),
-        os.path.join(home, folder_name, '**', '*.json'),
-        os.path.join(home, folder_name, '**', '*.log')
-    ]
-    return estimate_tokens_from_files(patterns)
+    dirs = [os.path.join(home, folder_name)]
+    exts = ['.jsonl', '.json', '.log', '.txt']
+    return estimate_tokens_from_dirs(dirs, exts)
 
 def main():
     parser = argparse.ArgumentParser(description='T Salon Token Agent')
