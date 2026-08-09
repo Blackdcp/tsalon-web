@@ -150,13 +150,13 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       </div>
       <!-- Replicating the screenshot's segmented controls layout for time -->
       <div class="filter-panel-premium">
-        <div class="segmented-control">
-          <a href={`?time=today&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-          <a href={`?time=3d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
-          <a href={`?time=7d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
-          <a href={`?time=30d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
-          <a href={`?time=90d&mode=${modeFilter}`} class={`segment-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
-          <a href={`?time=all&mode=${modeFilter}`} class={`segment-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+        <div class="time-filter-pills">
+          <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+          <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+          <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+          <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+          <a href={`?time=90d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+          <a href={`?time=all&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
         </div>
         
         <div class="date-display">
@@ -378,13 +378,11 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       )}
     </div>
 
-    <!-- Floating Onboarding Widget -->
-    <a href="/tokenrank/connect/" class="floating-widget">
-      <div class="fw-icon">✨</div>
-      <div class="fw-text">
-        <h4>未登榜？一键接入统计</h4>
-        <p>运行开源脚本，数据安全隐私</p>
-      </div>
+    <!-- Floating Onboarding Widget (Bottom Pill) -->
+    <a href="/tokenrank/connect/" class="floating-pill-widget">
+      <span class="fp-icon">🚀</span>
+      <span class="fp-text">尚未登榜？</span>
+      <span class="fp-cta">立即接入统计 &rarr;</span>
     </a>
 
   </main>
@@ -403,127 +401,129 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    gap: 1rem;
+    width: 100%;
   }
 
-  .segmented-control {
+  .time-filter-pills {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.5rem;
   }
 
-  .segment-item {
-    padding: 0.35rem 1rem;
+  .pill-item {
+    padding: 0.35rem 1.25rem;
     border-radius: 20px;
     font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--color-gray);
+    color: #888;
+    background: #fff;
+    border: 1px solid #eaeaea;
     text-decoration: none;
     transition: all 0.2s ease;
-    cursor: pointer;
-    border: 1px solid var(--color-border);
-    background: transparent;
   }
 
-  .segment-item:hover:not(.active) {
-    background: var(--color-bg-alt);
+  .pill-item:hover {
+    border-color: #ccc;
+    color: #333;
   }
 
-  .segment-item.active {
-    background: var(--color-bg-alt);
-    color: var(--color-text);
-    border-color: var(--color-text);
+  .pill-item.active {
+    background: #f8f9fa;
+    color: #111;
     font-weight: 600;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
   }
-  
+
   .date-display {
-    font-size: 0.85rem;
-    color: var(--color-gray);
-    font-family: 'Inter', monospace;
+    font-size: 0.9rem;
+    color: #888;
+    font-weight: 500;
   }
 
   /* Bento Grid Dashboard */
   .bento-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin-bottom: 2.5rem;
+    gap: 1.25rem;
+    margin-bottom: 3rem;
   }
   
   .bento-card {
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
+    background: #fff;
+    border: 1px solid #eaeaea;
     border-radius: 12px;
-    padding: 1.25rem;
+    padding: 1.25rem 1.5rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .bento-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    min-height: 120px;
   }
 
   .bc-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
   }
   
   .bc-title {
-    font-size: 0.8rem;
-    color: var(--color-gray);
+    font-size: 13px;
+    color: #888;
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 4px;
   }
   
   .help-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    background: var(--color-bg-alt);
-    border: 1px solid var(--color-border);
-    border-radius: 50%;
-    font-size: 0.6rem;
-    color: var(--color-gray);
+    font-size: 11px;
+    color: #bbb;
+    font-weight: bold;
+    font-style: italic;
   }
   
   .bc-trend {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
   }
   .bc-trend.positive { color: #10B981; }
 
   .bc-value {
-    font-size: 1.8rem;
+    font-size: 32px;
     font-weight: 800;
-    color: var(--color-text);
-    font-family: 'Inter', monospace;
+    color: #111;
+    line-height: 1.2;
     display: flex;
     align-items: baseline;
-    gap: 0.15rem;
+    gap: 2px;
   }
   
   .bc-unit {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--color-text);
-    margin-left: 0.1rem;
+    font-size: 14px;
+    font-weight: 600;
+    color: #111;
+    margin-left: 2px;
   }
   
   .bc-unit-prefix {
-    font-size: 1.2rem;
+    font-size: 20px;
     font-weight: 600;
-    margin-right: 0.15rem;
+    margin-right: 2px;
+    color: #555;
   }
 
   .bc-subtext {
-    font-size: 0.75rem;
-    color: var(--color-gray);
+    font-size: 12px;
+    color: #888;
     margin-top: 0.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .bento-card {
+      background: #111;
+      border-color: #333;
+    }
+    .bc-value, .bc-unit { color: #fff; }
+    .pill-item { background: #111; border-color: #333; color: #888; }
+    .pill-item.active { background: #222; color: #fff; border-color: #444; }
   }
 
   /* Table Headers */
@@ -758,62 +758,45 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
   
-  /* Floating Onboarding Widget */
-  .floating-widget {
+  /* Floating Pill Widget */
+  .floating-pill-widget {
     position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--color-border);
-    border-radius: 16px;
-    padding: 0.75rem 1.25rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50px;
+    padding: 0.6rem 1.5rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
     z-index: 100;
     text-decoration: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer;
-  }
-  
-  @media (prefers-color-scheme: dark) {
-    .floating-widget {
-      background: rgba(30, 30, 30, 0.85);
-      border-color: #333;
-    }
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
 
-  .floating-widget:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+  .floating-pill-widget:hover {
+    transform: translateX(-50%) scale(1.05);
   }
 
-  .fw-icon {
-    width: 36px;
-    height: 36px;
-    background: var(--color-text);
-    color: var(--color-bg);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
+  .fp-icon {
+    font-size: 1.1rem;
   }
 
-  .fw-text h4 {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--color-text);
+  .fp-text {
+    color: #ddd;
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .fp-cta {
+    color: #10B981;
+    font-size: 0.95rem;
     font-weight: 600;
-  }
-
-  .fw-text p {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--color-gray);
-    margin-top: 2px;
   }
 
   @media (max-width: 1024px) {
@@ -827,11 +810,11 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       flex-direction: column;
       align-items: flex-start;
     }
-    .segmented-control {
+    .time-filter-pills {
       width: 100%;
       overflow-x: auto;
     }
-    .segment-item {
+    .pill-item {
       white-space: nowrap;
     }
   }
