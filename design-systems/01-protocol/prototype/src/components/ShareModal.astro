@@ -17,7 +17,7 @@ const todayDateStr = new Date().toISOString().split('T')[0];
     <!-- The Card to be captured -->
     <div id="share-card" class="share-card">
       <div class="share-card-header">
-        <span class="share-badge-primary">生财有术</span>
+        <img src="/images/logo-dark.png" alt="T Salon" class="share-logo-primary" crossorigin="anonymous" />
         <h2>Token 消耗排行榜</h2>
         <p class="share-subtitle">AI 编程 token 消耗榜 · 北京时间</p>
         <div class="share-tag-pill">总榜·上海·前天</div>
@@ -76,7 +76,7 @@ const todayDateStr = new Date().toISOString().split('T')[0];
           </div>
         </div>
         <div class="share-bottom-branding">
-          生财有术 · Token 消耗排行榜 · {todayDateStr} 生成
+          T Salon · Token 消耗排行榜 · {todayDateStr} 生成
         </div>
       </div>
     </div>
@@ -139,15 +139,11 @@ const todayDateStr = new Date().toISOString().split('T')[0];
     margin-bottom: 1.5rem;
   }
 
-  .share-badge-primary {
-    background: #10B981;
-    color: white;
-    font-size: 0.75rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    font-weight: 600;
-    display: inline-block;
+  .share-logo-primary {
+    height: 24px;
+    object-fit: contain;
     margin-bottom: 0.5rem;
+    display: block;
   }
 
   .share-card-header h2 {
