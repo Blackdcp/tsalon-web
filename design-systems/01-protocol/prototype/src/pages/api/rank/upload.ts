@@ -6,11 +6,14 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { token, data } = body;
+    const { token, data, device_id } = body;
 
     if (!token) {
       return new Response(JSON.stringify({ success: false, message: 'Missing token' }), { status: 400 });
     }
+    
+    // Fallback if older agent is used
+    const actualDeviceId = device_id || 'default_device';
 
     const userId = await getUserIdByToken(token);
     if (!userId) {
@@ -35,7 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    await updateTokenUsage(userId, name, image, dynamicTokens);
+    await updateTokenUsage(userId, name, image, dynamicTokens, actualDeviceId);
 
     return new Response(JSON.stringify({ success: true, message: 'Tokens updated' }), {
       status: 200,

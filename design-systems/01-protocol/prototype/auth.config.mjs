@@ -9,6 +9,13 @@ export default defineConfig({
     }),
   ],
   callbacks: {
+    jwt: ({ token, user, profile }) => {
+      // Upon initial sign-in, profile contains the GitHub user profile
+      if (profile?.id) {
+        token.sub = profile.id.toString();
+      }
+      return token;
+    },
     session: ({ session, token }) => {
       if (session?.user) {
         session.user.id = token.sub;

@@ -29,13 +29,14 @@ export async function getUserIdByToken(token: string): Promise<string | null> {
   return kv.get(`token:${token}:userId`);
 }
 
-export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, number>) {
+export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, number>, deviceId: string = 'default_device') {
   if (!kv) return;
   
-  const total = Object.values(tokens).reduce((acc, val) => acc + val, 0);
-  tokens['total'] = total;
+  // 1. Save data for THIS device
+  const deviceTotal = Object.values(tokens).reduce((acc, val) => acc + val, 0);
+  tokens['total'] = deviceTotal;
   
-  const data: UserRankData = {
+  const deviceData = {
     userId,
     name,
     image,
@@ -43,8 +44,46 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     updatedAt: new Date().toISOString()
   };
   
-  await kv.set(`user:${userId}:data`, JSON.stringify(data));
-  await kv.zadd('leaderboard:total', total, userId);
+  await kv.set(`user:${userId}:device:${deviceId}:data`, JSON.stringify(deviceData));
+  
+  // 2. Fetch all devices for this user
+  const deviceKeys = await kv.keys(`user:${userId}:device:*:data`);
+  
+  const aggregatedTokens: Record<string, number> = {};
+  
+  if (deviceKeys.length > 0) {
+    const allDeviceData = await kv.mget(deviceKeys);
+    for (const dataStr of allDeviceData) {
+      if (dataStr) {
+        try {
+          const parsed = JSON.parse(dataStr as string);
+          if (parsed && parsed.tokens) {
+            for (const [key, val] of Object.entries(parsed.tokens)) {
+              if (key !== 'total') {
+                aggregatedTokens[key] = (aggregatedTokens[key] || 0) + (Number(val) || 0);
+              }
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  }
+  
+  // 3. Calculate final total
+  const finalTotal = Object.values(aggregatedTokens).reduce((acc, val) => acc + val, 0);
+  aggregatedTokens['total'] = finalTotal;
+  
+  // 4. Save to the main user profile
+  const aggregatedData: UserRankData = {
+    userId,
+    name,
+    image,
+    tokens: aggregatedTokens,
+    updatedAt: new Date().toISOString()
+  };
+  
+  await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
+  await kv.zadd('leaderboard:total', finalTotal, userId);
 }
 
 export async function getLeaderboard(limit = 100): Promise<UserRankData[]> {

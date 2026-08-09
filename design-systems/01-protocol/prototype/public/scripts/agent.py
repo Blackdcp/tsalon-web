@@ -8,6 +8,28 @@ from pathlib import Path
 import glob
 import shutil
 import tempfile
+import uuid
+
+def get_or_create_device_id(home):
+    config_dir = os.path.join(home, '.tsalon')
+    os.makedirs(config_dir, exist_ok=True)
+    device_id_path = os.path.join(config_dir, 'device_id')
+    
+    if os.path.exists(device_id_path):
+        try:
+            with open(device_id_path, 'r') as f:
+                did = f.read().strip()
+                if did: return did
+        except:
+            pass
+            
+    new_id = f"dev_{uuid.uuid4().hex[:16]}"
+    try:
+        with open(device_id_path, 'w') as f:
+            f.write(new_id)
+    except:
+        pass
+    return new_id
 
 def query_locked_sqlite(db_path, query):
     tmp_path = None
@@ -166,8 +188,11 @@ def main():
             print(f"  - {k.capitalize()}: {v:,} tokens")
     print(f"  => Total: {total:,} tokens")
     
+    device_id = get_or_create_device_id(home)
+    
     payload = {
         'token': args.token,
+        'device_id': device_id,
         'data': final_tokens
     }
     
