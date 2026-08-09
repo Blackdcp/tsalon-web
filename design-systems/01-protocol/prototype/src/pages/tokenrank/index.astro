@@ -6,14 +6,12 @@ import { getLeaderboard, getGlobalStats } from '../../lib/kv';
 export const prerender = false;
 
 // Fetch data on the server
-let leaderboard = [];
-let stats = { totalUsers: 0, totalTokens: 0 };
-try {
-  leaderboard = await getLeaderboard(100);
-  stats = await getGlobalStats();
-} catch (e) {
-  console.error("Failed to load leaderboard", e);
-}
+let leaderboard = [
+  { name: 'Black', image: '/images/team/black.jpg', tokens: { cursor: 125000000, claude: 45000000, total: 170000000 } },
+  { name: 'EyreFree', image: '/images/team/eyrefree.jpg', tokens: { cursor: 85000000, claude: 15000000, total: 100000000 } },
+  { name: 'MM', image: '/images/team/mm.jpg', tokens: { cursor: 65000000, claude: 10000000, total: 75000000 } }
+];
+let stats = { totalUsers: 3, totalTokens: 345000000 };
 
 const seoJsonLd = {
   '@context': 'https://schema.org',
