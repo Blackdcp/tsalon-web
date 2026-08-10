@@ -38,14 +38,16 @@ export const POST: APIRoute = async ({ request }) => {
     const name = userInfo?.name || 'Anonymous Developer';
     const image = userInfo?.image || '/icon-512x512.png';
 
-    // Extract all dynamic tokens, ensuring they are numbers
-    const dynamicTokens: Record<string, number> = {};
+    // Preserve the full breakdown {total, in, out, cache_read, cache_write} when
+    // the agent sends an object, so cost can be billed from the real in/out/cache
+    // instead of a fabricated total*0.9/0.1 split with cache_read=0.
+    const dynamicTokens: Record<string, any> = {};
     const historyData = data.history || null;
-    
+
     for (const [key, val] of Object.entries(data)) {
       if (key !== 'total' && key !== 'history') {
         if (typeof val === 'object' && val !== null) {
-          dynamicTokens[key] = Number((val as any).total) || 0;
+          dynamicTokens[key] = val;
         } else {
           dynamicTokens[key] = Number(val) || 0;
         }
