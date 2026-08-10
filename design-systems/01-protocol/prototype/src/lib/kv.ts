@@ -180,7 +180,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       }
       hasTimeseriesEvents = true;
     } else if (delta > 0 || (valTotal > 0 && oldTotal === 0)) {
-      const isFirstRun = (oldTotal === 0 && valTotal > 0) || delta > 100_000_000;
+      const isFirstRun = (oldTotal === 0 && valTotal > 0);
       
       const inTokens = Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? (Number(oldToolData.in) || 0) : 0));
       const outTokens = Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? (Number(oldToolData.out) || 0) : 0));
@@ -191,9 +191,9 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         // Distribute historically over 30 days (Fallback for tools without exact history)
         const days = 30;
         const dailyAvg = Math.floor(valTotal / days);
-        const dailyIn = Math.floor(inTokens / days);
-        const dailyOut = Math.floor(outTokens / days);
-        const dailyCacheRead = Math.floor(cacheReadTokens / days);
+        const dailyIn = Math.floor((Number(valObj.in) || 0) / days);
+        const dailyOut = Math.floor((Number(valObj.out) || 0) / days);
+        const dailyCacheRead = Math.floor((Number(valObj.cache_read) || 0) / days);
         
         for (let i = 0; i < days; i++) {
           const d = new Date();
@@ -205,10 +205,10 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
             tool,
             model,
             tokens: i === 0 ? dailyAvg + (valTotal % days) : dailyAvg,
-            inTokens: i === 0 ? dailyIn + (inTokens % days) : dailyIn,
-            outTokens: i === 0 ? dailyOut + (outTokens % days) : dailyOut,
-            cacheReadTokens: i === 0 ? dailyCacheRead + (cacheReadTokens % days) : dailyCacheRead,
-            cacheHit: cacheReadTokens > 0 ? true : Math.random() < cacheRate,
+            inTokens: i === 0 ? dailyIn + ((Number(valObj.in) || 0) % days) : dailyIn,
+            outTokens: i === 0 ? dailyOut + ((Number(valObj.out) || 0) % days) : dailyOut,
+            cacheReadTokens: i === 0 ? dailyCacheRead + ((Number(valObj.cache_read) || 0) % days) : dailyCacheRead,
+            cacheHit: dailyCacheRead > 0 ? true : Math.random() < cacheRate,
             deviceId: deviceId
           };
           pipe.rpush(`user:${userId}:timeseries:${historyDateStr}`, JSON.stringify(event));

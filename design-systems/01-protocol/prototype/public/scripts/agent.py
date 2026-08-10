@@ -139,8 +139,12 @@ def get_codex_tokens(home):
                 out = int(last_usage.get('output_tokens') or 0)
                 cr = int(last_usage.get('cached_input_tokens') or last_usage.get('cache_read_input_tokens') or 0)
                 cw = int(last_usage.get('cache_write_input_tokens') or 0)
-                tot = int(last_usage.get('total_tokens') or (inp + out))
-                stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cr, 'cache_write': cw}
+                tot = int(last_usage.get('total_tokens') or (inp + out))  # kept for reference; not used as score
+                # Leaderboard token score = output (generation), NOT total_tokens.
+                # total_tokens sums the re-sent conversation context every turn,
+                # which inflates a single session to billions (fake). in/out/cache
+                # breakdown stays real so cost is still billed accurately.
+                stats_obj = {'total': out, 'in': inp, 'out': out, 'cache_read': cr, 'cache_write': cw}
                 for k in stats_obj:
                     tokens['codex'][k] += stats_obj[k]
                 if dt_str:
@@ -176,7 +180,7 @@ def get_codex_tokens(home):
                             cw = int(u.get('cacheCreationInputTokens') or 0)
                             tot = int(u.get('totalTokens') or (inp + out))
                             if tot > 0:
-                                stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cr, 'cache_write': cw}
+                                stats_obj = {'total': out, 'in': inp, 'out': out, 'cache_read': cr, 'cache_write': cw}
                                 for k in stats_obj:
                                     tokens['codex_proxy'][k] += stats_obj[k]
                                 if dt_str:
@@ -224,8 +228,8 @@ def get_codex_tokens(home):
                         reasoning = int(row[5]) if len(row) > 5 and row[5] else 0
                         out += reasoning
                         cache = int(row[4]) if len(row) > 4 and row[4] else 0
-                        tot = inp + out + cache
-                        stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cache, 'cache_write': 0}
+                        tot = inp + out + cache  # kept for reference; not used as score
+                        stats_obj = {'total': out, 'in': inp, 'out': out, 'cache_read': cache, 'cache_write': 0}
                         
                         target_tool = 'codex_proxy' if (not source or 'proxy' in source.lower() or source != 'openai_account') else 'codex'
                         for k in stats_obj: tokens[target_tool][k] += stats_obj[k]
