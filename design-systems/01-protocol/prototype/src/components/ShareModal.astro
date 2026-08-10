@@ -1,14 +1,61 @@
 ---
 // src/components/ShareModal.astro
+import type { SiteLocale } from '../lib/i18n';
+
 export interface Props {
   leaderboard: any[];
   currentUserRank?: number;
   currentUser?: any;
+  locale?: SiteLocale;
 }
 
-const { leaderboard, currentUserRank, currentUser } = Astro.props;
+const { leaderboard, currentUserRank, currentUser, locale = 'zh' } = Astro.props;
 const top10 = leaderboard.slice(0, 10);
 const todayDateStr = new Date().toISOString().split('T')[0];
+const isEn = locale === 'en';
+
+// English uses Western units (B/M/K); Chinese uses 亿/万.
+const formatPosterAmount = (num: any) => {
+  const n = typeof num === 'number' ? num : (Number(num) || 0);
+  if (isEn) {
+    if (n >= 1_000_000_000) return { val: (n / 1_000_000_000).toFixed(2), unit: 'B' };
+    if (n >= 1_000_000) return { val: (n / 1_000_000).toFixed(1), unit: 'M' };
+    if (n >= 1_000) return { val: (n / 1_000).toFixed(1), unit: 'K' };
+    return { val: n.toFixed(0), unit: '' };
+  }
+  if (n >= 100_000_000) return { val: (n / 100_000_000).toFixed(2), unit: '亿' };
+  if (n >= 10_000) return { val: (n / 10_000).toFixed(1), unit: '万' };
+  return { val: n.toFixed(0), unit: '' };
+};
+
+const t = isEn ? {
+  title: 'Token Consumption Leaderboard',
+  tagPill: 'Real-time Token Ranking',
+  top10: 'TOP 10 RANKING',
+  qrTitle: 'Scan to view the full leaderboard',
+  qrSub: 'More ranks beyond the Top 10',
+  qrUpdate: 'Updated every 30 minutes',
+  myRankPrefix: 'Rank ',
+  branding: `T Salon · Token Leaderboard · Generated ${todayDateStr}`,
+  save: 'Save Image',
+  close: 'Close',
+  instruction: 'On mobile, long-press to save or share',
+  qrUrl: 'https://www.tsalon.tech/en/tokenrank'
+} : {
+  title: 'Token 消耗排行榜',
+  tagPill: '造垃圾耻辱榜 · 实时排行',
+  top10: 'TOP 10 榜单',
+  qrTitle: '扫码看完整排行榜',
+  qrSub: 'Top 10 之外还有更多排名',
+  qrUpdate: '数据每 30 分钟更新',
+  myRankPrefix: '排名 ',
+  branding: `T Salon · Token 消耗排行榜 · ${todayDateStr} 生成`,
+  save: '保存图片',
+  close: '关闭',
+  instruction: '手机端可长按图片保存或转发好友',
+  qrUrl: 'https://www.tsalon.tech/tokenrank'
+};
+
 
 // Collapse duplicate profiles of the same GitHub person (a stale orphan from an
 // old agent build can share the exact same GitHub avatar id) so the poster's
@@ -24,13 +71,6 @@ const top10Deduped = top10.filter((u) => {
   if (gh) seenShareGithubIds.add(gh);
   return true;
 });
-
-const formatPosterAmount = (num: any) => {
-  const n = typeof num === 'number' ? num : (Number(num) || 0);
-  if (n >= 100_000_000) return { val: (n / 100_000_000).toFixed(2), unit: '亿' };
-  if (n >= 10_000) return { val: (n / 10_000).toFixed(1), unit: '万' };
-  return { val: n.toFixed(0), unit: '' };
-};
 ---
 
 <div id="share-modal-overlay" class="share-modal-hidden">
@@ -40,13 +80,13 @@ const formatPosterAmount = (num: any) => {
     <div id="share-card" class="share-card">
       <div class="share-card-header">
         <img src="/images/logo-dark.png" alt="T Salon" class="share-logo-primary" crossorigin="anonymous" />
-        <h2>Token 消耗排行榜</h2>
-        <div class="share-tag-pill">造垃圾耻辱榜 · 实时排行</div>
+        <h2>{t.title}</h2>
+        <div class="share-tag-pill">{t.tagPill}</div>
       </div>
       
       <div class="share-top10">
         <div class="share-list-header">
-          <span class="share-list-bar"></span> TOP 10 榜单
+          <span class="share-list-bar"></span> {t.top10}
         </div>
         <ul class="share-list">
           {top10Deduped.map((user, idx) => (
@@ -67,30 +107,30 @@ const formatPosterAmount = (num: any) => {
 
       <div class="share-footer">
         <div class="share-qr-section">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://www.tsalon.tech/tokenrank" alt="QR Code" class="share-qr" crossorigin="anonymous" />
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${t.qrUrl}`} alt="QR Code" class="share-qr" crossorigin="anonymous" />
           <div class="share-qr-text">
-            <strong>扫码看完整排行榜</strong>
-            <p>Top 10 之外还有更多排名</p>
+            <strong>{t.qrTitle}</strong>
+            <p>{t.qrSub}</p>
             <span class="share-link">www.tsalon.tech</span>
-            <p class="share-update-note">数据每 30 分钟更新</p>
+            <p class="share-update-note">{t.qrUpdate}</p>
           </div>
         </div>
         {currentUser && currentUserRank ? (
-          <div class="share-my-rank">排名 <strong>#{currentUserRank}</strong></div>
+          <div class="share-my-rank">{t.myRankPrefix}<strong>#{currentUserRank}</strong></div>
         ) : null}
         <div class="share-bottom-branding">
-          T Salon · Token 消耗排行榜 · {todayDateStr} 生成
+          {t.branding}
         </div>
       </div>
     </div>
 
     <!-- Actions -->
     <div class="share-actions">
-      <button id="btn-save-image" class="share-action-btn primary">保存图片</button>
-      <button id="btn-close-share" class="share-action-btn secondary">关闭</button>
+      <button id="btn-save-image" class="share-action-btn primary">{t.save}</button>
+      <button id="btn-close-share" class="share-action-btn secondary">{t.close}</button>
     </div>
     <div class="share-instruction">
-      手机端可长按图片保存或转发好友
+      {t.instruction}
     </div>
   </div>
 </div>

@@ -1,6 +1,6 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { kv, getUserAnalytics } from '../../../lib/kv';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { kv, getUserAnalytics } from '../../../../lib/kv';
 
 export const prerender = false;
 
@@ -20,7 +20,7 @@ else if (timeFilter === 'all') days = 365;
 // Verify user exists
 const userDataStr = await kv?.get(`user:${id}:data`);
 if (!userDataStr) {
-  return Astro.redirect('/tokenrank');
+  return Astro.redirect('/en/tokenrank');
 }
 const userData = JSON.parse(userDataStr);
 
@@ -70,8 +70,8 @@ const getEventCost = (e: any) => {
     const cacheRead = e.cacheReadTokens || 0;
     const freshIn = Math.max(0, rawIn - cacheRead);
     const out = e.outTokens || 0;
-    return (freshIn / 1_000_000 * p.in) + 
-           (out / 1_000_000 * p.out) + 
+    return (freshIn / 1_000_000 * p.in) +
+           (out / 1_000_000 * p.out) +
            (cacheRead / 1_000_000 * p.cache);
   }
   const millions = e.tokens / 1_000_000;
@@ -106,12 +106,12 @@ if (timeFilter === 'all' && periodCost === 0 && userData && userData.tokens) {
     const rawIn = typeof rawVal === 'object' && rawVal !== null ? (rawVal.in || 0) : Math.floor(tot * 0.9);
     const out = typeof rawVal === 'object' && rawVal !== null ? (rawVal.out || 0) : Math.floor(tot * 0.1);
     const freshIn = Math.max(0, rawIn - cacheRead);
-    
+
     let p = PRICING['default'];
     if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') p = PRICING['gpt-5.6-sol'];
     else if (tool === 'antigravity') p = PRICING['gemini-2.5-pro'];
     else if (tool === 'claude') p = PRICING['claude-3-5-sonnet'];
-    
+
     periodCost += (freshIn / 1_000_000 * p.in) + (out / 1_000_000 * p.out) + (cacheRead / 1_000_000 * p.cache);
     periodNoCacheCost += (rawIn / 1_000_000 * p.in) + (out / 1_000_000 * p.out);
   });
@@ -226,19 +226,25 @@ for (let i = 0; i < days; i++) {
 if (activeStreak === 0 && periodTokens > 0) activeStreak = 1;
 
 const formatAmountObj = (num: number) => {
-  if (num >= 100_000_000) return { val: (num / 100_000_000).toFixed(2), unit: '亿' };
-  if (num >= 10_000) return { val: (num / 10_000).toFixed(1), unit: '万' };
+  if (num >= 1_000_000_000) return { val: (num / 1_000_000_000).toFixed(2), unit: 'B' };
+  if (num >= 1_000_000) return { val: (num / 1_000_000).toFixed(1), unit: 'M' };
+  if (num >= 1_000) return { val: (num / 1_000).toFixed(1), unit: 'K' };
   return { val: num.toString(), unit: '' };
 };
 
 const formatAmountStr = (num: number) => {
-  if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
-  if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
   return num.toString();
 };
 
 const periodTokensObj = formatAmountObj(periodTokens);
 const freshTokensObj = formatAmountObj(freshTokens);
+
+const timeLabel = timeFilter === 'today' ? 'Today' : timeFilter === 'yesterday' ? 'Yesterday' : timeFilter === 'all' ? 'All-time' : `Last ${days} days`;
+const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
+const joinDate = (userData.createdAt || '').substring(0, 10) || '—';
 
 // For charts — cap at 30 bars for readability ('all' also caps at 30).
 const chartWindow = days > 90 ? 30 : days;
@@ -249,10 +255,7 @@ for(let i=chartWindow-1; i>=0; i--) {
   lastXDays.push(d.toISOString().split('T')[0]);
 }
 
-// For the by-day table — use the FULL selected range. Previously this was
-// also capped at 30 days, which hid all data for users whose activity is
-// older than 30 days (e.g. 90d showed nothing). Decoupling it from the
-// chart cap makes every selected day visible in the table.
+// For the by-day table — use the FULL selected range.
 const tableDays = [];
 for(let i=days-1; i>=0; i--) {
   const d = new Date();
@@ -267,8 +270,7 @@ const toolBreakdown: Record<string, number> = {};
 const modelBreakdown: Record<string, number> = {};
 
 // For 'all' mode, prefer the persistent userData (timeseries events have a 31-day
-// TTL so they miss any tool whose data is older than that — e.g. Cherry Studio
-// disappears from the personal page while still showing on the homepage).
+// TTL so they miss any tool whose data is older than that).
 if (timeFilter === 'all' && userData && userData.tokens) {
   Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
     if (tool === 'total' || tool === 'history') return;
@@ -303,8 +305,7 @@ const toolValues = toolKeys.map(k => toolBreakdown[k]);
 const modelKeys = Object.keys(modelBreakdown).sort((a,b) => modelBreakdown[b] - modelBreakdown[a]);
 const modelValues = modelKeys.map(k => modelBreakdown[k]);
 
-// Distinct tools present in the period, for the dynamic by-day table columns
-// (top 8 by volume — replaces the old hardcoded Codex / Antigravity columns).
+// Distinct tools present in the period, for the dynamic by-day table columns.
 const tableTools = [...new Set(events.map(e => e.tool))]
   .sort((a, b) => (toolBreakdown[b] || 0) - (toolBreakdown[a] || 0))
   .slice(0, 8);
@@ -315,29 +316,29 @@ const chartData = {
 };
 ---
 
-<BaseLayout alternatePath={`/en/tokenrank/user/${id}`} title={`${userData.name} 的数据看板 - T Salon`} description={`查看 ${userData.name} 的详细 Token 消耗趋势和 AI 数据看板。`}>
+<BaseLayout alternatePath={`/tokenrank/user/${id}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`View ${userData.name}'s detailed token consumption trends and AI dashboard.`}>
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div class="user-info">
         <img src={userData.image} alt={userData.name} class="avatar" />
         <div>
           <h1>{userData.name}</h1>
-          <span class="location">🌍 远程协作节点</span>
+          <span class="location">🌍 Remote collaboration node</span>
         </div>
       </div>
       <div class="header-actions">
-        <a href="/tokenrank" class="back-link">Token 排行榜 ↗</a>
+        <a href="/en/tokenrank" class="back-link">Token Leaderboard ↗</a>
       </div>
     </header>
 
     <div class="tabs">
-      <a href="?time=today" class={timeFilter === 'today' ? 'active' : ''}>今天</a>
-      <a href="?time=yesterday" class={timeFilter === 'yesterday' ? 'active' : ''}>昨天</a>
-      <a href="?time=3d" class={timeFilter === '3d' ? 'active' : ''}>近3天</a>
-      <a href="?time=7d" class={timeFilter === '7d' ? 'active' : ''}>近7天</a>
-      <a href="?time=30d" class={timeFilter === '30d' ? 'active' : ''}>近30天</a>
-      <a href="?time=90d" class={timeFilter === '90d' ? 'active' : ''}>近90天</a>
-      <a href="?time=all" class={timeFilter === 'all' ? 'active' : ''}>整体</a>
+      <a href="?time=today" class={timeFilter === 'today' ? 'active' : ''}>Today</a>
+      <a href="?time=yesterday" class={timeFilter === 'yesterday' ? 'active' : ''}>Yesterday</a>
+      <a href="?time=3d" class={timeFilter === '3d' ? 'active' : ''}>Last 3d</a>
+      <a href="?time=7d" class={timeFilter === '7d' ? 'active' : ''}>Last 7d</a>
+      <a href="?time=30d" class={timeFilter === '30d' ? 'active' : ''}>Last 30d</a>
+      <a href="?time=90d" class={timeFilter === '90d' ? 'active' : ''}>Last 90d</a>
+      <a href="?time=all" class={timeFilter === 'all' ? 'active' : ''}>All-time</a>
       <span class="current-date">{todayDateStr}</span>
     </div>
 
@@ -345,83 +346,83 @@ const chartData = {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">{timeFilter === 'today' ? '当日消耗' : timeFilter === 'yesterday' ? '昨日消耗' : timeFilter === 'all' ? '历史总消耗' : `近${days}天消耗`} ❔</span>
+          <span class="label">{timeLabel} consumption ❔</span>
         </div>
         <div class="value">{periodTokensObj.val}<span class="unit">{periodTokensObj.unit}</span></div>
-        <div class="subtext">日均 {formatAmountStr(avgTokens)}</div>
+        <div class="subtext">Daily avg {formatAmountStr(avgTokens)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">预估成本 ❔</span>
+          <span class="label">Estimated Cost ❔</span>
         </div>
         <div class="value"><span class="unit">$</span>{periodCost.toLocaleString('en-US', {maximumFractionDigits: 0})}</div>
-        <div class="subtext">缓存节省 ${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})}</div>
+        <div class="subtext">Cache saved ${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">有效 token ❔</span>
+          <span class="label">Effective Tokens ❔</span>
         </div>
         <div class="value">{freshTokensObj.val}<span class="unit">{freshTokensObj.unit}</span></div>
-        <div class="subtext">占 {periodTokens > 0 ? (freshTokens / periodTokens * 100).toFixed(1) : 0}%</div>
+        <div class="subtext">{(periodTokens > 0 ? (freshTokens / periodTokens * 100).toFixed(1) : 0)}% of total</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">对话次数 ❔</span>
+          <span class="label">Conversations ❔</span>
         </div>
-        <div class="value">{totalConversations.toLocaleString()} <span class="unit">次</span></div>
-        <div class="subtext">次均 {formatAmountStr(avgTokensPerConv)}</div>
+        <div class="value">{totalConversations.toLocaleString()} <span class="unit">chats</span></div>
+        <div class="subtext">{formatAmountStr(avgTokensPerConv)} avg</div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">使用工具 ❔</span>
+          <span class="label">Tools Used ❔</span>
         </div>
-        <div class="value">{toolsUsed} <span class="unit">个</span></div>
-        <div class="subtext">主力 {toolKeys[0] || '无'}</div>
+        <div class="value">{toolsUsed} <span class="unit">tools</span></div>
+        <div class="subtext">Main: {toolKeys[0] || 'none'}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">AI 耗时 ❔</span>
+          <span class="label">AI Time ❔</span>
         </div>
-        <div class="value">{aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="unit">{aiTimeMinutes >= 60 ? '小时' : '分钟'}</span></div>
-        <div class="subtext">按 80 tok/秒 实际生成耗时估算</div>
+        <div class="value">{aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="unit">{aiUnit}</span></div>
+        <div class="subtext">Est. at 80 tok/s actual generation</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">缓存命中 ❔</span>
+          <span class="label">Cache Hit ❔</span>
         </div>
         <div class="value">{cacheHitRate}<span class="unit">%</span></div>
-        <div class="subtext">缓存读 {formatAmountStr(cacheHitTokens)}</div>
+        <div class="subtext">Cache read {formatAmountStr(cacheHitTokens)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">连续活跃 ❔</span>
+          <span class="label">Active Streak ❔</span>
         </div>
-        <div class="value">{activeStreak} <span class="unit">天</span></div>
-        <div class="subtext">接入以来 {(userData.createdAt || '').substring(0, 10) || '—'}</div>
+        <div class="value">{activeStreak} <span class="unit">days</span></div>
+        <div class="subtext">Since joining {joinDate}</div>
       </div>
     </div>
 
     <!-- Key Facts Banner -->
     <div class="key-facts-banner">
       <div class="fact-col">
-        <span class="fact-label">单日纪录</span>
+        <span class="fact-label">Single-day record</span>
         <span class="fact-value">{formatAmountStr(maxDayTokens)} · {maxDayStr}</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">连续活跃</span>
-        <span class="fact-value">{activeStreak} 天</span>
+        <span class="fact-label">Active streak</span>
+        <span class="fact-value">{activeStreak} days</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">接入以来</span>
-        <span class="fact-value">{(userData.createdAt || '').substring(0, 10) || '—'}</span>
+        <span class="fact-label">Since joining</span>
+        <span class="fact-value">{joinDate}</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">本区间活跃天数</span>
-        <span class="fact-value">{Object.keys(dailyMap).length} 天</span>
+        <span class="fact-label">Active days this period</span>
+        <span class="fact-value">{Object.keys(dailyMap).length} days</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">日均消耗</span>
+        <span class="fact-label">Daily avg</span>
         <span class="fact-value">{formatAmountStr(avgTokens)}</span>
       </div>
     </div>
@@ -429,11 +430,11 @@ const chartData = {
     <!-- Charts -->
     <div class="charts-row">
       <div class="chart-box">
-        <h3>近 {chartWindow} 天每天用量</h3>
+        <h3>Daily usage · last {chartWindow} days</h3>
         <div id="usageChart" style="height: 250px; width: 100%;"></div>
       </div>
       <div class="chart-box">
-        <h3>近 {chartWindow} 天每日成本</h3>
+        <h3>Daily cost · last {chartWindow} days</h3>
         <div id="costChart" style="height: 250px; width: 100%;"></div>
       </div>
     </div>
@@ -442,7 +443,7 @@ const chartData = {
     <div class="charts-row">
       <div class="chart-box">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
-          <h3>按工具</h3>
+          <h3>By tool</h3>
         </div>
         <div class="progress-list">
           {toolKeys.map((k, i) => (
@@ -461,7 +462,7 @@ const chartData = {
       </div>
       <div class="chart-box">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
-          <h3>按模型</h3>
+          <h3>By model</h3>
           <span style="font-size:0.75rem; color:var(--text-secondary);">Top 8</span>
         </div>
         <div class="progress-list">
@@ -483,7 +484,7 @@ const chartData = {
 
     <!-- Token Composition -->
     <div class="chart-box" style="margin-bottom: 1.5rem;">
-      <h3>Token 构成</h3>
+      <h3>Token Composition</h3>
       <div class="composition-bar">
         <div class="comp-input" style={`width: ${compInPct}%;`}></div>
         <div class="comp-output" style={`width: ${compOutPct}%;`}></div>
@@ -491,27 +492,27 @@ const chartData = {
         <div class="comp-cache-write" style={`width: ${compCacheWritePct}%;`}></div>
       </div>
       <div class="comp-legend">
-        <span><div class="dot" style="background:#2563EB;"></div> 输入 {compInPct.toFixed(1)}%</span>
-        <span><div class="dot" style="background:#93C5FD;"></div> 输出 {compOutPct.toFixed(1)}%</span>
-        <span><div class="dot" style="background:#E5E7EB;"></div> 缓存读 {compCacheReadPct.toFixed(1)}%</span>
-        <span><div class="dot" style="background:#D1D5DB;"></div> 缓存写 {compCacheWritePct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#2563EB;"></div> Input {compInPct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#93C5FD;"></div> Output {compOutPct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#E5E7EB;"></div> Cache read {compCacheReadPct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#D1D5DB;"></div> Cache write {compCacheWritePct.toFixed(1)}%</span>
       </div>
-      <div class="subtext" style="margin-top:0.5rem;">缓存节省 ≈${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})} (按各模型官方 API 价目折算)</div>
+      <div class="subtext" style="margin-top:0.5rem;">Cache savings ≈${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})} (at official API list prices)</div>
     </div>
 
     <!-- Data Table -->
     <div class="chart-box">
-      <h3>按天明细</h3>
+      <h3>Daily breakdown</h3>
       <div class="table-responsive">
         <table class="data-table">
           <thead>
             <tr>
-              <th>日期</th>
+              <th>Date</th>
               {tableTools.map(t => <th>{t === 'codex' ? 'Codex' : t === 'antigravity' ? 'Antigravity' : t === 'codex_proxy' ? 'Codex' : t.charAt(0).toUpperCase() + t.slice(1)}</th>)}
-              <th>合计</th>
-              <th>成本</th>
-              <th>会话</th>
-              <th>命中率</th>
+              <th>Total</th>
+              <th>Cost</th>
+              <th>Sessions</th>
+              <th>Hit rate</th>
             </tr>
           </thead>
           <tbody>
@@ -556,7 +557,7 @@ const chartData = {
       tooltip: { trigger: 'axis' },
       grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
       xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
-      yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: (val) => (val/100000000) > 1 ? (val/100000000).toFixed(1) + '亿' : (val/10000) + '万' } },
+      yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: (val) => (val/1e9) >= 1 ? (val/1e9).toFixed(1) + 'B' : (val/1e6) >= 1 ? (val/1e6).toFixed(1) + 'M' : (val/1e3 >= 1 ? (val/1e3).toFixed(0) + 'K' : val) } },
       series: [{ data: chartData.dailyUsage, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
     });
     costChart.setOption({
@@ -594,19 +595,19 @@ const chartData = {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--text-main);
   }
-  
+
   .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
   }
-  
+
   .user-info { display: flex; align-items: center; gap: 1rem; }
   .avatar { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); }
   .user-info h1 { margin: 0 0 0.2rem 0; font-size: 1.25rem; font-weight: 600; }
   .location { font-size: 0.8rem; color: var(--text-sec); }
-  
+
   .back-link {
     color: var(--text-sec);
     text-decoration: none;

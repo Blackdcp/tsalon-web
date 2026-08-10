@@ -1,8 +1,8 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import ShareModal from '../../components/ShareModal.astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import ShareModal from '../../../components/ShareModal.astro';
 import { getSession } from 'auth-astro/server';
-import { getLeaderboard, getGlobalStats } from '../../lib/kv';
+import { getLeaderboard, getGlobalStats } from '../../../lib/kv';
 
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
@@ -73,8 +73,8 @@ try {
 const seoJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'T Salon Token 排行榜',
-  description: '全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。'
+  name: 'T Salon Token Leaderboard',
+  description: 'A live leaderboard of AI developers’ token consumption — tracking local AI code generation across the community in real time.'
 };
 
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
@@ -90,7 +90,7 @@ const getToolEstimatedCost = (tool: string, amount: any) => {
   else if (tool === 'antigravity') model = 'gemini-2.5-pro';
   else if (tool === 'claude') model = 'claude-3-5-sonnet';
   const p = PRICING[model] || PRICING['default'];
-  
+
   if (typeof amount === 'number') {
     let cacheRate = 0.5;
     if (model === 'gpt-5.6-sol') cacheRate = 0.93;
@@ -103,8 +103,8 @@ const getToolEstimatedCost = (tool: string, amount: any) => {
     const cacheRead = Number(amount.cache_read) || 0;
     const freshIn = Math.max(0, rawIn - cacheRead);
     const out = Number(amount.out) || 0;
-    return (freshIn / 1_000_000 * p.in) + 
-           (out / 1_000_000 * p.out) + 
+    return (freshIn / 1_000_000 * p.in) +
+           (out / 1_000_000 * p.out) +
            (cacheRead / 1_000_000 * p.cache);
   }
   return 0;
@@ -112,18 +112,20 @@ const getToolEstimatedCost = (tool: string, amount: any) => {
 
 const formatDisplayAmount = (num: any, mode: string = 'tokens') => {
   const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));
-  if (n === 0) return '暂无消耗';
+  if (n === 0) return 'No data';
   if (mode === 'cost') return '$' + n.toFixed(2);
-  if (n >= 100_000_000) return (n / 100_000_000).toFixed(2) + '亿';
-  if (n >= 10_000) return (n / 10_000).toFixed(1) + '万';
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return n.toFixed(0);
 };
 
 const formatAmountStr = (num: any) => {
   const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));
   if (n === 0) return '0';
-  if (n >= 100_000_000) return (n / 100_000_000).toFixed(2) + '亿';
-  if (n >= 10_000) return (n / 10_000).toFixed(1) + '万';
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return n.toString();
 };
 
@@ -139,15 +141,15 @@ leaderboard.forEach(user => {
   Object.entries(user.tokens).forEach(([tool, amount]: [string, any]) => {
     if (tool === 'total') return;
     toolCounts[tool] = (toolCounts[tool] || 0) + 1;
-    
+
     globalCost += getToolEstimatedCost(tool, amount);
-    
+
     let model = 'default';
     if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') model = 'gpt-5.6-sol';
     else if (tool === 'antigravity') model = 'gemini-2.5-pro';
     else if (tool === 'claude') model = 'claude-3-5-sonnet';
     const p = PRICING[model] || PRICING['default'];
-    
+
     if (typeof amount === 'number') {
       let cacheRate = 0.5;
       if (model === 'gpt-5.6-sol') cacheRate = 0.93;
@@ -181,15 +183,20 @@ const averageGenerationSpeed = 80; // 80 tokens/sec
 const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) / 60);
 const timeDays = timeFilter === 'all' ? 30 : (parseInt(timeFilter.replace('d', '')) || 1);
 const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
+const dailyAvgTokensB = globalTokens / 1_000_000_000 / 30;
+
+const timeLabel = timeFilter === 'today' ? 'Today' : timeFilter === 'yesterday' ? 'Yesterday' : timeFilter === 'all' ? 'All-time' : `Last ${timeDays} days`;
+const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
+const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
 ---
 
-<BaseLayout alternatePath="/en/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
+<BaseLayout alternatePath="/tokenrank/" title="Token Leaderboard — T Salon" description="A live leaderboard of AI developers’ token consumption — tracking local AI code generation across the community in real time." image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main class="container page-content">
-    
+
     <header class="page-title" style="margin-bottom: 1.5rem; border-bottom: none; padding-bottom: 0;">
       <div class="page-title-main">
-        <h1>Token 排行榜</h1>
-        <p class="page-subtitle">开发者本地 AI 编码能耗大比拼</p>
+        <h1>Token Leaderboard</h1>
+        <p class="page-subtitle">AI coding energy showdown among developers</p>
       </div>
       <div class="page-title-side">
         <span class="mono">STATS / TOKEN RANK</span>
@@ -201,105 +208,104 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <!-- Card 1 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">{timeFilter === 'today' ? '当日' : timeFilter === 'yesterday' ? '昨日' : timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 (Top 100) <span class="help-icon">?</span></span>
+          <span class="bc-title">{timeLabel} consumption (Top 100) <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {formatDisplayAmount(globalTokens, modeFilter).replace('亿', '').replace('万', '')}
-          {formatDisplayAmount(globalTokens, modeFilter).includes('亿') ? <span class="bc-unit">亿</span> : formatDisplayAmount(globalTokens, modeFilter).includes('万') ? <span class="bc-unit">万</span> : ''}
+          {formatDisplayAmount(globalTokens, modeFilter)}
         </div>
-        <div class="bc-subtext">日均约 {(globalTokens / 100_000_000 / 30).toFixed(1)} 亿</div>
+        <div class="bc-subtext">Daily avg ~{dailyAvgTokensB.toFixed(1)} B</div>
       </div>
 
       <!-- Card 2 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">预估成本 <span class="help-icon">?</span></span>
+          <span class="bc-title">Estimated Cost <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           <span class="bc-unit-prefix">$</span>{globalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}
         </div>
-        <div class="bc-subtext">缓存节省 ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+        <div class="bc-subtext">Cache saved ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
       </div>
 
       <!-- Card 3 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">有效 token <span class="help-icon">?</span></span>
+          <span class="bc-title">Effective Tokens <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {(effectiveTokens / 100_000_000).toFixed(2)} <span class="bc-unit">亿</span>
+          {(effectiveTokens / 1_000_000_000).toFixed(2)} <span class="bc-unit">B</span>
         </div>
-        <div class="bc-subtext">占 {(globalTokens > 0 ? (effectiveTokens / globalTokens) * 100 : 0).toFixed(1)}%</div>
+        <div class="bc-subtext">{(globalTokens > 0 ? (effectiveTokens / globalTokens) * 100 : 0).toFixed(1)}% of total</div>
       </div>
 
       <!-- Card 4 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">对话次数 <span class="help-icon">?</span></span>
+          <span class="bc-title">Conversations <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {conversations.toLocaleString()} <span class="bc-unit">次</span>
+          {conversations.toLocaleString()} <span class="bc-unit">chats</span>
         </div>
-        <div class="bc-subtext">次均 4,000 tokens</div>
+        <div class="bc-subtext">4,000 tokens avg</div>
       </div>
 
       <!-- Card 5 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">使用工具 <span class="help-icon">?</span></span>
+          <span class="bc-title">Tools Used <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {activeToolsCount} <span class="bc-unit">个</span>
+          {activeToolsCount} <span class="bc-unit">tools</span>
         </div>
-        <div class="bc-subtext">主力 {topTool}</div>
+        <div class="bc-subtext">Main: {topTool}</div>
       </div>
 
       <!-- Card 6 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">AI 耗时 <span class="help-icon" title={`模型实际生成内容的耗时累计（按每轮生成计时），不含等待输入的空闲，非使用者在线时长。\n当前估算基准：${averageGenerationSpeed} tokens/秒`}>?</span></span>
+          <span class="bc-title">AI Time <span class="help-icon" title={`Cumulative time the model actually spent generating content (timed per generation round), excluding idle waiting for input — not the user's online duration.\nCurrent estimate basis: ${averageGenerationSpeed} tokens/sec`}>?</span></span>
         </div>
         <div class="bc-value">
-          {aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="bc-unit">{aiTimeMinutes >= 60 ? '小时' : '分钟'}</span>
+          {aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="bc-unit">{aiUnit}</span>
         </div>
-        <div class="bc-subtext">日均 {dailyAiTimeMinutes >= 60 ? (dailyAiTimeMinutes / 60).toFixed(1) : dailyAiTimeMinutes} {dailyAiTimeMinutes >= 60 ? '小时' : '分钟'}</div>
+        <div class="bc-subtext">Daily avg {dailyAiTimeMinutes >= 60 ? (dailyAiTimeMinutes / 60).toFixed(1) : dailyAiTimeMinutes} {dailyAiUnit}</div>
       </div>
 
       <!-- Card 7 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">缓存命中 <span class="help-icon">?</span></span>
+          <span class="bc-title">Cache Hit <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {globalCacheHitRate} <span class="bc-unit">%</span>
         </div>
-        <div class="bc-subtext">缓存读 {formatAmountStr(globalCacheHitTokens)}</div>
+        <div class="bc-subtext">Cache read {formatAmountStr(globalCacheHitTokens)}</div>
       </div>
 
       <!-- Card 8 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">连续活跃 <span class="help-icon">?</span></span>
+          <span class="bc-title">Active Users <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {stats.totalUsers} <span class="bc-unit">人</span>
+          {stats.totalUsers} <span class="bc-unit">devs</span>
         </div>
-        <div class="bc-subtext">累计接入开发者</div>
+        <div class="bc-subtext">Total developers onboarded</div>
       </div>
     </div>
 
     <!-- Time Filters -->
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
-        <a href="?time=today" class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href="?time=yesterday" class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
-        <a href="?time=3d" class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
-        <a href="?time=7d" class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
-        <a href="?time=30d" class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
-        <a href="?time=90d" class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
-        <a href="?time=all" class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+        <a href="?time=today" class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>Today</a>
+        <a href="?time=yesterday" class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>Yesterday</a>
+        <a href="?time=3d" class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>Last 3d</a>
+        <a href="?time=7d" class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>Last 7d</a>
+        <a href="?time=30d" class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>Last 30d</a>
+        <a href="?time=90d" class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>Last 90d</a>
+        <a href="?time=all" class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>All</a>
       </div>
-      
+
       <div class="date-display">
         {new Date().toISOString().split('T')[0]}
       </div>
@@ -308,11 +314,11 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <div class="leaderboard-list-container">
         <!-- Table Headers (Integrated 5-Column Top Bar) -->
         <div class="lb-header-row">
-          <div class="lb-col-rank">排名</div>
-          <div class="lb-col-user">T 友</div>
-          <div class="lb-col-details">消耗详情 (多端工具)</div>
-          <div class="lb-col-tokens">消耗 Token</div>
-          <div class="lb-col-cost">预估成本</div>
+          <div class="lb-col-rank">Rank</div>
+          <div class="lb-col-user">Member</div>
+          <div class="lb-col-details">Breakdown (multi-tool)</div>
+          <div class="lb-col-tokens">Tokens</div>
+          <div class="lb-col-cost">Est. Cost</div>
         </div>
 
         <!-- Current User Section (Integrated Highlight) -->
@@ -330,8 +336,8 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
               </div>
             </div>
             <div class="lb-col-details" style="display: flex; align-items: center; gap: 0.85rem;">
-              <span class="user-highlight-desc">感谢您的数据贡献</span>
-              <button class="btn-share-mini" onclick="openShareModal()">生成海报分享 ↗</button>
+              <span class="user-highlight-desc">Thanks for your data contribution</span>
+              <button class="btn-share-mini" onclick="openShareModal()">Generate poster ↗</button>
             </div>
             <div class="lb-col-tokens">
               <div class="lb-num-tokens">{formatDisplayAmount(currentUser.tokens?.total || 0, 'tokens')}</div>
@@ -349,22 +355,22 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
             </div>
             <div class="lb-col-user">
               <div class="lb-name-text">
-                <strong>尚未登榜</strong>
+                <strong>Not ranked yet</strong>
               </div>
             </div>
             <div class="lb-col-details">
-              <span class="user-highlight-desc">将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。</span>
+              <span class="user-highlight-desc">Bind your GitHub account to your local environment and run the dedicated extraction script to get on the board quickly.</span>
             </div>
             <div class="lb-col-tokens">-</div>
             <div class="lb-col-cost">
-              <a href="/tokenrank/connect/" class="btn-onboard-mini">绑定上榜 ↗</a>
+              <a href="/tokenrank/connect" class="btn-onboard-mini">Connect &amp; rank ↗</a>
             </div>
           </div>
         )}
 
       <!-- Main Leaderboard -->
       {leaderboard.length === 0 ? (
-        <div class="content-section" style="margin-top: 1rem;"><p>该时间段内暂无数据，快去抢首发吧！</p></div>
+        <div class="content-section" style="margin-top: 1rem;"><p>No data in this period yet — be the first to post!</p></div>
       ) : (
         leaderboard.map((user, idx) => {
             // Collapse duplicate profiles of the SAME GitHub person (e.g. a stale
@@ -377,7 +383,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
             const rank = idx + 1;
             let userTotalEstimatedCost = 0;
           let userTotalTokens = typeof user.tokens?.total === 'number' ? user.tokens.total : 0;
-          
+
           const toolsBreakdown = Object.entries(user.tokens || {})
             .filter(([k]) => k !== 'total')
             .map(([tool, rawAmount]: [string, any]) => {
@@ -388,11 +394,11 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
             });
 
           return (
-            <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
+            <div class="list-row" onclick={`window.location.href='/en/tokenrank/user/${user.userId}'`}>
               <div class="lb-col-rank">
-                {rank === 1 ? <div class="rank-text rank-1">#1</div> : 
-                 rank === 2 ? <div class="rank-text rank-2">#2</div> : 
-                 rank === 3 ? <div class="rank-text rank-3">#3</div> : 
+                {rank === 1 ? <div class="rank-text rank-1">#1</div> :
+                 rank === 2 ? <div class="rank-text rank-2">#2</div> :
+                 rank === 3 ? <div class="rank-text rank-3">#3</div> :
                  <div class="rank-text normal">{rank}</div>}
               </div>
               <div class="lb-col-user">
@@ -428,15 +434,15 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       </div>
 
     <!-- Floating Onboarding Widget (Bottom Pill) -->
-    <a href="/tokenrank/connect/" class="floating-pill-widget">
+    <a href="/tokenrank/connect" class="floating-pill-widget">
       <span class="fp-icon">🚀</span>
-      <span class="fp-text">尚未登榜？</span>
-      <span class="fp-cta">立即接入统计 &rarr;</span>
+      <span class="fp-text">Not on the board yet?</span>
+      <span class="fp-cta">Start tracking now &rarr;</span>
     </a>
 
   </main>
 
-  <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} />
+  <ShareModal locale="en" leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} />
 </BaseLayout>
 
 <style>
@@ -452,7 +458,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     margin-bottom: 1.5rem;
     width: 100%;
   }
-  
+
   .page-subtitle {
     font-size: 1.1rem;
     color: #666;
@@ -525,7 +531,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     gap: 16px;
     margin-bottom: 2rem;
   }
-  
+
   .bento-card {
     background: #fff;
     border: 1px solid #f0f0f0;
@@ -544,7 +550,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     align-items: center;
     margin-bottom: 12px;
   }
-  
+
   .bc-title {
     font-size: 13px;
     color: #999;
@@ -553,14 +559,14 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     gap: 4px;
     font-weight: 400;
   }
-  
+
   .help-icon {
     font-size: 11px;
     color: #ccc;
     font-weight: normal;
     font-style: normal;
   }
-  
+
   .bc-trend {
     font-size: 12px;
     font-weight: 700;
@@ -578,7 +584,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     letter-spacing: -0.5px;
     margin-bottom: 8px;
   }
-  
+
   .bc-unit {
     font-size: 13px;
     font-weight: 500;
@@ -586,7 +592,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     margin-left: 4px;
     letter-spacing: 0;
   }
-  
+
   .bc-unit-prefix {
     font-size: 16px;
     font-weight: 500;
@@ -615,7 +621,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     border-bottom: 1px solid #e2e8f0;
     gap: 1rem;
   }
-  
+
   /* Leaderboard List Container */
   .leaderboard-list-container {
     background: #fff;
@@ -634,7 +640,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     cursor: pointer;
     gap: 1rem;
   }
-  
+
   .list-row:last-child {
     border-bottom: none;
   }
@@ -642,13 +648,13 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   .list-row:hover {
     background: #fafafa;
   }
-  
+
   /* Highlight Row (Current User) */
   .list-row-highlight {
     background: #f8fafc;
     border-left: 3px solid #10b981;
   }
-  
+
   .list-row-onboard {
     background: #f8f9fa;
     border-left: 3px solid #cbd5e1;
@@ -715,7 +721,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     font-size: 1.25rem;
     font-weight: 800;
   }
-  
+
   .rank-1 { color: #d97706; } /* Gold-ish */
   .rank-2 { color: #475569; } /* Silver-ish */
   .rank-3 { color: #b45309; } /* Bronze-ish */
@@ -798,7 +804,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     white-space: nowrap;
     flex-shrink: 0;
   }
-  
+
   .btn-share-mini {
     background: #10B981;
     color: #fff;
@@ -815,7 +821,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     align-items: center;
     justify-content: center;
   }
-  
+
   .btn-onboard-mini:hover {
     background: #333;
   }
@@ -824,7 +830,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     background: #059669;
     transform: translateY(-1px);
   }
-  
+
   /* Floating Pill Widget */
   .floating-pill-widget {
     position: fixed;
@@ -1015,7 +1021,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     color: #e5e7eb;
     border: 1px solid rgba(255,255,255,0.03);
   }
-  
+
   .t-formula code {
     font-family: 'JetBrains Mono', monospace;
     white-space: normal;
@@ -1044,7 +1050,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   .t-table tr:last-child td {
     border-bottom: none;
   }
-  
+
   .t-table code {
     background: rgba(255,255,255,0.05);
     padding: 2px 6px;
@@ -1058,4 +1064,3 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     }
   }
 </style>
- 
