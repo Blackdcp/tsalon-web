@@ -151,14 +151,25 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
 
     if (toolHasHistory) {
       for (const [dateStr, toolsObj] of Object.entries(historyData!)) {
-        if (toolsObj[tool] && toolsObj[tool] > 0) {
-          const hVal = toolsObj[tool];
+        const rawVal = toolsObj[tool];
+        if (!rawVal) continue;
+        const hVal = typeof rawVal === 'object' && rawVal !== null ? (Number(rawVal.total) || 0) : (Number(rawVal) || 0);
+        if (hVal > 0) {
+          const inTokens = typeof rawVal === 'object' ? Number(rawVal.in || 0) : Math.floor(hVal * 0.9);
+          const outTokens = typeof rawVal === 'object' ? Number(rawVal.out || 0) : Math.floor(hVal * 0.1);
+          const cacheReadTokens = typeof rawVal === 'object' ? Number(rawVal.cache_read || 0) : 0;
+          const cacheWriteTokens = typeof rawVal === 'object' ? Number(rawVal.cache_write || 0) : 0;
+
           const event: TimeseriesEvent = {
             timestamp: new Date(dateStr).getTime(),
             tool,
             model,
             tokens: hVal,
-            cacheHit: Math.random() < cacheRate,
+            inTokens,
+            outTokens,
+            cacheReadTokens,
+            cacheWriteTokens,
+            cacheHit: cacheReadTokens > 0 ? true : Math.random() < cacheRate,
             deviceId: deviceId
           };
           pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
