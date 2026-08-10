@@ -10,6 +10,21 @@ const { leaderboard, currentUserRank, currentUser } = Astro.props;
 const top10 = leaderboard.slice(0, 10);
 const todayDateStr = new Date().toISOString().split('T')[0];
 
+// Collapse duplicate profiles of the same GitHub person (a stale orphan from an
+// old agent build can share the exact same GitHub avatar id) so the poster's
+// top-10 never shows the same person twice.
+const githubIdOf = (u: any): string | null => {
+  const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(u?.image || '');
+  return m ? m[1] : null;
+};
+const seenShareGithubIds = new Set<string>();
+const top10Deduped = top10.filter((u) => {
+  const gh = githubIdOf(u);
+  if (gh && seenShareGithubIds.has(gh)) return false;
+  if (gh) seenShareGithubIds.add(gh);
+  return true;
+});
+
 const formatPosterAmount = (num: any) => {
   const n = typeof num === 'number' ? num : (Number(num) || 0);
   if (n >= 100_000_000) return { val: (n / 100_000_000).toFixed(2), unit: '亿' };
@@ -34,7 +49,7 @@ const formatPosterAmount = (num: any) => {
           <span class="share-list-bar"></span> TOP 10 榜单
         </div>
         <ul class="share-list">
-          {top10.map((user, idx) => (
+          {top10Deduped.map((user, idx) => (
             <li>
               <div class="share-list-left">
                 <span class={`share-rank-badge rank-${idx + 1}`}>{idx + 1}</span>
