@@ -24,6 +24,42 @@ if (!userDataStr) {
 }
 const userData = JSON.parse(userDataStr);
 
+// --- Derived, per-user facts to replace the old hardcoded "远程协作节点" ---
+// 1. Tenure: days since this profile was first created (createdAt is preserved
+//    on every upload, so this is real, never hardcoded).
+let joinDays = 0;
+if (userData.createdAt) {
+  const created = new Date(userData.createdAt);
+  if (!isNaN(created.getTime())) {
+    joinDays = Math.max(0, Math.floor((Date.now() - created.getTime()) / 86_400_000));
+  }
+}
+
+// 2. Top tool: the user's highest-volume AI tool (on-theme for a token board).
+const TOOL_LABELS: Record<string, string> = {
+  codex: 'Codex', cursor: 'Cursor', claude: 'Claude', antigravity: 'Antigravity',
+  codex_proxy: 'Codex', workbuddy: 'WorkBuddy', gemini: 'Gemini', windsurf: 'Windsurf',
+  copilot: 'Copilot', aider: 'Aider', opencode: 'OpenCode'
+};
+let topTool = '';
+let topToolTotal = 0;
+if (userData.tokens) {
+  for (const [t, v] of Object.entries(userData.tokens)) {
+    if (t === 'total' || t === 'history') continue;
+    const vv = v as any;
+    const tot = typeof vv === 'object' && vv !== null ? (vv.total || 0) : (Number(vv) || 0);
+    if (tot > topToolTotal) { topToolTotal = tot; topTool = t; }
+  }
+}
+const topToolLabel = topTool ? (TOOL_LABELS[topTool] || topTool) : '';
+
+// 3. Lifetime rank on the global leaderboard (0-based → +1).
+let lifetimeRank: number | null = null;
+if (kv) {
+  const r = await kv.zrevrank('leaderboard:total', id as string);
+  if (typeof r === 'number') lifetimeRank = r + 1;
+}
+
 // Fetch analytics
 const rawEvents = await getUserAnalytics(id as string, days);
 
@@ -322,7 +358,12 @@ const chartData = {
         <img src={userData.image} alt={userData.name} class="avatar" />
         <div>
           <h1>{userData.name}</h1>
-          <span class="location">🌍 远程协作节点</span>
+          <span class="location">
+            {topToolLabel && <><span class="loc-chip">🤖 主力 {topToolLabel}</span></>}
+            {joinDays > 0 && <><span class="loc-sep">·</span><span class="loc-chip">📅 加入 {joinDays} 天</span></>}
+            {lifetimeRank && <><span class="loc-sep">·</span><span class="loc-chip">🏆 全站第 {lifetimeRank} 名</span></>}
+            {!topToolLabel && joinDays === 0 && !lifetimeRank && <span class="loc-chip">T Salon 成员</span>}
+          </span>
         </div>
       </div>
       <div class="header-actions">
@@ -605,7 +646,9 @@ const chartData = {
   .user-info { display: flex; align-items: center; gap: 1rem; }
   .avatar { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); }
   .user-info h1 { margin: 0 0 0.2rem 0; font-size: 1.25rem; font-weight: 600; }
-  .location { font-size: 0.8rem; color: var(--text-sec); }
+  .location { font-size: 0.8rem; color: var(--text-sec); display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+  .location .loc-chip { background: var(--bg-soft, rgba(127,127,127,0.1)); padding: 0.1rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+  .location .loc-sep { opacity: 0.4; }
   
   .back-link {
     color: var(--text-sec);
