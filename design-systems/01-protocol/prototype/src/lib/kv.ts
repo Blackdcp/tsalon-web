@@ -118,44 +118,6 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         await pipeline.exec();
       }
     }
-    
-    // Only process dates that have data
-    for (const [dateStr, toolsObj] of Object.entries(historyData)) {
-      // First, completely overwrite the history for this device on this date? 
-      // Actually, since timeseries are lists, we can't easily "upsert" individual events for the same tool.
-      // But wait! If we just send the EXACT value, we don't want to re-push the total every time!
-      // For exact history sync, the safest way is to let the admin-script wipe the lists once,
-      // and then we push the EXACT values for each date.
-      // BUT if this runs daily, it will push the total tokens again!
-      // So historyData should ONLY contain the DAILY USAGE (which it does, because we grouped by date() in SQL!).
-      
-      // Wait, SQL `GROUP BY date()` gives the total tokens used ON THAT DAY.
-      // So historyData IS the delta!
-      for (const [tool, val] of Object.entries(toolsObj)) {
-        if (val <= 0) continue;
-        
-        let model = 'unknown';
-        let cacheRate = 0.5;
-        if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
-          model = 'gpt-5.6-sol';
-          cacheRate = 0.93;
-        } else if (tool === 'antigravity') {
-          model = 'gemini-2.5-pro';
-          cacheRate = 0.1;
-        } else if (tool === 'claude') {
-          model = 'claude-3-5-sonnet';
-          cacheRate = 0.8;
-        }
-        
-        // Since historyData contains exact DAILY values, we just log them!
-        // Wait, if the user runs the script multiple times a day, `historyData[today]` will contain the full today usage.
-        // If we just push it, it will duplicate today's usage?
-        // Let's rely on the admin script to wipe everything, then the first run will populate history perfectly.
-        // For subsequent runs, maybe we shouldn't sync history every time?
-        // To be safe, if we get history, we ONLY use it if the delta for the total tool is huge (isFirstRun equivalent).
-        // Or we can just use the delta logic for `todayStr` and ignore the history if it's not a huge delta.
-      }
-    }
   }
 
   // Delta logic
