@@ -16,6 +16,8 @@ import { kv, scanKeys } from '../../lib/kv';
 
 async function loadData() {
   const keyEvents: Record<string, any[]> = {};
+  const profiles: any[] = [];
+  if (!kv) return { keyEvents, profiles };
   let cursor = '0';
   do {
     const [next, keys] = await kv.scan(cursor, 'MATCH', 'user:*:timeseries:*', 'COUNT', 500);
@@ -34,7 +36,6 @@ async function loadData() {
   } while (cursor !== '0');
 
   const profileKeys = await scanKeys('user:*:data');
-  const profiles: any[] = [];
   if (profileKeys.length) {
     const raws = await kv.mget(profileKeys);
     raws.forEach((r, i) => {
