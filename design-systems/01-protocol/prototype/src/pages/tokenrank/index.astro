@@ -261,6 +261,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
         <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+        <a href={`?time=yesterday&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
         <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
         <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
         <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>

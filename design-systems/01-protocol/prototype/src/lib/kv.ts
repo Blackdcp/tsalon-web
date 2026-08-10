@@ -294,6 +294,7 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
   else if (time === '3d') days = 3;
   else if (time === '7d') days = 7;
   else if (time === '30d') days = 30;
+  else if (time === '90d') days = 90;
 
   const datesToFetch: string[] = [];
   for (let i = 0; i < days; i++) {
