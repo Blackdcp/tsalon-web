@@ -478,39 +478,33 @@ const chartData = {
   </div>
 </BaseLayout>
 
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script is:inline define:vars={{ chartData }}>
-  document.addEventListener('DOMContentLoaded', () => {
-    // Defer init until layout is settled (grid/flex parents may not have
-    // computed width yet at DOMContentLoaded, leading to 0-width charts).
-    requestAnimationFrame(() => {
-      const usageEl = document.getElementById('usageChart');
-      const costEl = document.getElementById('costChart');
-      if (!usageEl || !costEl) return;
-      const usageChart = echarts.init(usageEl);
-      const costChart = echarts.init(costEl);
-      usageChart.setOption({
-        tooltip: { trigger: 'axis' },
-        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
-        yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: (val) => (val/100000000) > 1 ? (val/100000000).toFixed(1) + '亿' : (val/10000) + '万' } },
-        series: [{ data: chartData.dailyUsage, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
-      });
-
-      costChart.setOption({
-        tooltip: { trigger: 'axis', formatter: '${c}' },
-        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
-        yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: '${value}' } },
-        series: [{ data: chartData.dailyCost, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
-      });
-
-      window.addEventListener('resize', () => {
-        usageChart.resize();
-        costChart.resize();
-      });
+  function initCharts() {
+    if (typeof echarts === 'undefined') { setTimeout(initCharts, 50); return; }
+    const usageEl = document.getElementById('usageChart');
+    const costEl = document.getElementById('costChart');
+    if (!usageEl || !costEl) return;
+    const usageChart = echarts.init(usageEl);
+    const costChart = echarts.init(costEl);
+    usageChart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
+      yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: (val) => (val/100000000) > 1 ? (val/100000000).toFixed(1) + '亿' : (val/10000) + '万' } },
+      series: [{ data: chartData.dailyUsage, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
     });
-  });
+    costChart.setOption({
+      tooltip: { trigger: 'axis', formatter: '${c}' },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
+      yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: '${value}' } },
+      series: [{ data: chartData.dailyCost, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
+    });
+    window.addEventListener('resize', () => { usageChart.resize(); costChart.resize(); });
+  }
+  if (document.readyState !== 'loading') initCharts();
+  else document.addEventListener('DOMContentLoaded', initCharts);
 </script>
 
 <style>
