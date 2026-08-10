@@ -31,6 +31,14 @@ try {
     if (userIndex !== -1) {
       currentUser = leaderboard[userIndex];
       currentUserRank = userIndex + 1;
+    } else {
+      // User is logged in but has no data in this time period
+      currentUser = {
+        name: session.user.name,
+        image: session.user.image,
+        tokens: { total: 0 }
+      };
+      currentUserRank = 0;
     }
   }
 } catch(e) {}
@@ -151,22 +159,6 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       </div>
     </header>
 
-    <!-- Time Filters -->
-    <div class="filter-panel-premium">
-      <div class="time-filter-pills">
-        <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
-        <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
-        <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
-        <a href={`?time=90d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
-        <a href={`?time=all&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
-      </div>
-      
-      <div class="date-display">
-        {new Date().toISOString().split('T')[0]}
-      </div>
-    </div>
-
     <!-- Bento Grid Dashboard -->
     <div class="bento-grid">
       <!-- Card 1 -->
@@ -263,7 +255,21 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       </div>
     </div>
 
-    <!-- Filters have been moved above the grid -->
+    <!-- Time Filters moved below the Bento Grid -->
+    <div class="filter-panel-premium">
+      <div class="time-filter-pills">
+        <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+        <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+        <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+        <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+        <a href={`?time=90d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+        <a href={`?time=all&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+      </div>
+      
+      <div class="date-display">
+        {new Date().toISOString().split('T')[0]}
+      </div>
+    </div>
 
     <div class="leaderboard-list">
       
@@ -294,7 +300,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
             </div>
           </div>
           <div class="lb-card-right">
-            <div class="lb-highlight-rank">#{currentUserRank}</div>
+            <div class="lb-highlight-rank">{currentUserRank > 0 ? `#${currentUserRank}` : '-'}</div>
             <button class="btn-share" onclick="openShareModal()">分享</button>
           </div>
         </div>
@@ -530,16 +536,6 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     color: #999;
     margin-top: 0;
     font-weight: 400;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .bento-card {
-      background: #111;
-      border-color: #333;
-    }
-    .bc-value, .bc-unit { color: #fff; }
-    .pill-item { background: #111; border-color: #333; color: #888; }
-    .pill-item.active { background: #222; color: #fff; border-color: #444; }
   }
 
   /* Table Headers */
