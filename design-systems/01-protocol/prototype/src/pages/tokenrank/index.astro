@@ -303,8 +303,9 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
                 <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
               </div>
             </div>
-            <div class="lb-col-details">
+            <div class="lb-col-details" style="display: flex; align-items: center; gap: 0.85rem;">
               <span class="user-highlight-desc">感谢您的数据贡献</span>
+              <button class="btn-share-mini" onclick="openShareModal()">生成海报分享 ↗</button>
             </div>
             <div class="lb-col-tokens">
               <div class="lb-num-tokens">{formatDisplayAmount(currentUser.tokens?.total || 0, 'tokens')}</div>
@@ -313,7 +314,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
               <div class="lb-num-cost">
                 ${Object.entries(currentUser.tokens || {}).filter(([k]) => k !== 'total').reduce((acc, [t, a]) => acc + getToolEstimatedCost(t, a), 0).toFixed(2)}
               </div>
-              <button class="btn-share-mini" onclick="openShareModal()">分享</button>
             </div>
           </div>
         ) : (
@@ -641,6 +641,11 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     align-items: center;
     gap: 0.75rem;
     flex-shrink: 0;
+  }
+
+  .lb-header-row .lb-col-user {
+    justify-content: center;
+    text-align: center;
   }
 
   .lb-col-details {
