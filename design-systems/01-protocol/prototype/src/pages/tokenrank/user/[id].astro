@@ -481,29 +481,34 @@ const chartData = {
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script is:inline define:vars={{ chartData }}>
   document.addEventListener('DOMContentLoaded', () => {
-    // Usage Chart
-    const usageChart = echarts.init(document.getElementById('usageChart'));
-    usageChart.setOption({
-      tooltip: { trigger: 'axis' },
-      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-      xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
-      yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: (val) => (val/100000000) > 1 ? (val/100000000).toFixed(1) + '亿' : (val/10000) + '万' } },
-      series: [{ data: chartData.dailyUsage, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
-    });
+    // Defer init until layout is settled (grid/flex parents may not have
+    // computed width yet at DOMContentLoaded, leading to 0-width charts).
+    requestAnimationFrame(() => {
+      const usageEl = document.getElementById('usageChart');
+      const costEl = document.getElementById('costChart');
+      if (!usageEl || !costEl) return;
+      const usageChart = echarts.init(usageEl);
+      const costChart = echarts.init(costEl);
+      usageChart.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
+        yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: (val) => (val/100000000) > 1 ? (val/100000000).toFixed(1) + '亿' : (val/10000) + '万' } },
+        series: [{ data: chartData.dailyUsage, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
+      });
 
-    // Cost Chart
-    const costChart = echarts.init(document.getElementById('costChart'));
-    costChart.setOption({
-      tooltip: { trigger: 'axis', formatter: '${c}' },
-      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-      xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
-      yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: '${value}' } },
-      series: [{ data: chartData.dailyCost, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
-    });
+      costChart.setOption({
+        tooltip: { trigger: 'axis', formatter: '${c}' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: { type: 'category', data: chartData.lastXDays, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#6b7280' } },
+        yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#6b7280', formatter: '${value}' } },
+        series: [{ data: chartData.dailyCost, type: 'bar', itemStyle: { color: '#93C5FD', borderRadius: [2,2,0,0] }, barWidth: '40%' }]
+      });
 
-    window.addEventListener('resize', () => {
-      usageChart.resize();
-      costChart.resize();
+      window.addEventListener('resize', () => {
+        usageChart.resize();
+        costChart.resize();
+      });
     });
   });
 </script>
@@ -620,12 +625,12 @@ const chartData = {
   /* Progress Bars */
   .progress-list { display: flex; flex-direction: column; gap: 0.8rem; }
   .progress-item { display: flex; align-items: center; font-size: 0.875rem; }
-  .p-label { width: 100px; color: var(--text-sec); }
+  .p-label { width: 80px; color: var(--text-sec); }
   .p-bar-wrapper { flex: 1; height: 16px; background: #F3F4F6; border-radius: 4px; overflow: hidden; margin-right: 1rem; }
   .p-bar { height: 100%; border-radius: 4px; }
-  .p-values { width: 100px; display: flex; justify-content: flex-end; gap: 0.5rem; }
-  .p-val-amount { font-weight: 500; }
-  .p-val-pct { color: var(--text-sec); width: 40px; text-align: right; }
+  .p-values { width: 150px; display: flex; justify-content: flex-end; align-items: baseline; gap: 0.5rem; }
+  .p-val-amount { font-weight: 500; white-space: nowrap; }
+  .p-val-pct { color: var(--text-sec); width: 44px; text-align: right; flex-shrink: 0; }
 
   /* Token Composition */
   .composition-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; background: #F3F4F6; }
