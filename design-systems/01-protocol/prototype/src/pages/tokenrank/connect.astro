@@ -70,7 +70,7 @@ if (session?.user?.id) {
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell (管理员) 中运行一次，将立即同步首发数据并挂载 30 分钟静默任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{uploadToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Force; Start-ScheduledTask -TaskName "TSalonTokenAgent"
+                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{uploadToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U; Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Principal $principal -Force; Start-ScheduledTask -TaskName "TSalonTokenAgent"
                   </code>
                 </div>
               </div>
