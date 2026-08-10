@@ -1,0 +1,216 @@
+import type { APIRoute } from 'astro';
+import { kv, scanKeys } from '../../lib/kv';
+
+// One-off, POST-only maintenance endpoint (query strings are stripped by Vercel
+// on these serverless functions, so we pass the action via the JSON body).
+//
+//   curl -X POST https://www.tsalon.tech/api/db-maint2 -H 'content-type: application/json' -d '{"action":"inspect"}'
+//   curl -X POST https://www.tsalon.tech/api/db-maint2 -H 'content-type: application/json' -d '{"action":"fix"}'
+//
+// inspect : read-only — stored aggregate vs timeseries-recomputed total + recent daily totals.
+// fix     : remove billion-scale pollution events (>1B AND >10x the user's own
+//           median daily volume), recompute each profile's tokens aggregate
+//           from the cleaned timeseries, reset device snapshots so the next
+//           upload computes a correct delta, and refresh the leaderboard.
+
+const ABSOLUTE_FLOOR = 1_000_000_000;
+const MULTIPLE_OF_MEDIAN = 10;
+
+export const POST: APIRoute = async ({ request }) => {
+  if (!kv) return new Response('No KV', { status: 500 });
+
+  let action = 'inspect';
+  try {
+    const b = await request.json();
+    if (b && typeof b.action === 'string') action = b.action;
+  } catch {}
+
+  const keyEvents: Record<string, any[]> = {};
+  let cursor = '0';
+  do {
+    const [next, keys] = await kv.scan(cursor, 'MATCH', 'user:*:timeseries:*', 'COUNT', 500);
+    cursor = next;
+    if (keys.length) {
+      const pipe = kv.pipeline();
+      keys.forEach(k => pipe.lrange(k, 0, -1));
+      const res = await pipe.exec();
+      keys.forEach((k, i) => {
+        const [, raw] = res![i] as [Error | null, string[]];
+        keyEvents[k] = (raw || []).map(s => {
+          try { return JSON.parse(s); } catch { return null; }
+        }).filter(Boolean);
+      });
+    }
+  } while (cursor !== '0');
+
+  const profileKeys = await scanKeys('user:*:data');
+  const profiles: any[] = [];
+  if (profileKeys.length) {
+    const raws = await kv.mget(profileKeys);
+    raws.forEach((r, i) => {
+      if (r) {
+        try {
+          const p = JSON.parse(r as string);
+          p.__key = profileKeys[i];
+          profiles.push(p);
+        } catch {}
+      }
+    });
+  }
+
+  const ghOf = (img: string): string | null => {
+    const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(img || '');
+    return m ? m[1] : null;
+  };
+  const groups: Record<string, any[]> = {};
+  for (const p of profiles) {
+    const gh = ghOf(p.image);
+    if (!gh) continue;
+    if (!groups[gh]) groups[gh] = [];
+    groups[gh].push(p);
+  }
+
+  if (action === 'inspect') {
+    const out: any[] = [];
+    for (const [gh, ps] of Object.entries(groups)) {
+      const canonical = ps.slice().sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0))[0];
+      const recompute: Record<string, number> = {};
+      const byDate: Record<string, number> = {};
+      for (const [k, evs] of Object.entries(keyEvents)) {
+        const parts = k.split(':');
+        if (parts.slice(1, parts.length - 2).join(':') !== String(canonical.userId)) continue;
+        const date = parts[parts.length - 1];
+        for (const e of evs as any[]) {
+          const t = Number(e.tokens) || 0;
+          const tool = e.tool || 'unknown';
+          recompute[tool] = (recompute[tool] || 0) + t;
+          byDate[date] = (byDate[date] || 0) + t;
+        }
+      }
+      const dates = Object.keys(byDate).sort().reverse().slice(0, 25);
+      out.push({
+        githubId: gh,
+        canonicalUserId: String(canonical.userId),
+        profileCount: ps.length,
+        storedTotal: canonical.tokens?.total || 0,
+        storedTokens: canonical.tokens || {},
+        recomputedTotal: Object.values(recompute).reduce((s, v) => s + v, 0),
+        recomputedByTool: recompute,
+        recentDates: dates.map(d => ({ date: d, total: byDate[d] }))
+      });
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'INSPECT (read-only)', inspect: out }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
+  // action === 'fix' (or 'confirm')
+  const log: string[] = [];
+  const medianOf = (arr: number[]): number => {
+    if (arr.length === 0) return 0;
+    const s = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  };
+
+  for (const [, ps] of Object.entries(groups)) {
+    for (const p of ps) {
+      const userId = String(p.userId);
+      const dateEvents: Record<string, any[]> = {};
+      const dailyTotals: number[] = [];
+      for (const [k, evs] of Object.entries(keyEvents)) {
+        const parts = k.split(':');
+        if (parts.slice(1, parts.length - 2).join(':') !== userId) continue;
+        const date = parts[parts.length - 1];
+        dateEvents[date] = evs as any[];
+        dailyTotals.push((evs as any[]).reduce((s, e) => s + (Number(e.tokens) || 0), 0));
+      }
+      const median = medianOf(dailyTotals);
+
+      // 1. Clean polluted timeseries events.
+      const recomputed: Record<string, any> = {};
+      let cleaned = false;
+      for (const [date, evs] of Object.entries(dateEvents)) {
+        const dayTotal = evs.reduce((s, e) => s + (Number(e.tokens) || 0), 0);
+        const isPollutedDay = dayTotal > ABSOLUTE_FLOOR && dayTotal > MULTIPLE_OF_MEDIAN * (median || 1);
+        const kept = evs.filter(e => {
+          const t = Number(e.tokens) || 0;
+          const bad = t > ABSOLUTE_FLOOR && t > MULTIPLE_OF_MEDIAN * (median || 1);
+          if (bad) cleaned = true;
+          return !bad;
+        });
+        if (isPollutedDay) {
+          if (action === 'fix') {
+            await kv.del(`user:${userId}:timeseries:${date}`);
+            if (kept.length > 0) {
+              const pipe = kv.pipeline();
+              kept.forEach(e => pipe.rpush(`user:${userId}:timeseries:${date}`, JSON.stringify(e)));
+              await pipe.exec();
+            }
+            log.push(`cleaned timeseries ${userId} ${date}: ${evs.length - kept.length} polluted events removed`);
+          } else {
+            log.push(`DRY clean ${userId} ${date}: would remove ${evs.length - kept.length} events`);
+          }
+        }
+        for (const e of kept) {
+          const t = Number(e.tokens) || 0;
+          const tool = e.tool || 'unknown';
+          if (!recomputed[tool]) recomputed[tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+          recomputed[tool].total += t;
+          if (e.cacheReadTokens !== undefined) {
+            recomputed[tool].in += e.inTokens || 0;
+            recomputed[tool].out += e.outTokens || 0;
+            recomputed[tool].cache_read += e.cacheReadTokens || 0;
+            recomputed[tool].cache_write += e.cacheWriteTokens || 0;
+          } else {
+            let fb = t * 0.5;
+            if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') fb = t * 0.93;
+            else if (tool === 'claude') fb = t * 0.8;
+            else if (tool === 'antigravity') fb = t * 0.1;
+            recomputed[tool].in += (t - fb) * 0.9;
+            recomputed[tool].out += (t - fb) * 0.1;
+            recomputed[tool].cache_read += fb;
+          }
+        }
+      }
+
+      if (!cleaned && action === 'fix') {
+        // still recompute from (already-clean) timeseries to fix aggregate
+      }
+      const finalTotal = Object.values(recomputed).reduce((s, v) => s + (v.total || 0), 0);
+      recomputed['total'] = finalTotal;
+
+      if (action === 'fix') {
+        // 2. Overwrite device snapshots with the cleaned aggregate so the next
+        //    upload computes a correct delta instead of re-inflating.
+        const devKeys = await scanKeys(`user:${userId}:device:*:data`);
+        if (devKeys.length === 0) {
+          await kv.set(`user:${userId}:device:default_device:data`, JSON.stringify({
+            userId, name: p.name, image: p.image, tokens: recomputed, updatedAt: new Date().toISOString()
+          }));
+        } else {
+          for (const dk of devKeys) {
+            const prev = await kv.get(dk);
+            let name = p.name, image = p.image;
+            if (prev) { try { const pp = JSON.parse(prev); name = pp.name || name; image = pp.image || image; } catch {} }
+            await kv.set(dk, JSON.stringify({ userId, name, image, tokens: recomputed, updatedAt: new Date().toISOString() }));
+          }
+        }
+        // 3. Update the profile aggregate + leaderboard.
+        const prevDataStr = await kv.get(`user:${userId}:data`);
+        let createdAt = p.createdAt || new Date().toISOString();
+        if (prevDataStr) { try { const pp = JSON.parse(prevDataStr); if (pp.createdAt) createdAt = pp.createdAt; } catch {} }
+        await kv.set(`user:${userId}:data`, JSON.stringify({
+          userId, name: p.name, image: p.image, tokens: recomputed, updatedAt: new Date().toISOString(), createdAt
+        }));
+        await kv.zadd('leaderboard:total', finalTotal, userId);
+        log.push(`recomputed ${userId}: total ${p.tokens?.total || 0} -> ${finalTotal}`);
+      } else {
+        log.push(`DRY recompute ${userId}: would be ${finalTotal} (was ${p.tokens?.total || 0})`);
+      }
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, mode: action === 'fix' ? 'FIX APPLIED' : 'FIX DRY-RUN', log }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+};
+
+export const GET: APIRoute = async () =>
+  new Response(JSON.stringify({ success: false, message: 'POST only: {"action":"inspect"|"fix"}' }), { status: 405, headers: { 'Cache-Control': 'no-store' } });
