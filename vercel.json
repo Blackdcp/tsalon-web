@@ -5,7 +5,7 @@
   "trailingSlash": true,
   "headers": [
     {
-      "source": "/api/fix-db(.*)",
+      "source": "/api/(fix-db|db-maint)(.*)",
       "headers": [
         {
           "key": "Cache-Control",
