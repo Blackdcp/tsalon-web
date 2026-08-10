@@ -1,6 +1,7 @@
 ---
 // src/components/ShareModal.astro
 import type { SiteLocale } from '../lib/i18n';
+import { beijingDateString } from '../lib/date';
 
 export interface Props {
   leaderboard: any[];
@@ -11,7 +12,7 @@ export interface Props {
 
 const { leaderboard, currentUserRank, currentUser, locale = 'zh' } = Astro.props;
 const top10 = leaderboard.slice(0, 10);
-const todayDateStr = new Date().toISOString().split('T')[0];
+const todayDateStr = beijingDateString();
 const isEn = locale === 'en';
 
 // English uses Western units (B/M/K); Chinese uses 亿/万.

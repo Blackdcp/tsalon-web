@@ -3,6 +3,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import ShareModal from '../../../components/ShareModal.astro';
 import { getSession } from 'auth-astro/server';
 import { getLeaderboard, getGlobalStats } from '../../../lib/kv';
+import { beijingDateString } from '../../../lib/date';
 
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
@@ -307,7 +308,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       </div>
 
       <div class="date-display">
-        {new Date().toISOString().split('T')[0]}
+        {beijingDateString()}
       </div>
     </div>
 

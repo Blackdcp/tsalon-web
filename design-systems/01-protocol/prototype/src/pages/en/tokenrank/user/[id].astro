@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { kv, getUserAnalytics } from '../../../../lib/kv';
+import { beijingDateString, beijingDateNDaysAgo } from '../../../../lib/date';
 
 export const prerender = false;
 
@@ -60,22 +61,18 @@ if (kv) {
 const rawEvents = await getUserAnalytics(id as string, days);
 
 // Dates setup
-const todayDateStr = new Date().toISOString().split('T')[0];
-const yesterdayDateStr = (() => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
-})();
+const todayDateStr = beijingDateString();
+const yesterdayDateStr = beijingDateNDaysAgo(1);
 
 let events = rawEvents;
 if (timeFilter === 'yesterday') {
   events = rawEvents.filter(e => {
-    const d = new Date(e.timestamp).toISOString().split('T')[0];
+    const d = beijingDateString(new Date(e.timestamp));
     return d === yesterdayDateStr;
   });
 } else if (timeFilter === 'today') {
   events = rawEvents.filter(e => {
-    const d = new Date(e.timestamp).toISOString().split('T')[0];
+    const d = beijingDateString(new Date(e.timestamp));
     return d === todayDateStr;
   });
 }
@@ -183,7 +180,7 @@ const avgTokens = effectiveDays > 0 ? Math.floor(periodTokens / effectiveDays) :
 // derived from that day's volume (was Math.random() before).
 const dailyMap: Record<string, any> = {};
 events.forEach(e => {
-  const d = new Date(e.timestamp).toISOString().split('T')[0];
+  const d = beijingDateString(new Date(e.timestamp));
   if (!dailyMap[d]) dailyMap[d] = { tokens: 0, cost: 0, cache: 0, sessions: 0, tools: {} as Record<string, number> };
   dailyMap[d].tokens += e.tokens;
   dailyMap[d].cost += getEventCost(e);
@@ -246,9 +243,7 @@ if (maxDayTokens === 0 && userData && userData.tokens) {
 // Streak
 let activeStreak = 0;
 for (let i = 0; i < days; i++) {
-  const d = new Date();
-  d.setDate(d.getDate() - i);
-  const dStr = d.toISOString().split('T')[0];
+  const dStr = beijingDateNDaysAgo(i);
   if (dailyMap[dStr] && dailyMap[dStr].tokens > 0) {
     activeStreak++;
   } else {
@@ -282,17 +277,13 @@ const joinDate = (userData.createdAt || '').substring(0, 10) || '—';
 const chartWindow = days > 90 ? 30 : days;
 const lastXDays = [];
 for(let i=chartWindow-1; i>=0; i--) {
-  const d = new Date();
-  d.setDate(d.getDate() - i);
-  lastXDays.push(d.toISOString().split('T')[0]);
+  lastXDays.push(beijingDateNDaysAgo(i));
 }
 
 // For the by-day table — use the FULL selected range.
 const tableDays = [];
 for(let i=days-1; i>=0; i--) {
-  const d = new Date();
-  d.setDate(d.getDate() - i);
-  tableDays.push(d.toISOString().split('T')[0]);
+  tableDays.push(beijingDateNDaysAgo(i));
 }
 
 const dailyUsage = lastXDays.map(date => dailyMap[date]?.tokens || 0);

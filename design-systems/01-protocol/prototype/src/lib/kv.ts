@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { beijingDateString, beijingDateNDaysAgo } from './date';
 
 // Fallback for development if no REDIS_URL is provided, or throw
 const redisUrl = process.env.REDIS_URL || '';
@@ -107,7 +108,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   
   // 1.5 Generate Timeseries Deltas
   const now = Date.now();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = beijingDateString();
   
   const pipe = kv.pipeline();
   let hasTimeseriesEvents = false;
@@ -325,9 +326,7 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
 
   const datesToFetch: string[] = [];
   for (let i = 0; i < days; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    datesToFetch.push(d.toISOString().split('T')[0]);
+    datesToFetch.push(beijingDateNDaysAgo(i));
   }
 
   let targetDates = datesToFetch;
@@ -455,9 +454,7 @@ export async function getUserAnalytics(userId: string, days: number = 30) {
   
   const dates = [];
   for (let i = 0; i < days; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(beijingDateNDaysAgo(i));
   }
   
   let allEvents: TimeseriesEvent[] = [];
