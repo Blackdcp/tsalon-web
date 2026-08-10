@@ -6,12 +6,17 @@ import { kv, scanKeys } from '../../lib/kv';
 // id). Safe-by-default: DRY-RUN unless ?confirm=1. Only deletes an orphan that
 // is a PROVABLE SUBSET of the canonical profile (every tool total and every
 // date×tool timeseries total is <= the canonical's), so no real usage is lost.
+//
+// ?report=1 → read-only diff report: for each GitHub group, canonical = the
+// highest-total profile; for every other profile list exactly which tools /
+// date×tool exceed the canonical (i.e. the data that would be lost if deleted).
 
 export const GET: APIRoute = async ({ request }) => {
   if (!kv) return new Response('No KV', { status: 500 });
 
   const url = new URL(request.url);
   const confirm = url.searchParams.get('confirm') === '1';
+  const report = url.searchParams.get('report') === '1';
 
   // Gather every timeseries key + its events.
   const keyEvents: Record<string, any[]> = {};
@@ -62,13 +67,13 @@ export const GET: APIRoute = async ({ request }) => {
 
   const merges: any[] = [];
   const warnings: string[] = [];
+  const reports: any[] = [];
 
   for (const [gh, ps] of Object.entries(groups)) {
     if (ps.length < 2) continue;
-    let canonical = ps.find(p => String(p.userId) === gh);
-    if (!canonical) {
-      canonical = ps.slice().sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0))[0];
-    }
+
+    // Canonical = the most complete (highest-total) profile for this GitHub id.
+    const canonical = ps.slice().sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0))[0];
 
     for (const orphan of ps) {
       if (orphan === canonical) continue;
@@ -76,37 +81,56 @@ export const GET: APIRoute = async ({ request }) => {
       const oTokens = (orphan.tokens || {}) as Record<string, any>;
       const cTokens = (canonical.tokens || {}) as Record<string, any>;
       let isSubset = true;
+      const tokenDiff: any[] = [];
       for (const [tool, v] of Object.entries(oTokens)) {
         if (tool === 'total' || tool === 'history') continue;
         const oVal = typeof v === 'number' ? v : (v?.total || 0);
         const cVal = typeof cTokens[tool] === 'number' ? cTokens[tool] : (cTokens[tool]?.total || 0);
-        if (oVal > cVal) { isSubset = false; break; }
+        if (oVal > cVal) {
+          isSubset = false;
+          tokenDiff.push({ tool, orphan: oVal, canonical: cVal });
+        }
       }
 
-      if (isSubset) {
-        const canonTs: Record<string, number> = {};
-        for (const [k, evs] of Object.entries(keyEvents)) {
-          const parts = k.split(':');
-          if (parts.slice(1, parts.length - 2).join(':') !== String(canonical.userId)) continue;
-          const date = parts[parts.length - 1];
-          for (const e of evs as any[]) {
-            const kt = `${date}:${e.tool}`;
-            canonTs[kt] = (canonTs[kt] || 0) + (Number(e.tokens) || 0);
-          }
+      const canonTs: Record<string, number> = {};
+      for (const [k, evs] of Object.entries(keyEvents)) {
+        const parts = k.split(':');
+        if (parts.slice(1, parts.length - 2).join(':') !== String(canonical.userId)) continue;
+        const date = parts[parts.length - 1];
+        for (const e of evs as any[]) {
+          const kt = `${date}:${e.tool}`;
+          canonTs[kt] = (canonTs[kt] || 0) + (Number(e.tokens) || 0);
         }
-        const orphanTs: Record<string, number> = {};
-        for (const [k, evs] of Object.entries(keyEvents)) {
-          const parts = k.split(':');
-          if (parts.slice(1, parts.length - 2).join(':') !== String(orphan.userId)) continue;
-          const date = parts[parts.length - 1];
-          for (const e of evs as any[]) {
-            const kt = `${date}:${e.tool}`;
-            orphanTs[kt] = (orphanTs[kt] || 0) + (Number(e.tokens) || 0);
-          }
+      }
+      const orphanTs: Record<string, number> = {};
+      for (const [k, evs] of Object.entries(keyEvents)) {
+        const parts = k.split(':');
+        if (parts.slice(1, parts.length - 2).join(':') !== String(orphan.userId)) continue;
+        const date = parts[parts.length - 1];
+        for (const e of evs as any[]) {
+          const kt = `${date}:${e.tool}`;
+          orphanTs[kt] = (orphanTs[kt] || 0) + (Number(e.tokens) || 0);
         }
-        for (const [kt, val] of Object.entries(orphanTs)) {
-          if ((canonTs[kt] || 0) < val) { isSubset = false; break; }
+      }
+      const tsDiff: any[] = [];
+      for (const [kt, val] of Object.entries(orphanTs)) {
+        if ((canonTs[kt] || 0) < val) {
+          isSubset = false;
+          tsDiff.push({ key: kt, orphan: val, canonical: canonTs[kt] || 0 });
         }
+      }
+
+      if (report) {
+        reports.push({
+          githubId: gh,
+          canonicalUserId: String(canonical.userId),
+          canonicalTotal: canonical.tokens?.total || 0,
+          orphanUserId: String(orphan.userId),
+          orphanTotal: orphan.tokens?.total || 0,
+          isSubset,
+          tokenDiff,
+          tsDiff
+        });
       }
 
       if (isSubset) {
@@ -116,7 +140,7 @@ export const GET: APIRoute = async ({ request }) => {
           orphanUserId: String(orphan.userId),
           orphanTotal: orphan.tokens?.total || 0
         });
-        if (confirm) {
+        if (confirm && !report) {
           const devKeys = await scanKeys(`user:${orphan.userId}:device:*`);
           const tsKeys = await scanKeys(`user:${orphan.userId}:timeseries:*`);
           const delKeys = [
@@ -135,6 +159,15 @@ export const GET: APIRoute = async ({ request }) => {
         );
       }
     }
+  }
+
+  if (report) {
+    return new Response(JSON.stringify({
+      success: true,
+      mode: 'REPORT (read-only)',
+      groups: Object.keys(groups).length,
+      reports
+    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
   return new Response(JSON.stringify({
