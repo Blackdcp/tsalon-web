@@ -299,31 +299,34 @@ def scan_agent_logs(home, folder_name):
     return format_tokens(estimate_tokens_from_dirs([os.path.join(home, folder_name)], ['.jsonl', '.json', '.log', '.txt']))
 
 def scan_workbuddy(home):
-    # WorkBuddy is a standalone desktop app (not a VS Code extension), so its
-    # data lives in ~/.workbuddy/ on both Mac and Windows (home-based path).
-    # Scan usage-related files (traces, logs, sessions, app data) but skip
-    # runtime/marketplace dirs (binaries, plugins, connectors) which are not
-    # usage data. Estimate tokens as bytes/3 (same heuristic as other generic
-    # tools like Cherry Studio).
-    dirs_to_scan = [os.path.join(home, '.workbuddy')]
+    # WorkBuddy tracks its own usage as "credits" in ~/.workbuddy/workbuddy.db
+    # (session_usage table, column "used"). This is WorkBuddy's own billing
+    # metric — NOT raw LLM tokens (those are server-side, accessible via the
+    # /billing/meter/get-enterprise-user-usage backend endpoint which needs an
+    # auth token we can't reliably extract locally). Use SUM(used) as the
+    # total: it's the real tracked number, not a file-size guess (which would
+    # be meaningless since ~/.workbuddy/ is mostly Electron runtime data, not
+    # conversation content). Cross-platform: the db path is the same on Mac
+    # and Windows (~/.workbuddy/workbuddy.db).
+    db_paths = [os.path.join(home, '.workbuddy', 'workbuddy.db')]
     appdata = os.environ.get('APPDATA', '')
     if appdata:
-        dirs_to_scan.append(os.path.join(appdata, 'workbuddy'))
-    exts = ['.json', '.log', '.txt', '.db', '.sqlite', '.vscdb', '.jsonl']
-    skip_dirs = {'binaries', 'plugins', 'connectors-marketplace', 'connectors', 'node_modules'}
-    total_bytes = 0
-    for d in dirs_to_scan:
-        if not os.path.exists(d):
+        db_paths.append(os.path.join(appdata, 'workbuddy', 'workbuddy.db'))
+    total = 0
+    for db_path in db_paths:
+        if not os.path.exists(db_path):
             continue
-        for root, dirs, files in os.walk(d):
-            dirs[:] = [x for x in dirs if x not in skip_dirs]
-            for f in files:
-                if any(f.lower().endswith(ext) for ext in exts):
-                    try:
-                        total_bytes += os.path.getsize(os.path.join(root, f))
-                    except:
-                        pass
-    return format_tokens(total_bytes // 3)
+        try:
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            cur.execute("SELECT SUM(used) FROM session_usage")
+            row = cur.fetchone()
+            if row and row[0]:
+                total += int(row[0])
+            conn.close()
+        except:
+            pass
+    return format_tokens(total)
 
 def main():
     parser = argparse.ArgumentParser()
