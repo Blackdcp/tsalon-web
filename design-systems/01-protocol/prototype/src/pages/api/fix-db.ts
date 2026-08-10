@@ -264,6 +264,14 @@ export const GET: APIRoute = async ({ request }) => {
     keysScanned: Object.keys(keyEvents).length,
     keysPersisted: persistedKeys,
     anomaliesFound: removedCount,
-    log
+    log,
+    _debug: {
+      url: request.url,
+      merge: url.searchParams.get('merge'),
+      persist: url.searchParams.get('persist'),
+      confirm: url.searchParams.get('confirm'),
+      mergeOnly,
+      persistOnly
+    }
   }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 };
