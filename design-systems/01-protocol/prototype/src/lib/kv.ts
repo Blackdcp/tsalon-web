@@ -121,10 +121,12 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   }
 
   // Delta logic
-  for (const [tool, val] of Object.entries(tokens)) {
+  for (const [tool, valObj] of Object.entries(normalizedTokens)) {
     if (tool === 'total' || tool === 'history') continue;
-    const oldVal = oldDeviceTokens[tool] || 0;
-    const delta = val - oldVal;
+    const oldToolData = oldDeviceTokens[tool];
+    const oldTotal = oldToolData ? (Number(oldToolData.total) || 0) : 0;
+    const valTotal = Number(valObj.total) || 0;
+    const delta = valTotal - oldTotal;
     
     let model = 'unknown';
     let cacheRate = 0.5;
@@ -177,25 +179,36 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         }
       }
       hasTimeseriesEvents = true;
-    } else if (delta > 0 || (val > 0 && oldVal === 0)) {
-      const isFirstRun = (oldVal === 0 && val > 0) || delta > 100_000_000;
+    } else if (delta > 0 || (valTotal > 0 && oldTotal === 0)) {
+      const isFirstRun = (oldTotal === 0 && valTotal > 0) || delta > 100_000_000;
       
-      if (isFirstRun && val > 1000) {
+      const inTokens = Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? (Number(oldToolData.in) || 0) : 0));
+      const outTokens = Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? (Number(oldToolData.out) || 0) : 0));
+      const cacheReadTokens = Math.max(0, (Number(valObj.cache_read) || 0) - (oldToolData ? (Number(oldToolData.cache_read) || 0) : 0));
+      const cacheWriteTokens = Math.max(0, (Number(valObj.cache_write) || 0) - (oldToolData ? (Number(oldToolData.cache_write) || 0) : 0));
+      
+      if (isFirstRun && valTotal > 1000) {
         // Distribute historically over 30 days (Fallback for tools without exact history)
         const days = 30;
-        const dailyAvg = Math.floor(val / days);
+        const dailyAvg = Math.floor(valTotal / days);
+        const dailyIn = Math.floor(inTokens / days);
+        const dailyOut = Math.floor(outTokens / days);
+        const dailyCacheRead = Math.floor(cacheReadTokens / days);
+        
         for (let i = 0; i < days; i++) {
           const d = new Date();
           d.setDate(d.getDate() - i);
           const historyDateStr = d.toISOString().split('T')[0];
           
-          const tokensToLog = i === 0 ? dailyAvg + (val % days) : dailyAvg;
           const event: TimeseriesEvent = {
             timestamp: d.getTime(),
             tool,
             model,
-            tokens: tokensToLog,
-            cacheHit: Math.random() < cacheRate,
+            tokens: i === 0 ? dailyAvg + (valTotal % days) : dailyAvg,
+            inTokens: i === 0 ? dailyIn + (inTokens % days) : dailyIn,
+            outTokens: i === 0 ? dailyOut + (outTokens % days) : dailyOut,
+            cacheReadTokens: i === 0 ? dailyCacheRead + (cacheReadTokens % days) : dailyCacheRead,
+            cacheHit: cacheReadTokens > 0 ? true : Math.random() < cacheRate,
             deviceId: deviceId
           };
           pipe.rpush(`user:${userId}:timeseries:${historyDateStr}`, JSON.stringify(event));
@@ -208,8 +221,11 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
           timestamp: now,
           tool,
           model,
-          tokens: delta > 0 ? delta : val,
-          cacheHit: Math.random() < cacheRate,
+          tokens: delta > 0 ? delta : valTotal,
+          inTokens: delta > 0 ? inTokens : (Number(valObj.in) || 0),
+          outTokens: delta > 0 ? outTokens : (Number(valObj.out) || 0),
+          cacheReadTokens: delta > 0 ? cacheReadTokens : (Number(valObj.cache_read) || 0),
+          cacheHit: cacheReadTokens > 0 ? true : Math.random() < cacheRate,
           deviceId: deviceId
         };
         pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
@@ -289,14 +305,39 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
 
     const seenNames = new Map<string, UserRankData>();
     for (const item of rawList) {
-      const key = (item.name || '').toLowerCase().trim();
+      const key = (item.name || '').toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
       if (!seenNames.has(key)) {
-        seenNames.set(key, item);
+        seenNames.set(key, { ...item, tokens: { ...item.tokens } });
       } else {
         const existing = seenNames.get(key)!;
-        if ((/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId)) || (item.tokens?.total || 0) > (existing.tokens?.total || 0)) {
-          seenNames.set(key, item);
+        // Merge tokens
+        for (const [t, v] of Object.entries(item.tokens)) {
+          if (t === 'total' || t === 'history') continue;
+          if (!existing.tokens[t]) {
+            existing.tokens[t] = typeof v === 'object' ? { ...v } : v;
+          } else if (typeof v === 'object' && typeof existing.tokens[t] === 'object') {
+            const ext = existing.tokens[t] as any;
+            const vv = v as any;
+            ext.total = (ext.total || 0) + (vv.total || 0);
+            ext.in = (ext.in || 0) + (vv.in || 0);
+            ext.out = (ext.out || 0) + (vv.out || 0);
+            ext.cache_read = (ext.cache_read || 0) + (vv.cache_read || 0);
+            ext.cache_write = (ext.cache_write || 0) + (vv.cache_write || 0);
+          } else if (typeof v === 'number' && typeof existing.tokens[t] === 'number') {
+            existing.tokens[t] += v;
+          }
         }
+        existing.tokens.total += (item.tokens?.total || 0);
+        
+        if ((/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId))) {
+          existing.userId = item.userId;
+          existing.name = item.name;
+          existing.image = item.image;
+        } else if ((item.tokens?.total || 0) > (existing.tokens?.total || 0) && !/^\d+$/.test(existing.userId)) {
+          existing.name = item.name;
+          existing.image = item.image;
+        }
+        seenNames.set(key, existing);
       }
     }
     const finalLeaderboard = Array.from(seenNames.values());
@@ -403,14 +444,40 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
   // Deduplicate by name and keep the one with the highest tokens or GitHub ID
   const seenNames = new Map<string, UserRankData>();
   for (const item of aggregatedList) {
-    const key = (item.name || '').toLowerCase().trim();
+    const key = (item.name || '').toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
     if (!seenNames.has(key)) {
-      seenNames.set(key, item);
+      seenNames.set(key, { ...item, tokens: { ...item.tokens } });
     } else {
       const existing = seenNames.get(key)!;
-      if ((/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId)) || item.tokens.total > existing.tokens.total) {
-        seenNames.set(key, item);
+      // Merge tokens
+      for (const [t, v] of Object.entries(item.tokens)) {
+        if (t === 'total' || t === 'history') continue;
+        if (!existing.tokens[t]) {
+          existing.tokens[t] = typeof v === 'object' ? { ...v } : v;
+        } else if (typeof v === 'object' && typeof existing.tokens[t] === 'object') {
+          const ext = existing.tokens[t] as any;
+          const vv = v as any;
+          ext.total = (ext.total || 0) + (vv.total || 0);
+          ext.in = (ext.in || 0) + (vv.in || 0);
+          ext.out = (ext.out || 0) + (vv.out || 0);
+          ext.cache_read = (ext.cache_read || 0) + (vv.cache_read || 0);
+          ext.cache_write = (ext.cache_write || 0) + (vv.cache_write || 0);
+        } else if (typeof v === 'number' && typeof existing.tokens[t] === 'number') {
+          existing.tokens[t] += v;
+        }
       }
+      existing.tokens.total += item.tokens.total;
+      
+      // Keep the GitHub ID if one has it
+      if (/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId)) {
+        existing.userId = item.userId;
+        existing.image = item.image;
+        existing.name = item.name;
+      } else if (item.tokens.total > existing.tokens.total && !/^\d+$/.test(existing.userId)) {
+        existing.name = item.name;
+        existing.image = item.image;
+      }
+      seenNames.set(key, existing);
     }
   }
 
