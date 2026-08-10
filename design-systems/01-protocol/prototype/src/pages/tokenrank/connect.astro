@@ -58,9 +58,9 @@ if (session?.user?.id) {
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
                     极客方案：后台自动守护 (每 30 分钟)
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端 (Terminal) 中运行一次，即可永久在系统底层 (Crontab) 挂载无感同步任务：</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端 (Terminal) 中运行一次，将立即同步首发数据并永久挂载后台定时任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    (crontab -l 2>/dev/null | grep -v tsalon.tech; echo "*/30 * * * * bash -c \"\$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)\" -- --token=\"{uploadToken}\" > /tmp/tsalon-agent.log 2>&1") | crontab -
+                    (crontab -l 2>/dev/null | grep -v tsalon.tech; echo "*/30 * * * * bash -c \"\$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)\" -- --token=\"{uploadToken}\" > /tmp/tsalon-agent.log 2>&1") | crontab - && bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)" -- --token="{uploadToken}"
                   </code>
                 </div>
 
@@ -68,9 +68,9 @@ if (session?.user?.id) {
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
                     极客方案：后台自动守护 (每 30 分钟)
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell (管理员) 中运行一次，将创建一个隐蔽的系统任务计划，每 30 分钟静默同步：</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell (管理员) 中运行一次，将立即同步首发数据并挂载 30 分钟静默任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{uploadToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Force
+                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{uploadToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Force; Start-ScheduledTask -TaskName "TSalonTokenAgent"
                   </code>
                 </div>
               </div>
