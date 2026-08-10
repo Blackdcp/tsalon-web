@@ -44,7 +44,11 @@ export const POST: APIRoute = async ({ request }) => {
     
     for (const [key, val] of Object.entries(data)) {
       if (key !== 'total' && key !== 'history') {
-        dynamicTokens[key] = Number(val) || 0;
+        if (typeof val === 'object' && val !== null) {
+          dynamicTokens[key] = Number((val as any).total) || 0;
+        } else {
+          dynamicTokens[key] = Number(val) || 0;
+        }
       }
     }
 

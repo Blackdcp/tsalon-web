@@ -90,19 +90,21 @@ const getToolNoCache = (tool: string, amount: any) => {
   return (amount.in || 0) + (amount.out || 0);
 };
 
-const formatDisplayAmount = (num: number, mode: string) => {
-  if (num === 0) return '暂无消耗';
-  if (mode === 'cost') return '$' + num.toFixed(2);
-  if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
-  if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
-  return num.toFixed(0);
+const formatDisplayAmount = (num: any, mode: string) => {
+  const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));
+  if (n === 0) return '暂无消耗';
+  if (mode === 'cost') return '$' + n.toFixed(2);
+  if (n >= 100_000_000) return (n / 100_000_000).toFixed(2) + '亿';
+  if (n >= 10_000) return (n / 10_000).toFixed(1) + '万';
+  return n.toFixed(0);
 };
 
-const formatAmountStr = (num: number) => {
-  if (num === 0) return '0';
-  if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
-  if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
-  return num.toString();
+const formatAmountStr = (num: any) => {
+  const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));
+  if (n === 0) return '0';
+  if (n >= 100_000_000) return (n / 100_000_000).toFixed(2) + '亿';
+  if (n >= 10_000) return (n / 10_000).toFixed(1) + '万';
+  return n.toString();
 };
 
 // --- Calculate Dynamic Global Metrics for Dashboard ---
@@ -354,19 +356,20 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
           let userTotalEstimatedCost = 0;
           let userTotalDisplay = 0;
           
-          const toolsBreakdown = Object.entries(user.tokens)
+          const toolsBreakdown = Object.entries(user.tokens || {})
             .filter(([k]) => k !== 'total')
-            .map(([tool, amount]: [string, any]) => {
-              const cost = getToolEstimatedCost(tool, amount);
-              const noCacheTokens = getToolNoCache(tool, amount);
+            .map(([tool, rawAmount]: [string, any]) => {
+              const cost = getToolEstimatedCost(tool, rawAmount);
+              const totalVal = typeof rawAmount === 'object' && rawAmount !== null ? (rawAmount.total || 0) : (Number(rawAmount) || 0);
+              const noCacheTokens = getToolNoCache(tool, rawAmount);
               userTotalEstimatedCost += cost;
               
-              let displayAmount = amount;
-              if (modeFilter === 'nocache') displayAmount = noCacheTokens;
-              else if (modeFilter === 'cost') displayAmount = cost;
+              let numericAmount = totalVal;
+              if (modeFilter === 'nocache') numericAmount = noCacheTokens;
+              else if (modeFilter === 'cost') numericAmount = cost;
               
-              userTotalDisplay += displayAmount;
-              return { tool, amount: displayAmount };
+              userTotalDisplay += numericAmount;
+              return { tool, amount: numericAmount };
             });
 
           return (
