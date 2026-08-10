@@ -3,22 +3,18 @@ import { kv, scanKeys } from '../../lib/kv';
 
 // Temporary maintenance endpoint to dedupe profiles belonging to the same
 // GitHub person (stale orphan builds left under a UUID instead of the GitHub
-// id). Safe-by-default: DRY-RUN unless ?confirm=1. Only deletes an orphan that
-// is a PROVABLE SUBSET of the canonical profile (every tool total and every
-// date×tool timeseries total is <= the canonical's), so no real usage is lost.
+// id). Safe-by-default: action "dryrun" / "report" never delete; only
+// action "confirm" deletes an orphan that is a PROVABLE SUBSET of the
+// canonical profile (every tool total and every date×tool timeseries total is
+// <= the canonical's), so no real usage is lost.
 //
-// ?report=1 → read-only diff report: for each GitHub group, canonical = the
-// highest-total profile; for every other profile list exactly which tools /
-// date×tool exceed the canonical (i.e. the data that would be lost if deleted).
+// Uses POST (not GET) on purpose: Vercel never caches POST responses, which
+// sidesteps the sticky path-based CDN cache that was swallowing query-param
+// modes on the GET variant.
+//
+//   curl -X POST https://www.tsalon.tech/api/db-maint -H 'content-type: application/json' -d '{"action":"report"}'
 
-export const GET: APIRoute = async ({ request }) => {
-  if (!kv) return new Response('No KV', { status: 500 });
-
-  const url = new URL(request.url);
-  const confirm = url.searchParams.get('confirm') === '1';
-  const report = url.searchParams.get('report') === '1';
-
-  // Gather every timeseries key + its events.
+async function loadData() {
   const keyEvents: Record<string, any[]> = {};
   let cursor = '0';
   do {
@@ -51,12 +47,14 @@ export const GET: APIRoute = async ({ request }) => {
       }
     });
   }
+  return { keyEvents, profiles };
+}
 
+function groupByGithub(profiles: any[]) {
   const ghOf = (img: string): string | null => {
     const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(img || '');
     return m ? m[1] : null;
   };
-
   const groups: Record<string, any[]> = {};
   for (const p of profiles) {
     const gh = ghOf(p.image);
@@ -64,6 +62,20 @@ export const GET: APIRoute = async ({ request }) => {
     if (!groups[gh]) groups[gh] = [];
     groups[gh].push(p);
   }
+  return groups;
+}
+
+export const POST: APIRoute = async ({ request }) => {
+  if (!kv) return new Response('No KV', { status: 500 });
+
+  let action = 'dryrun';
+  try {
+    const body = await request.json();
+    if (body && typeof body.action === 'string') action = body.action;
+  } catch {}
+
+  const { keyEvents, profiles } = await loadData();
+  const groups = groupByGithub(profiles);
 
   const merges: any[] = [];
   const warnings: string[] = [];
@@ -120,7 +132,7 @@ export const GET: APIRoute = async ({ request }) => {
         }
       }
 
-      if (report) {
+      if (action === 'report') {
         reports.push({
           githubId: gh,
           canonicalUserId: String(canonical.userId),
@@ -131,6 +143,7 @@ export const GET: APIRoute = async ({ request }) => {
           tokenDiff,
           tsDiff
         });
+        continue;
       }
 
       if (isSubset) {
@@ -140,7 +153,7 @@ export const GET: APIRoute = async ({ request }) => {
           orphanUserId: String(orphan.userId),
           orphanTotal: orphan.tokens?.total || 0
         });
-        if (confirm && !report) {
+        if (action === 'confirm') {
           const devKeys = await scanKeys(`user:${orphan.userId}:device:*`);
           const tsKeys = await scanKeys(`user:${orphan.userId}:timeseries:*`);
           const delKeys = [
@@ -155,25 +168,22 @@ export const GET: APIRoute = async ({ request }) => {
         }
       } else {
         warnings.push(
-          `SKIP gh:${gh}: orphan ${orphan.userId} (total ${orphan.tokens?.total || 0}) is NOT a subset of canonical ${canonical.userId} (total ${canonical.tokens?.total || 0}) — manual review needed`
+          `SKIP gh:${gh}: orphan ${orphan.userId} (total ${orphan.tokens?.total || 0}) is NOT a subset of canonical ${canonical.userId} (total ${canonical.tokens?.total || 0})`
         );
       }
     }
   }
 
-  if (report) {
-    return new Response(JSON.stringify({
-      success: true,
-      mode: 'REPORT (read-only)',
-      groups: Object.keys(groups).length,
-      reports
-    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  if (action === 'report') {
+    return new Response(JSON.stringify({ success: true, mode: 'REPORT (read-only)', groups: Object.keys(groups).length, reports }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
-  return new Response(JSON.stringify({
-    success: true,
-    mode: confirm ? 'CONFIRM (applied)' : 'DRY-RUN (preview — pass ?confirm=1 to apply)',
-    merges,
-    warnings
-  }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  return new Response(JSON.stringify({ success: true, mode: action === 'confirm' ? 'CONFIRM (applied)' : 'DRY-RUN', merges, warnings }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+};
+
+export const GET: APIRoute = async () => {
+  return new Response(
+    JSON.stringify({ success: false, message: 'Use POST with {"action":"report"|"dryrun"|"confirm"}' }),
+    { status: 405, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
+  );
 };
