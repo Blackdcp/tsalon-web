@@ -27,8 +27,9 @@ let currentUserRank = 0;
 try {
   session = await getSession(Astro.request);
   if (session?.user) {
-    // Find user in leaderboard
-    const userIndex = leaderboard.findIndex(u => u.name === session.user.name); // Using name as fallback, ideally user id
+    // Find user in leaderboard — prefer the stable GitHub id, fall back to name.
+    const sessionUserId = String(session.user.id);
+    const userIndex = leaderboard.findIndex(u => String(u.userId) === sessionUserId || u.name === session.user.name);
     if (userIndex !== -1) {
       currentUser = leaderboard[userIndex];
       currentUserRank = userIndex + 1;
@@ -176,7 +177,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <div class="bento-card">
         <div class="bc-header">
           <span class="bc-title">{timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 (Top 100) <span class="help-icon">?</span></span>
-          {timeFilter !== 'today' && <span class="bc-trend positive">+558%</span>}
         </div>
         <div class="bc-value">
           {formatDisplayAmount(globalTokens, modeFilter).replace('亿', '').replace('万', '')}
@@ -200,7 +200,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <div class="bento-card">
         <div class="bc-header">
           <span class="bc-title">有效 token <span class="help-icon">?</span></span>
-          <span class="bc-trend positive">+473%</span>
         </div>
         <div class="bc-value">
           {(effectiveTokens / 100_000_000).toFixed(2)} <span class="bc-unit">亿</span>
@@ -212,7 +211,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <div class="bento-card">
         <div class="bc-header">
           <span class="bc-title">对话次数 <span class="help-icon">?</span></span>
-          <span class="bc-trend positive">+67%</span>
         </div>
         <div class="bc-value">
           {conversations.toLocaleString()} <span class="bc-unit">次</span>
@@ -235,7 +233,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <div class="bento-card">
         <div class="bc-header">
           <span class="bc-title">AI 耗时 <span class="help-icon" title={`模型实际生成内容的耗时累计（按每轮生成计时），不含等待输入的空闲，非使用者在线时长。\n当前估算基准：${averageGenerationSpeed} tokens/秒`}>?</span></span>
-          <span class="bc-trend positive">+785%</span>
         </div>
         <div class="bc-value">
           {aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="bc-unit">{aiTimeMinutes >= 60 ? '小时' : '分钟'}</span>
@@ -262,7 +259,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
         <div class="bc-value">
           {stats.totalUsers} <span class="bc-unit">人</span>
         </div>
-        <div class="bc-subtext">接入以来 45 天</div>
+        <div class="bc-subtext">累计接入开发者</div>
       </div>
     </div>
 

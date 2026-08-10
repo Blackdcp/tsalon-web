@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
+import { getUserIdByToken, updateTokenUsage, kv, scanKeys } from '../../../lib/kv';
 
 export const prerender = false;
 
@@ -25,9 +25,9 @@ export const POST: APIRoute = async ({ request }) => {
     }
     
     if (reset) {
-      const tsKeys = await kv.keys(`user:${userId}:timeseries:*`);
+      const tsKeys = await scanKeys(`user:${userId}:timeseries:*`);
       if (tsKeys.length > 0) await kv.del(...tsKeys);
-      const devKeys = await kv.keys(`user:${userId}:device:*`);
+      const devKeys = await scanKeys(`user:${userId}:device:*`);
       if (devKeys.length > 0) await kv.del(...devKeys);
       return new Response(JSON.stringify({ success: true, message: 'User data reset' }), { status: 200 });
     }

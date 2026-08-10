@@ -10,6 +10,7 @@ export interface UserRankData {
   image: string;
   tokens: Record<string, any>;
   updatedAt: string;
+  createdAt?: string;
 }
 
 export interface TimeseriesEvent {
@@ -41,6 +42,20 @@ export async function getOrCreateUploadToken(userId: string): Promise<string> {
 export async function getUserIdByToken(token: string): Promise<string | null> {
   if (!kv) return 'mock-user-123';
   return kv.get(`token:${token}:userId`);
+}
+
+// Non-blocking key discovery (replaces kv.keys, which is O(N) and blocks Redis
+// on large datasets). Iterates with SCAN and collects every matching key.
+export async function scanKeys(pattern: string): Promise<string[]> {
+  if (!kv) return [];
+  const found: string[] = [];
+  let cursor = '0';
+  do {
+    const [next, keys] = await kv.scan(cursor, 'MATCH', pattern, 'COUNT', 500);
+    cursor = next;
+    found.push(...keys);
+  } while (cursor !== '0');
+  return found;
 }
 
 export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, any>, deviceId: string = 'default_device', historyData: Record<string, Record<string, any>> | null = null) {
@@ -100,7 +115,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   // If exact history is provided, we can sync it directly!
   if (historyData && Object.keys(historyData).length > 0) {
     // 1. Wipe old timeseries data ONLY for tools present in historyData to avoid duplicates
-    const keysToFilter = await kv.keys(`user:${userId}:timeseries:*`);
+    const keysToFilter = await scanKeys(`user:${userId}:timeseries:*`);
     const toolsInHistory = new Set<string>();
     for (const toolsObj of Object.values(historyData)) {
       Object.keys(toolsObj).forEach(t => toolsInHistory.add(t));
@@ -114,7 +129,6 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       if (filteredEvents.length > 0) {
         const pipeline = kv.pipeline();
         filteredEvents.forEach(e => pipeline.rpush(key, JSON.stringify(e)));
-        pipeline.expire(key, 60 * 60 * 24 * 31);
         await pipeline.exec();
       }
     }
@@ -171,67 +185,53 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
             outTokens,
             cacheReadTokens,
             cacheWriteTokens,
-            cacheHit: cacheReadTokens > 0 ? true : Math.random() < cacheRate,
+            cacheHit: cacheReadTokens > 0,
             deviceId: deviceId
           };
           pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
-          pipe.expire(`user:${userId}:timeseries:${dateStr}`, 60 * 60 * 24 * 31);
         }
       }
       hasTimeseriesEvents = true;
     } else if (delta > 0 || (valTotal > 0 && oldTotal === 0)) {
-      const isFirstRun = (oldTotal === 0 && valTotal > 0);
-      
-      const inTokens = Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? (Number(oldToolData.in) || 0) : 0));
-      const outTokens = Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? (Number(oldToolData.out) || 0) : 0));
-      const cacheReadTokens = Math.max(0, (Number(valObj.cache_read) || 0) - (oldToolData ? (Number(oldToolData.cache_read) || 0) : 0));
-      const cacheWriteTokens = Math.max(0, (Number(valObj.cache_write) || 0) - (oldToolData ? (Number(oldToolData.cache_write) || 0) : 0));
-      
-      if (isFirstRun && valTotal > 1000) {
-        // Distribute historically over 30 days (Fallback for tools without exact history)
-        const days = 30;
-        const dailyAvg = Math.floor(valTotal / days);
-        const dailyIn = Math.floor((Number(valObj.in) || 0) / days);
-        const dailyOut = Math.floor((Number(valObj.out) || 0) / days);
-        const dailyCacheRead = Math.floor((Number(valObj.cache_read) || 0) / days);
-        
-        for (let i = 0; i < days; i++) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const historyDateStr = d.toISOString().split('T')[0];
-          
-          const event: TimeseriesEvent = {
-            timestamp: d.getTime(),
-            tool,
-            model,
-            tokens: i === 0 ? dailyAvg + (valTotal % days) : dailyAvg,
-            inTokens: i === 0 ? dailyIn + ((Number(valObj.in) || 0) % days) : dailyIn,
-            outTokens: i === 0 ? dailyOut + ((Number(valObj.out) || 0) % days) : dailyOut,
-            cacheReadTokens: i === 0 ? dailyCacheRead + ((Number(valObj.cache_read) || 0) % days) : dailyCacheRead,
-            cacheHit: dailyCacheRead > 0 ? true : Math.random() < cacheRate,
-            deviceId: deviceId
-          };
-          pipe.rpush(`user:${userId}:timeseries:${historyDateStr}`, JSON.stringify(event));
-          pipe.expire(`user:${userId}:timeseries:${historyDateStr}`, 60 * 60 * 24 * 31);
-        }
-        hasTimeseriesEvents = true;
-      } else {
-        // Log to today
-        const event: TimeseriesEvent = {
-          timestamp: now,
-          tool,
-          model,
-          tokens: delta > 0 ? delta : valTotal,
-          inTokens: delta > 0 ? inTokens : (Number(valObj.in) || 0),
-          outTokens: delta > 0 ? outTokens : (Number(valObj.out) || 0),
-          cacheReadTokens: delta > 0 ? cacheReadTokens : (Number(valObj.cache_read) || 0),
-          cacheHit: cacheReadTokens > 0 ? true : Math.random() < cacheRate,
-          deviceId: deviceId
-        };
-        pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
-        pipe.expire(`user:${userId}:timeseries:${todayStr}`, 60 * 60 * 24 * 31);
-        hasTimeseriesEvents = true;
-      }
+      // No exact history for this tool: record the new total (or its delta vs
+      // the previous snapshot) on TODAY only. We deliberately do NOT backfill a
+      // fake 30-day flatline — that produced phantom daily spikes (a heavy user
+      // looked like they generated billions every day for a month) and corrupted
+      // the by-day table and the 90d/period views.
+      const eventTokens = delta > 0 ? delta : valTotal;
+      const inTokens =
+        delta > 0
+          ? Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0))
+          : (Number(valObj.in) || 0);
+      const outTokens =
+        delta > 0
+          ? Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0))
+          : (Number(valObj.out) || 0);
+      const cacheReadTokens =
+        delta > 0
+          ? Math.max(0, (Number(valObj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0))
+          : (Number(valObj.cache_read) || 0);
+      const cacheWriteTokens =
+        delta > 0
+          ? Math.max(0, (Number(valObj.cache_write) || 0) - (oldToolData ? Number(oldToolData.cache_write) || 0 : 0))
+          : (Number(valObj.cache_write) || 0);
+
+      const event: TimeseriesEvent = {
+        timestamp: now,
+        tool,
+        model,
+        tokens: eventTokens,
+        inTokens,
+        outTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        // Honest cache flag: true only when we actually have cache reads. The
+        // old `Math.random() < cacheRate` made cost & hit-rate non-reproducible.
+        cacheHit: cacheReadTokens > 0,
+        deviceId: deviceId
+      };
+      pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
+      hasTimeseriesEvents = true;
     }
   }
   
@@ -240,7 +240,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   }
   
   // 2. Fetch all devices for this user
-  const deviceKeys = await kv.keys(`user:${userId}:device:*:data`);
+  const deviceKeys = await scanKeys(`user:${userId}:device:*:data`);
   
   const aggregatedTokens: Record<string, any> = {};
   
@@ -278,13 +278,23 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   const finalTotal = Object.values(aggregatedTokens).reduce((acc, val) => acc + val.total, 0);
   aggregatedTokens['total'] = finalTotal;
   
-  // 4. Save to the main user profile
+  // 4. Save to the main user profile (preserve the original createdAt so the
+  // "since when" stat is real, not hardcoded).
+  let createdAt = new Date().toISOString();
+  const prevDataStr = await kv.get(`user:${userId}:data`);
+  if (prevDataStr) {
+    try {
+      const prev = JSON.parse(prevDataStr);
+      if (prev.createdAt) createdAt = prev.createdAt;
+    } catch (e) {}
+  }
   const aggregatedData: UserRankData = {
     userId,
     name,
     image,
     tokens: aggregatedTokens,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    createdAt
   };
   
   await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
@@ -293,63 +303,22 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
 
 export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRankData[]> {
   if (!kv) return [];
-  
+
+  // 'all' = lifetime ranking straight from the persistent ZSET.
   if (time === 'all') {
-    // ioredis zrevrange returns highest score first
     const userIds = await kv.zrevrange('leaderboard:total', 0, limit - 1);
     if (!userIds || userIds.length === 0) return [];
-    
     const keys = userIds.map(id => `user:${id}:data`);
     const results = await kv.mget(keys);
-    const rawList = results.filter(Boolean).map(res => JSON.parse(res as string));
-
-    const seenNames = new Map<string, UserRankData>();
-    for (const item of rawList) {
-      const key = (item.name || '').toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
-      if (!seenNames.has(key)) {
-        seenNames.set(key, { ...item, tokens: { ...item.tokens } });
-      } else {
-        const existing = seenNames.get(key)!;
-        // Merge tokens
-        for (const [t, v] of Object.entries(item.tokens)) {
-          if (t === 'total' || t === 'history') continue;
-          if (!existing.tokens[t]) {
-            existing.tokens[t] = typeof v === 'object' ? { ...v } : v;
-          } else if (typeof v === 'object' && typeof existing.tokens[t] === 'object') {
-            const ext = existing.tokens[t] as any;
-            const vv = v as any;
-            ext.total = (ext.total || 0) + (vv.total || 0);
-            ext.in = (ext.in || 0) + (vv.in || 0);
-            ext.out = (ext.out || 0) + (vv.out || 0);
-            ext.cache_read = (ext.cache_read || 0) + (vv.cache_read || 0);
-            ext.cache_write = (ext.cache_write || 0) + (vv.cache_write || 0);
-          } else if (typeof v === 'number' && typeof existing.tokens[t] === 'number') {
-            existing.tokens[t] += v;
-          }
-        }
-        existing.tokens.total += (item.tokens?.total || 0);
-        
-        if ((/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId))) {
-          existing.userId = item.userId;
-          existing.name = item.name;
-          existing.image = item.image;
-        } else if ((item.tokens?.total || 0) > (existing.tokens?.total || 0) && !/^\d+$/.test(existing.userId)) {
-          existing.name = item.name;
-          existing.image = item.image;
-        }
-        seenNames.set(key, existing);
-      }
-    }
-    const finalLeaderboard = Array.from(seenNames.values());
-    finalLeaderboard.sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0));
-    return finalLeaderboard.slice(0, limit);
+    const list = results.filter(Boolean).map(res => JSON.parse(res as string));
+    list.sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0));
+    return list.slice(0, limit);
   }
-  
-  // Dynamic aggregation for time windows
-  // Only query timeseries for the requested limit (e.g., top 100) to avoid 15000+ pipeline commands
-  const userIds = await kv.zrevrange('leaderboard:total', 0, limit > 0 ? limit - 1 : 99);
-  if (!userIds || userIds.length === 0) return [];
 
+  // Period views must rank by REAL activity inside the window — not by lifetime
+  // Top-N. A user who is #1 this week but low lifetime would otherwise never
+  // appear. So we discover every user who has timeseries data in the window,
+  // aggregate their period totals, then sort.
   let days = 1;
   if (time === 'today') days = 1;
   else if (time === 'yesterday') days = 2;
@@ -364,126 +333,106 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
     d.setDate(d.getDate() - i);
     datesToFetch.push(d.toISOString().split('T')[0]);
   }
-  
+
   let targetDates = datesToFetch;
   if (time === 'yesterday') {
     targetDates = [datesToFetch[1]];
   }
+  const window = new Set(targetDates);
 
-  const baseDataKeys = userIds.map(id => `user:${id}:data`);
-  const baseDataResults = await kv.mget(baseDataKeys);
+  const activeUserIds = await discoverActiveUserIds(window);
+  if (activeUserIds.length === 0) return [];
+
+  const baseDataResults = await kv.mget(activeUserIds.map(id => `user:${id}:data`));
   const userMap: Record<string, UserRankData> = {};
-  userIds.forEach((id, idx) => {
+  activeUserIds.forEach((id, idx) => {
     if (baseDataResults[idx]) {
-      userMap[id] = JSON.parse(baseDataResults[idx] as string);
+      try { userMap[id] = JSON.parse(baseDataResults[idx] as string); } catch (e) {}
     }
   });
 
   const pipe = kv.pipeline();
-  for (const id of userIds) {
+  for (const id of activeUserIds) {
     for (const dateStr of targetDates) {
       pipe.lrange(`user:${id}:timeseries:${dateStr}`, 0, -1);
     }
   }
-  
   const tsResults = await pipe.exec();
-  
+
   const aggregatedList: UserRankData[] = [];
   let resultIdx = 0;
-  
-  for (const id of userIds) {
+  for (const id of activeUserIds) {
     const baseData = userMap[id];
     if (!baseData) {
       resultIdx += targetDates.length;
       continue;
     }
-    
+
     let userTotal = 0;
     const tokens: Record<string, any> = {};
-    
     for (let i = 0; i < targetDates.length; i++) {
       const [err, events] = tsResults![resultIdx++] as [Error | null, string[]];
-      if (!err && events && events.length > 0) {
-        for (const evStr of events) {
-          try {
-            const ev = JSON.parse(evStr);
-            if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
-            tokens[ev.tool].total += ev.tokens;
-            
-            if (ev.cacheReadTokens !== undefined) {
-              tokens[ev.tool].in += ev.inTokens || 0;
-              tokens[ev.tool].out += ev.outTokens || 0;
-              tokens[ev.tool].cache_read += ev.cacheReadTokens || 0;
-              tokens[ev.tool].cache_write += ev.cacheWriteTokens || 0;
-            } else {
-              let fallbackCache = ev.tokens * 0.5;
-              if (ev.tool === 'cursor' || ev.tool === 'codex' || ev.tool === 'codex_proxy') fallbackCache = ev.tokens * 0.93;
-              else if (ev.tool === 'claude') fallbackCache = ev.tokens * 0.8;
-              else if (ev.tool === 'antigravity') fallbackCache = ev.tokens * 0.1;
-              
-              const freshTokens = Math.max(0, ev.tokens - fallbackCache);
-              tokens[ev.tool].in += freshTokens * 0.9;
-              tokens[ev.tool].out += freshTokens * 0.1;
-              tokens[ev.tool].cache_read += fallbackCache;
-            }
-            userTotal += ev.tokens;
-          } catch(e) {}
-        }
+      if (err || !events || events.length === 0) continue;
+      for (const evStr of events) {
+        try {
+          const ev = JSON.parse(evStr);
+          if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+          tokens[ev.tool].total += ev.tokens;
+
+          if (ev.cacheReadTokens !== undefined) {
+            tokens[ev.tool].in += ev.inTokens || 0;
+            tokens[ev.tool].out += ev.outTokens || 0;
+            tokens[ev.tool].cache_read += ev.cacheReadTokens || 0;
+            tokens[ev.tool].cache_write += ev.cacheWriteTokens || 0;
+          } else {
+            // Legacy events stored without a cache breakdown: derive a
+            // deterministic cache estimate from the tool's known rate.
+            let fallbackCache = ev.tokens * 0.5;
+            if (ev.tool === 'cursor' || ev.tool === 'codex' || ev.tool === 'codex_proxy') fallbackCache = ev.tokens * 0.93;
+            else if (ev.tool === 'claude') fallbackCache = ev.tokens * 0.8;
+            else if (ev.tool === 'antigravity') fallbackCache = ev.tokens * 0.1;
+
+            const freshTokens = Math.max(0, ev.tokens - fallbackCache);
+            tokens[ev.tool].in += freshTokens * 0.9;
+            tokens[ev.tool].out += freshTokens * 0.1;
+            tokens[ev.tool].cache_read += fallbackCache;
+          }
+          userTotal += ev.tokens;
+        } catch (e) {}
       }
     }
-    
+
     if (userTotal > 0) {
       tokens['total'] = userTotal;
-      aggregatedList.push({
-        ...baseData,
-        tokens
-      });
-    }
-  }
-  
-  // Deduplicate by name and keep the one with the highest tokens or GitHub ID
-  const seenNames = new Map<string, UserRankData>();
-  for (const item of aggregatedList) {
-    const key = (item.name || '').toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
-    if (!seenNames.has(key)) {
-      seenNames.set(key, { ...item, tokens: { ...item.tokens } });
-    } else {
-      const existing = seenNames.get(key)!;
-      // Merge tokens
-      for (const [t, v] of Object.entries(item.tokens)) {
-        if (t === 'total' || t === 'history') continue;
-        if (!existing.tokens[t]) {
-          existing.tokens[t] = typeof v === 'object' ? { ...v } : v;
-        } else if (typeof v === 'object' && typeof existing.tokens[t] === 'object') {
-          const ext = existing.tokens[t] as any;
-          const vv = v as any;
-          ext.total = (ext.total || 0) + (vv.total || 0);
-          ext.in = (ext.in || 0) + (vv.in || 0);
-          ext.out = (ext.out || 0) + (vv.out || 0);
-          ext.cache_read = (ext.cache_read || 0) + (vv.cache_read || 0);
-          ext.cache_write = (ext.cache_write || 0) + (vv.cache_write || 0);
-        } else if (typeof v === 'number' && typeof existing.tokens[t] === 'number') {
-          existing.tokens[t] += v;
-        }
-      }
-      existing.tokens.total += item.tokens.total;
-      
-      // Keep the GitHub ID if one has it
-      if (/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId)) {
-        existing.userId = item.userId;
-        existing.image = item.image;
-        existing.name = item.name;
-      } else if (item.tokens.total > existing.tokens.total && !/^\d+$/.test(existing.userId)) {
-        existing.name = item.name;
-        existing.image = item.image;
-      }
-      seenNames.set(key, existing);
+      aggregatedList.push({ ...baseData, tokens });
     }
   }
 
-  const finalLeaderboard = Array.from(seenNames.values());
-  finalLeaderboard.sort((a, b) => b.tokens.total - a.tokens.total);
-  return finalLeaderboard.slice(0, limit);
+  // Keyed by userId (never by display name) — two people sharing a name stay
+  // separate, and a single user's multi-device data is already merged upstream
+  // in updateTokenUsage.
+  aggregatedList.sort((a, b) => b.tokens.total - a.tokens.total);
+  return aggregatedList.slice(0, limit);
+}
+
+// Scan timeseries keys and return the set of userIds that have data on any date
+// inside `window`. Uses SCAN (non-blocking). Key format: user:{userId}:timeseries:{date}.
+async function discoverActiveUserIds(window: Set<string>): Promise<string[]> {
+  if (!kv) return [];
+  const ids = new Set<string>();
+  let cursor = '0';
+  do {
+    const [next, keys] = await kv.scan(cursor, 'MATCH', 'user:*:timeseries:*', 'COUNT', 500);
+    cursor = next;
+    for (const k of keys) {
+      const parts = k.split(':');
+      const date = parts[parts.length - 1];
+      if (window.has(date)) {
+        ids.add(parts.slice(1, parts.length - 2).join(':'));
+      }
+    }
+  } while (cursor !== '0');
+  return [...ids];
 }
 
 export async function getGlobalStats(leaderboardData: UserRankData[] | null = null) {

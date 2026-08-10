@@ -120,7 +120,22 @@ if (timeFilter === 'all' && periodCost === 0 && userData && userData.tokens) {
 const cacheSavings = Math.max(0, periodNoCacheCost - periodCost);
 
 const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + (e.tokens || 0), 0);
-const cacheHitRate = periodTokens > 0 ? (cacheHitTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : (timeFilter === 'all' ? '93.0' : '0.0')) : '0.0';
+// Real hit-rate from events; when the window has expired ('all' with no
+// timeseries), derive it from the persistent user breakdown instead of a
+// hardcoded 93%.
+let cacheHitRate = periodTokens > 0
+  ? (cacheHitTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : '0.0')
+  : '0.0';
+if (cacheHitTokens === 0 && userData && userData.tokens) {
+  let cRead = 0, cTotal = 0;
+  Object.entries(userData.tokens).forEach(([tool, raw]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const o = (typeof raw === 'object' && raw !== null) ? raw : null;
+    cRead += o?.cache_read || 0;
+    cTotal += o?.total || 0;
+  });
+  if (cTotal > 0) cacheHitRate = (cRead / cTotal * 100).toFixed(1);
+}
 const freshTokens = Math.max(0, periodTokens - cacheHitTokens);
 
 const toolsUsed = (timeFilter === 'all' && userData?.tokens)
@@ -131,17 +146,56 @@ const toolsUsed = (timeFilter === 'all' && userData?.tokens)
 const effectiveDays = timeFilter === 'today' || timeFilter === 'yesterday' ? 1 : days;
 const avgTokens = effectiveDays > 0 ? Math.floor(periodTokens / effectiveDays) : 0;
 
-// Group by Date for tables and streaks
+// Group by Date for tables and streaks, tracking per-tool tokens dynamically
+// (no hardcoded Codex/Antigravity columns) and a DETERMINISTIC session count
+// derived from that day's volume (was Math.random() before).
 const dailyMap: Record<string, any> = {};
 events.forEach(e => {
   const d = new Date(e.timestamp).toISOString().split('T')[0];
-  if (!dailyMap[d]) dailyMap[d] = { tokens: 0, cost: 0, cache: 0, sessions: Math.floor(Math.random() * 20) + 1, codex: 0, antigravity: 0 };
+  if (!dailyMap[d]) dailyMap[d] = { tokens: 0, cost: 0, cache: 0, sessions: 0, tools: {} as Record<string, number> };
   dailyMap[d].tokens += e.tokens;
   dailyMap[d].cost += getEventCost(e);
   if (e.cacheHit) dailyMap[d].cache += e.tokens;
-  if (e.tool === 'codex' || e.tool === 'codex_proxy') dailyMap[d].codex += e.tokens;
-  if (e.tool === 'antigravity') dailyMap[d].antigravity += e.tokens;
+  dailyMap[d].tools[e.tool] = (dailyMap[d].tools[e.tool] || 0) + e.tokens;
 });
+// Deterministic session estimate: ~200k tokens per session, min 1 when active.
+const AVG_TOKENS_PER_SESSION = 200_000;
+for (const d of Object.keys(dailyMap)) {
+  const dayTokens = dailyMap[d].tokens;
+  dailyMap[d].sessions = dayTokens > 0 ? Math.max(1, Math.round(dayTokens / AVG_TOKENS_PER_SESSION)) : 0;
+}
+
+// Real period composition (in/out/cache) straight from events; fall back to the
+// persistent user breakdown when the timeseries window has expired (e.g. 'all').
+let periodInTokens = 0, periodOutTokens = 0, periodCacheRead = 0, periodCacheWrite = 0;
+if (events.length > 0) {
+  events.forEach(e => {
+    periodInTokens += e.inTokens || 0;
+    periodOutTokens += e.outTokens || 0;
+    periodCacheRead += e.cacheReadTokens || 0;
+    periodCacheWrite += e.cacheWriteTokens || 0;
+  });
+} else if (userData && userData.tokens) {
+  Object.entries(userData.tokens).forEach(([tool, raw]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const o = (typeof raw === 'object' && raw !== null) ? raw : null;
+    periodInTokens += o?.in || 0;
+    periodOutTokens += o?.out || 0;
+    periodCacheRead += o?.cache_read || 0;
+    periodCacheWrite += o?.cache_write || 0;
+  });
+}
+// AI time = actual generated (output) tokens / 80 tok per second, in minutes.
+const aiTimeMinutes = periodOutTokens > 0 ? Math.floor(periodOutTokens / 80 / 60) : 0;
+const totalConversations = Object.values(dailyMap).reduce((s, d) => s + (d.sessions || 0), 0);
+const avgTokensPerConv = totalConversations > 0 ? Math.floor(periodTokens / totalConversations) : 0;
+
+// Token composition percentages (replaces the hardcoded 6.4/0.7/92.8 split).
+const compSum = periodInTokens + periodOutTokens + periodCacheRead + periodCacheWrite;
+const compInPct = compSum > 0 ? (periodInTokens / compSum * 100) : 0;
+const compOutPct = compSum > 0 ? (periodOutTokens / compSum * 100) : 0;
+const compCacheReadPct = compSum > 0 ? (periodCacheRead / compSum * 100) : 0;
+const compCacheWritePct = compSum > 0 ? (periodCacheWrite / compSum * 100) : 0;
 
 // Max Record
 let maxDayTokens = 0;
@@ -170,8 +224,6 @@ for (let i = 0; i < days; i++) {
   }
 }
 if (activeStreak === 0 && periodTokens > 0) activeStreak = 1;
-
-const activeDaysHistory = Math.max(1, Object.keys(dailyMap).length);
 
 const formatAmountObj = (num: number) => {
   if (num >= 100_000_000) return { val: (num / 100_000_000).toFixed(2), unit: '亿' };
@@ -251,6 +303,12 @@ const toolValues = toolKeys.map(k => toolBreakdown[k]);
 const modelKeys = Object.keys(modelBreakdown).sort((a,b) => modelBreakdown[b] - modelBreakdown[a]);
 const modelValues = modelKeys.map(k => modelBreakdown[k]);
 
+// Distinct tools present in the period, for the dynamic by-day table columns
+// (top 8 by volume — replaces the old hardcoded Codex / Antigravity columns).
+const tableTools = [...new Set(events.map(e => e.tool))]
+  .sort((a, b) => (toolBreakdown[b] || 0) - (toolBreakdown[a] || 0))
+  .slice(0, 8);
+
 const chartData = {
   lastXDays: lastXDays.map(d => days > 90 ? d.substring(0, 7) : d.substring(5)),
   dailyUsage, dailyCost
@@ -288,10 +346,9 @@ const chartData = {
       <div class="stat-card">
         <div class="stat-top">
           <span class="label">{timeFilter === 'today' ? '当日消耗' : timeFilter === 'yesterday' ? '昨日消耗' : timeFilter === 'all' ? '历史总消耗' : `近${days}天消耗`} ❔</span>
-          <span class="trend positive">+558%</span>
         </div>
         <div class="value">{periodTokensObj.val}<span class="unit">{periodTokensObj.unit}</span></div>
-        <div class="subtext">日均约 1.1倍</div>
+        <div class="subtext">日均 {formatAmountStr(avgTokens)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
@@ -303,7 +360,6 @@ const chartData = {
       <div class="stat-card">
         <div class="stat-top">
           <span class="label">有效 token ❔</span>
-          <span class="trend positive">+473%</span>
         </div>
         <div class="value">{freshTokensObj.val}<span class="unit">{freshTokensObj.unit}</span></div>
         <div class="subtext">占 {periodTokens > 0 ? (freshTokens / periodTokens * 100).toFixed(1) : 0}%</div>
@@ -311,10 +367,9 @@ const chartData = {
       <div class="stat-card">
         <div class="stat-top">
           <span class="label">对话次数 ❔</span>
-          <span class="trend positive">+67%</span>
         </div>
-        <div class="value">{activeDaysHistory * 15} <span class="unit">次</span></div>
-        <div class="subtext">次均 888.4万</div>
+        <div class="value">{totalConversations.toLocaleString()} <span class="unit">次</span></div>
+        <div class="subtext">次均 {formatAmountStr(avgTokensPerConv)}</div>
       </div>
       
       <div class="stat-card">
@@ -327,10 +382,9 @@ const chartData = {
       <div class="stat-card">
         <div class="stat-top">
           <span class="label">AI 耗时 ❔</span>
-          <span class="trend positive">+785%</span>
         </div>
-        <div class="value">18.9 <span class="unit">小时</span></div>
-        <div class="subtext">日均 18.9 小时</div>
+        <div class="value">{aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="unit">{aiTimeMinutes >= 60 ? '小时' : '分钟'}</span></div>
+        <div class="subtext">按 80 tok/秒 实际生成耗时估算</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
@@ -344,16 +398,12 @@ const chartData = {
           <span class="label">连续活跃 ❔</span>
         </div>
         <div class="value">{activeStreak} <span class="unit">天</span></div>
-        <div class="subtext">接入以来 45 天</div>
+        <div class="subtext">接入以来 {(userData.createdAt || '').substring(0, 10) || '—'}</div>
       </div>
     </div>
 
     <!-- Key Facts Banner -->
     <div class="key-facts-banner">
-      <div class="fact-col">
-        <span class="fact-label">当日在全史排位</span>
-        <span class="fact-value">第 14 / 45 个活跃日</span>
-      </div>
       <div class="fact-col">
         <span class="fact-label">单日纪录</span>
         <span class="fact-value">{formatAmountStr(maxDayTokens)} · {maxDayStr}</span>
@@ -364,10 +414,14 @@ const chartData = {
       </div>
       <div class="fact-col">
         <span class="fact-label">接入以来</span>
-        <span class="fact-value">2026-06-12 起 · 45 个活跃日</span>
+        <span class="fact-value">{(userData.createdAt || '').substring(0, 10) || '—'}</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">近 30 天日均</span>
+        <span class="fact-label">本区间活跃天数</span>
+        <span class="fact-value">{Object.keys(dailyMap).length} 天</span>
+      </div>
+      <div class="fact-col">
+        <span class="fact-label">日均消耗</span>
         <span class="fact-value">{formatAmountStr(avgTokens)}</span>
       </div>
     </div>
@@ -431,15 +485,16 @@ const chartData = {
     <div class="chart-box" style="margin-bottom: 1.5rem;">
       <h3>Token 构成</h3>
       <div class="composition-bar">
-        <div class="comp-input" style={`width: 6.4%;`}></div>
-        <div class="comp-output" style={`width: 0.7%;`}></div>
-        <div class="comp-cache-read" style={`width: 92.8%;`}></div>
+        <div class="comp-input" style={`width: ${compInPct}%;`}></div>
+        <div class="comp-output" style={`width: ${compOutPct}%;`}></div>
+        <div class="comp-cache-read" style={`width: ${compCacheReadPct}%;`}></div>
+        <div class="comp-cache-write" style={`width: ${compCacheWritePct}%;`}></div>
       </div>
       <div class="comp-legend">
-        <span><div class="dot" style="background:#2563EB;"></div> 输入 6.4%</span>
-        <span><div class="dot" style="background:#93C5FD;"></div> 输出 0.7%</span>
-        <span><div class="dot" style="background:#E5E7EB;"></div> 缓存读 92.8%</span>
-        <span><div class="dot" style="background:#D1D5DB;"></div> 缓存写 0.0%</span>
+        <span><div class="dot" style="background:#2563EB;"></div> 输入 {compInPct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#93C5FD;"></div> 输出 {compOutPct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#E5E7EB;"></div> 缓存读 {compCacheReadPct.toFixed(1)}%</span>
+        <span><div class="dot" style="background:#D1D5DB;"></div> 缓存写 {compCacheWritePct.toFixed(1)}%</span>
       </div>
       <div class="subtext" style="margin-top:0.5rem;">缓存节省 ≈${cacheSavings.toLocaleString('en-US', {maximumFractionDigits: 0})} (按各模型官方 API 价目折算)</div>
     </div>
@@ -452,8 +507,7 @@ const chartData = {
           <thead>
             <tr>
               <th>日期</th>
-              <th>Codex</th>
-              <th>Antigravity</th>
+              {tableTools.map(t => <th>{t === 'codex' ? 'Codex' : t === 'antigravity' ? 'Antigravity' : t === 'codex_proxy' ? 'Codex' : t.charAt(0).toUpperCase() + t.slice(1)}</th>)}
               <th>合计</th>
               <th>成本</th>
               <th>会话</th>
@@ -464,18 +518,18 @@ const chartData = {
             {tableDays.map(date => {
               const dData = dailyMap[date];
               if (!dData || dData.tokens === 0) return null;
+              const hitRate = dData.tokens > 0 ? (dData.cache / dData.tokens * 100) : 0;
               return (
                 <tr>
                   <td>{date}</td>
-                  <td>{dData.codex > 0 ? formatAmountStr(dData.codex) : '—'}</td>
-                  <td>{dData.antigravity > 0 ? formatAmountStr(dData.antigravity) : '—'}</td>
+                  {tableTools.map(t => <td>{dData.tools[t] > 0 ? formatAmountStr(dData.tools[t]) : '—'}</td>)}
                   <td class="td-total">{formatAmountStr(dData.tokens)}</td>
                   <td>${dData.cost.toFixed(2)}</td>
                   <td>{dData.sessions}</td>
                   <td>
                     <div class="hit-rate-cell">
-                      <span>{(dData.cache/dData.tokens*100).toFixed(1)}%</span>
-                      <div class="tiny-bar"><div class="tiny-fill" style={`width: ${dData.cache/dData.tokens*100}%;`}></div></div>
+                      <span>{hitRate.toFixed(1)}%</span>
+                      <div class="tiny-bar"><div class="tiny-fill" style={`width: ${hitRate}%;`}></div></div>
                     </div>
                   </td>
                 </tr>
