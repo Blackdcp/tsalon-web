@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
+import { beijingDateString as todayStr } from '../../lib/date';
 
 // CRITICAL: with `output: 'static'` (astro.config.mjs) every route is
 // prerendered to a static file unless it opts out. Without this, POST hits a
@@ -130,6 +131,29 @@ export const POST: APIRoute = async ({ request }) => {
     }
     return new Response(JSON.stringify({ success: true, mode: 'CLEAR_TIMESERIES', targets, cleared }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
+
+  // Scope-limited: wipe ONLY one date's timeseries for ONE account (used to drop
+  // a single bad phantom day without touching the rest of the history).
+  if (action === 'clearday') {
+    const date = (b && typeof b.date === 'string') ? b.date : todayStr();
+    const wantUid = b && typeof b.userId === 'string' ? b.userId : null;
+    const wantGh = b && typeof b.githubId === 'string' ? b.githubId : null;
+    let cleared = 0;
+    const targets: string[] = [];
+    for (const [gh, ps] of Object.entries(groups)) {
+      if (wantGh && gh !== wantGh) continue;
+      for (const p of ps) {
+        const uid = String(p.userId);
+        if (wantUid && uid !== wantUid) continue;
+        const key = `user:${uid}:timeseries:${date}`;
+        const n = await kv.lrange(key, 0, -1);
+        if (n.length) { await kv.del(key); cleared += n.length; }
+        if (!targets.includes(uid)) targets.push(uid);
+      }
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'CLEAR_DAY', date, targets, cleared }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
 
   if (action === 'inspect') {
     const out: any[] = [];

@@ -113,67 +113,147 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   const pipe = kv.pipeline();
   let hasTimeseriesEvents = false;
   
-  // Always derive the daily timeseries from the DELTA vs the previous device
-  // snapshot — never from the agent's absolute per-day `history` values.
+  // ---------------------------------------------------------------------------
+  // Daily timeseries strategy (hybrid, hardened against BOTH inflation modes):
   //
-  // Why: the agent reports its CUMULATIVE lifetime total as the current day's
-  // history value, so trusting `history` inflated "today" by ~20x and every
-  // cleanup was overwritten on the next upload. The delta (reported - snapshot)
-  // is the true daily usage and is immune to that. The lifetime profile/ranking
-  // still uses the agent's reported totals via the device snapshot below, so the
-  // all-time leaderboard stays correct.
+  //  • PAST days  -> trust the agent's `history` (its local per-day tracking),
+  //    BUT sanitize: drop any single event above ABSOLUTE_FLOOR, and cap any day
+  //    whose total exceeds 3x the median daily total (computed from the history
+  //    itself) by dropping the largest events. This restores the 7d/30d/90d
+  //    history and neutralizes the old context-resend inflation.
+  //  • TODAY       -> use the DELTA vs the previous device snapshot (the true
+  //    daily usage, immune to the agent reporting its lifetime total as "today").
+  //    If we have no baseline for this device (oldTotal === 0, e.g. after a
+  //    snapshot reset), we must NOT record the full cumulative as "today" —
+  //    that produced the 1.3B phantom. We fall back to a *sane* history[today]
+  //    value if present, else skip and let the next upload (now baselined)
+  //    record the real delta.
+  // ---------------------------------------------------------------------------
+  const ABSOLUTE_FLOOR = 1_000_000_000;
+  const DAY_FLOOR = 850_000_000;
+
+  const modelFor = (tool: string): string => {
+    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') return 'gpt-5.6-sol';
+    if (tool === 'antigravity') return 'gemini-2.5-pro';
+    if (tool === 'claude') return 'claude-3-5-sonnet';
+    return 'unknown';
+  };
+
+  // median daily total across history (for the per-day cap); excludes today.
+  const histDayTotals: number[] = [];
+  if (historyData) {
+    for (const toolsObj of Object.values(historyData)) {
+      let day = 0;
+      for (const v of Object.values(toolsObj as Record<string, any>)) {
+        const hv = typeof v === 'object' && v !== null ? (Number((v as any).total) || 0) : (Number(v) || 0);
+        day += hv;
+      }
+      if (day > 0) histDayTotals.push(day);
+    }
+  }
+  histDayTotals.sort((a, b) => a - b);
+  const histMedian = histDayTotals.length ? histDayTotals[Math.floor(histDayTotals.length / 2)] : 0;
+  const DAY_CAP = histMedian > 0 ? Math.max(3 * histMedian, DAY_FLOOR) : DAY_FLOOR;
+
+  // --- PAST days from history (write only if this device hasn't ingested them) ---
+  if (historyData) {
+    for (const [dateStr, toolsObj] of Object.entries(historyData)) {
+      if (dateStr >= todayStr) continue; // today is handled by delta below
+      const rawKey = `user:${userId}:timeseries:${dateStr}`;
+      const existing = await kv.lrange(rawKey, 0, -1);
+      const existingEvents = existing
+        .map((s: any) => { try { return JSON.parse(s); } catch { return null; } })
+        .filter(Boolean);
+      if (existingEvents.some((e: any) => e.deviceId === deviceId)) continue; // already ingested
+
+      // wipe this device's stale events, keep other devices', then re-add cleaned
+      const kept = existingEvents.filter((e: any) => e.deviceId !== deviceId);
+      await kv.del(rawKey);
+      if (kept.length) {
+        const rp = kv.pipeline();
+        kept.forEach((e: any) => rp.rpush(rawKey, JSON.stringify(e)));
+        await rp.exec();
+      }
+
+      const outEvents: { tool: string; tokens: number }[] = [];
+      for (const [tool, rawVal] of Object.entries(toolsObj as Record<string, any>)) {
+        if (tool === 'total' || tool === 'history') continue;
+        const isObj = typeof rawVal === 'object' && rawVal !== null;
+        const hVal = isObj ? (Number((rawVal as any).total) || 0) : (Number(rawVal) || 0);
+        if (hVal <= 0 || hVal > ABSOLUTE_FLOOR) continue; // drop zero + phantom events
+        outEvents.push({ tool, tokens: hVal });
+      }
+      // cap the day at DAY_CAP by dropping the largest events
+      outEvents.sort((a, b) => b.tokens - a.tokens);
+      let running = 0;
+      for (const e of outEvents) {
+        if (running > 0 && running + e.tokens > DAY_CAP) break;
+        running += e.tokens;
+        const isObj = typeof (toolsObj as Record<string, any>)[e.tool] === 'object';
+        const rv: any = (toolsObj as Record<string, any>)[e.tool];
+        const inT = isObj && rv.in ? Number(rv.in) || 0 : e.tokens * 0.9;
+        const outT = isObj && rv.out ? Number(rv.out) || 0 : e.tokens * 0.1;
+        const crT = isObj && rv.cache_read ? Number(rv.cache_read) || 0 : 0;
+        const cwT = isObj && rv.cache_write ? Number(rv.cache_write) || 0 : 0;
+        const ev: TimeseriesEvent = {
+          timestamp: new Date(dateStr).getTime(),
+          tool: e.tool,
+          model: modelFor(e.tool),
+          tokens: e.tokens,
+          inTokens: inT,
+          outTokens: outT,
+          cacheReadTokens: crT,
+          cacheWriteTokens: cwT,
+          cacheHit: crT > 0,
+          deviceId
+        };
+        pipe.rpush(rawKey, JSON.stringify(ev));
+        hasTimeseriesEvents = true;
+      }
+    }
+  }
+
+  // --- TODAY from delta ---
   for (const [tool, valObj] of Object.entries(normalizedTokens)) {
     if (tool === 'total' || tool === 'history') continue;
+    const vobj = valObj as any;
     const oldToolData = oldDeviceTokens[tool];
     const oldTotal = oldToolData ? (Number(oldToolData.total) || 0) : 0;
-    const valTotal = Number(valObj.total) || 0;
+    const valTotal = Number(vobj.total) || 0;
     const delta = valTotal - oldTotal;
 
-    let model = 'unknown';
-    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
-      model = 'gpt-5.6-sol';
-    } else if (tool === 'antigravity') {
-      model = 'gemini-2.5-pro';
-    } else if (tool === 'claude') {
-      model = 'claude-3-5-sonnet';
+    // No baseline for this device: never record the full cumulative as "today"
+    // (that created the 1.3B phantom). Fall back to a *sane* history[today]
+    // value, else skip.
+    let eventTokens = 0;
+    let inTokens = 0, outTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
+    if (delta > 0) {
+      eventTokens = delta;
+      inTokens = Math.max(0, (Number(vobj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0));
+      outTokens = Math.max(0, (Number(vobj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0));
+      cacheReadTokens = Math.max(0, (Number(vobj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0));
+      cacheWriteTokens = Math.max(0, (Number(vobj.cache_write) || 0) - (oldToolData ? Number(oldToolData.cache_write) || 0 : 0));
+    } else if (oldTotal === 0 && valTotal > 0) {
+      const ht = historyData && (historyData[todayStr] as Record<string, any> | undefined)?.[tool];
+      const hv = ht ? (typeof ht === 'object' ? (Number(ht.total) || 0) : (Number(ht) || 0)) : 0;
+      if (hv > 0 && hv <= DAY_CAP) {
+        eventTokens = hv;
+        inTokens = hv * 0.9; outTokens = hv * 0.1;
+      }
     }
-
-    // Record only forward progress: a positive delta, or the very first time we
-    // see this tool (full amount). Negative deltas (agent reset/recount) are
-    // skipped so they can't erase real history.
-    if (!(delta > 0 || (valTotal > 0 && oldTotal === 0))) continue;
-
-    const eventTokens = delta > 0 ? delta : valTotal;
-    const inTokens =
-      delta > 0
-        ? Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0))
-        : (Number(valObj.in) || 0);
-    const outTokens =
-      delta > 0
-        ? Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0))
-        : (Number(valObj.out) || 0);
-    const cacheReadTokens =
-      delta > 0
-        ? Math.max(0, (Number(valObj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0))
-        : (Number(valObj.cache_read) || 0);
-    const cacheWriteTokens =
-      delta > 0
-        ? Math.max(0, (Number(valObj.cache_write) || 0) - (oldToolData ? Number(oldToolData.cache_write) || 0 : 0))
-        : (Number(valObj.cache_write) || 0);
+    if (eventTokens <= 0 || eventTokens > DAY_CAP) continue;
 
     const event: TimeseriesEvent = {
       timestamp: now,
       tool,
-      model,
+      model: modelFor(tool),
       tokens: eventTokens,
       inTokens,
       outTokens,
       cacheReadTokens,
       cacheWriteTokens,
-      // Honest cache flag: true only when we actually have cache reads. The
-      // old `Math.random() < cacheRate` made cost & hit-rate non-reproducible.
       cacheHit: cacheReadTokens > 0,
-      deviceId: deviceId
+      deviceId
     };
     pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
     hasTimeseriesEvents = true;
