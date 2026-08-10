@@ -188,13 +188,24 @@ const formatAmountStr = (num: number) => {
 const periodTokensObj = formatAmountObj(periodTokens);
 const freshTokensObj = formatAmountObj(freshTokens);
 
-// For charts
+// For charts — cap at 30 bars for readability ('all' also caps at 30).
+const chartWindow = days > 90 ? 30 : days;
 const lastXDays = [];
-const chartWindow = Math.min(days, 30);
 for(let i=chartWindow-1; i>=0; i--) {
   const d = new Date();
   d.setDate(d.getDate() - i);
   lastXDays.push(d.toISOString().split('T')[0]);
+}
+
+// For the by-day table — use the FULL selected range. Previously this was
+// also capped at 30 days, which hid all data for users whose activity is
+// older than 30 days (e.g. 90d showed nothing). Decoupling it from the
+// chart cap makes every selected day visible in the table.
+const tableDays = [];
+for(let i=days-1; i>=0; i--) {
+  const d = new Date();
+  d.setDate(d.getDate() - i);
+  tableDays.push(d.toISOString().split('T')[0]);
 }
 
 const dailyUsage = lastXDays.map(date => dailyMap[date]?.tokens || 0);
@@ -364,11 +375,11 @@ const chartData = {
     <!-- Charts -->
     <div class="charts-row">
       <div class="chart-box">
-        <h3>近 {days} 天每天用量</h3>
+        <h3>近 {chartWindow} 天每天用量</h3>
         <div id="usageChart" style="height: 250px; width: 100%;"></div>
       </div>
       <div class="chart-box">
-        <h3>近 {days} 天每日成本</h3>
+        <h3>近 {chartWindow} 天每日成本</h3>
         <div id="costChart" style="height: 250px; width: 100%;"></div>
       </div>
     </div>
@@ -450,7 +461,7 @@ const chartData = {
             </tr>
           </thead>
           <tbody>
-            {lastXDays.map(date => {
+            {tableDays.map(date => {
               const dData = dailyMap[date];
               if (!dData || dData.tokens === 0) return null;
               return (
