@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
 
+export const prerender = false;
+
 // Temporary maintenance endpoint to dedupe profiles belonging to the same
 // GitHub person (stale orphan builds left under a UUID instead of the GitHub
 // id). Safe-by-default: action "dryrun" / "report" never delete; only

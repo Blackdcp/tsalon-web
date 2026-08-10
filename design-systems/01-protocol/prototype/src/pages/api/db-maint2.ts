@@ -1,6 +1,11 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
 
+// CRITICAL: with `output: 'static'` (astro.config.mjs) every route is
+// prerendered to a static file unless it opts out. Without this, POST hits a
+// frozen build-time file and returns an empty 405 (GET works, POST doesn't).
+export const prerender = false;
+
 // One-off, POST-only maintenance endpoint (query strings are stripped by Vercel
 // on these serverless functions, so we pass the action via the JSON body).
 //
@@ -88,6 +93,10 @@ export const POST: APIRoute = async ({ request }) => {
         }
       }
       const dates = Object.keys(byDate).sort().reverse().slice(0, 25);
+      const dayVals = Object.values(byDate);
+      const sorted = [...dayVals].sort((a, b) => a - b);
+      const med = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : 0;
+      const pollutedDates = dates.filter(d => byDate[d] > ABSOLUTE_FLOOR && byDate[d] > MULTIPLE_OF_MEDIAN * (med || 1));
       out.push({
         githubId: gh,
         canonicalUserId: String(canonical.userId),
@@ -96,7 +105,9 @@ export const POST: APIRoute = async ({ request }) => {
         storedTokens: canonical.tokens || {},
         recomputedTotal: Object.values(recompute).reduce((s, v) => s + v, 0),
         recomputedByTool: recompute,
-        recentDates: dates.map(d => ({ date: d, total: byDate[d] }))
+        medianDaily: med,
+        pollutedDates,
+        recentDates: dates.map(d => ({ date: d, total: byDate[d], polluted: byDate[d] > ABSOLUTE_FLOOR && byDate[d] > MULTIPLE_OF_MEDIAN * (med || 1) }))
       });
     }
     return new Response(JSON.stringify({ success: true, mode: 'INSPECT (read-only)', inspect: out }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -172,13 +183,13 @@ export const POST: APIRoute = async ({ request }) => {
         }
       }
 
-      if (!cleaned && action === 'fix') {
-        // still recompute from (already-clean) timeseries to fix aggregate
-      }
       const finalTotal = Object.values(recomputed).reduce((s, v) => s + (v.total || 0), 0);
       recomputed['total'] = finalTotal;
 
-      if (action === 'fix') {
+      // SURGICAL: only rewrite a user when pollution was actually removed.
+      // Recomputing from timeseries for a CLEAN user could shrink them if their
+      // timeseries is incomplete, so we leave clean users untouched.
+      if (action === 'fix' && cleaned) {
         // 2. Overwrite device snapshots with the cleaned aggregate so the next
         //    upload computes a correct delta instead of re-inflating.
         const devKeys = await scanKeys(`user:${userId}:device:*:data`);
@@ -203,8 +214,10 @@ export const POST: APIRoute = async ({ request }) => {
         }));
         await kv.zadd('leaderboard:total', finalTotal, userId);
         log.push(`recomputed ${userId}: total ${p.tokens?.total || 0} -> ${finalTotal}`);
+      } else if (action === 'fix' && !cleaned) {
+        log.push(`SKIP ${userId}: no pollution detected (stored ${p.tokens?.total || 0}, recomputed ${finalTotal})`);
       } else {
-        log.push(`DRY recompute ${userId}: would be ${finalTotal} (was ${p.tokens?.total || 0})`);
+        log.push(`DRY recompute ${userId}: would be ${finalTotal} (was ${p.tokens?.total || 0})${cleaned ? ' [POLLUTED]' : ''}`);
       }
     }
   }
