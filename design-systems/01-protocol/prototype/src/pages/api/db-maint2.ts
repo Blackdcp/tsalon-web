@@ -30,8 +30,9 @@ export const POST: APIRoute = async ({ request }) => {
   if (!kv) return new Response('No KV', { status: 500 });
 
   let action = 'inspect';
+  let b: any = null;
   try {
-    const b = await request.json();
+    b = await request.json();
     if (b && typeof b.action === 'string') action = b.action;
   } catch {}
 
@@ -78,6 +79,30 @@ export const POST: APIRoute = async ({ request }) => {
     if (!gh) continue;
     if (!groups[gh]) groups[gh] = [];
     groups[gh].push(p);
+  }
+
+  // Read-only: dump raw timeseries events (token sizes) for a user+date so we
+  // can see whether a polluted day is one big phantom event or many small ones.
+  if (action === 'events') {
+    const date = (b && typeof b.date === 'string') ? b.date : '2026-08-09';
+    const wantUid = (b && typeof b.userId === 'string') ? b.userId : null;
+    const dump: any[] = [];
+    for (const [, ps] of Object.entries(groups)) {
+      for (const p of ps) {
+        const uid = String(p.userId);
+        if (wantUid && uid !== wantUid) continue;
+        const raw = await kv.lrange(`user:${uid}:timeseries:${date}`, 0, -1);
+        const evs = raw.map((s: any) => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+        dump.push({
+          userId: uid,
+          date,
+          count: evs.length,
+          dayTotal: evs.reduce((s: number, e: any) => s + (Number(e.tokens) || 0), 0),
+          events: evs.map((e: any) => ({ tool: e.tool, tokens: e.tokens, in: e.inTokens, out: e.outTokens, cacheRead: e.cacheReadTokens, ts: e.timestamp }))
+        });
+      }
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'EVENTS', date, dump }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
   if (action === 'inspect') {
