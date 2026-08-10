@@ -29,27 +29,6 @@ const formatPosterAmount = (num: any) => {
         <div class="share-tag-pill">造垃圾耻辱榜 · 实时排行</div>
       </div>
       
-      {currentUser && (
-        <div class="share-current-user">
-          <img src={currentUser.image} alt={currentUser.name} class="share-avatar-large" crossorigin="anonymous" />
-          <div class="share-user-info">
-            <div class="share-user-name">
-              <strong>{currentUser.name}</strong>
-              <span class="share-tool-dot">●</span> 
-              <span class="share-tool-name">{Object.keys(currentUser.tokens || {}).filter(k => k !== 'total')[0] || 'AI Tool'}</span>
-            </div>
-            <div class="share-user-rank-box">
-              <span class="rank-label">我的排名</span>
-              <span class="rank-number">#{currentUserRank}</span>
-            </div>
-          </div>
-          <div class="share-user-stats">
-            <strong>{formatPosterAmount(currentUser.tokens?.total || 0).val}</strong> <span class="unit">{formatPosterAmount(currentUser.tokens?.total || 0).unit} tokens</span>
-            <span class="cost">~${(((currentUser.tokens?.total || 0)) / 1000000 * 3).toFixed(0)}</span>
-          </div>
-        </div>
-      )}
-
       <div class="share-top10">
         <div class="share-list-header">
           <span class="share-list-bar"></span> TOP 10 榜单
@@ -81,6 +60,9 @@ const formatPosterAmount = (num: any) => {
             <p class="share-update-note">数据每 30 分钟更新</p>
           </div>
         </div>
+        {currentUser && currentUserRank ? (
+          <div class="share-my-rank">我的排名 <strong>#{currentUserRank}</strong></div>
+        ) : null}
         <div class="share-bottom-branding">
           T Salon · Token 消耗排行榜 · {todayDateStr} 生成
         </div>
@@ -174,88 +156,6 @@ const formatPosterAmount = (num: any) => {
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
     margin-top: 0.35rem;
-  }
-
-  .share-current-user {
-    background: #F9FAFB;
-    border: 1px solid #E5E7EB;
-    border-radius: 16px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 1.5rem;
-    position: relative;
-  }
-
-  .share-avatar-large {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-  }
-
-  .share-user-info {
-    margin-left: 60px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-
-  .share-user-name strong {
-    font-size: 1.1rem;
-    display: block;
-  }
-
-  .share-tool-dot {
-    color: #3B82F6;
-    font-size: 0.6rem;
-    vertical-align: middle;
-  }
-
-  .share-tool-name {
-    font-size: 0.75rem;
-    color: #6B7280;
-  }
-
-  .share-user-rank-box {
-    text-align: right;
-  }
-
-  .share-user-rank-box .rank-label {
-    display: block;
-    font-size: 0.65rem;
-    color: #6B7280;
-  }
-
-  .share-user-rank-box .rank-number {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #10B981;
-    line-height: 1;
-  }
-
-  .share-user-stats {
-    margin-top: 1rem;
-    text-align: right;
-    color: #111827;
-  }
-
-  .share-user-stats strong {
-    font-size: 1.25rem;
-    color: #059669;
-  }
-
-  .share-user-stats .unit {
-    font-size: 0.75rem;
-    color: #6B7280;
-  }
-
-  .share-user-stats .cost {
-    font-size: 0.75rem;
-    color: #9CA3AF;
-    margin-left: 0.5rem;
   }
 
   .share-top10 {
@@ -403,6 +303,20 @@ const formatPosterAmount = (num: any) => {
     font-size: 0.65rem;
     color: #9CA3AF;
     margin-top: 1rem;
+  }
+
+  .share-my-rank {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #6B7280;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed #E5E7EB;
+  }
+
+  .share-my-rank strong {
+    color: #10B981;
+    font-size: 0.9rem;
   }
 
   .share-actions {
