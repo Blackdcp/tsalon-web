@@ -24,21 +24,40 @@ let session: any = null;
 let currentUser = null;
 let currentUserRank = 0;
 let sessionUserId: string | null = null;
-let currentUserName: string | null = null;
-// Match the logged-in user in the leaderboard (stable GitHub id, name fallback).
-// Used both to highlight and to avoid rendering the user twice.
-const isCurrentUser = (u: any) =>
-  !!sessionUserId && (String(u.userId) === sessionUserId || u.name === currentUserName);
+// Match the logged-in user by their stable GitHub id (the leaderboard userId for
+// GitHub users). We deliberately do NOT fall back to name — two profiles can share
+// a display name (e.g. a stale orphan profile left by an old agent build), and
+// matching by name would wrongly collapse or hide them.
+const userMatchesSession = (u: any) => !!sessionUserId && String(u.userId) === sessionUserId;
+
+// GitHub numeric id embedded in the avatar URL — a reliable per-person key that
+// survives multiple profiles (device / legacy-agent dupes) for the same GitHub user.
+const githubIdOf = (u: any): string | null => {
+  const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(u?.image || '');
+  return m ? m[1] : null;
+};
+
+// Tracks GitHub ids already rendered so duplicate profiles of the same person
+// collapse into a single row during the list render below.
+const seenGithubIds = new Set<string>();
 
 try {
   session = await getSession(Astro.request);
   if (session?.user) {
     sessionUserId = String(session.user.id);
-    currentUserName = session.user.name;
-    const userIndex = leaderboard.findIndex(isCurrentUser);
-    if (userIndex !== -1) {
-      currentUser = leaderboard[userIndex];
-      currentUserRank = userIndex + 1;
+    // Prefer the highest-total matching profile as "the" current user (the
+    // canonical one), in case duplicate profiles exist for this GitHub account.
+    let bestIdx = -1;
+    let bestTotal = -1;
+    leaderboard.forEach((u: any, i: number) => {
+      if (userMatchesSession(u) && (u.tokens?.total || 0) > bestTotal) {
+        bestTotal = u.tokens?.total || 0;
+        bestIdx = i;
+      }
+    });
+    if (bestIdx !== -1) {
+      currentUser = leaderboard[bestIdx];
+      currentUserRank = bestIdx + 1;
     } else {
       // User is logged in but has no data in this time period
       currentUser = {
@@ -348,10 +367,15 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
         <div class="content-section" style="margin-top: 1rem;"><p>该时间段内暂无数据，快去抢首发吧！</p></div>
       ) : (
         leaderboard.map((user, idx) => {
-          // The current user is already shown in the highlight strip above — don't render twice.
-          if (isCurrentUser(user)) return null;
-          const rank = idx + 1;
-          let userTotalEstimatedCost = 0;
+            // Collapse duplicate profiles of the SAME GitHub person (e.g. a stale
+            // orphan left by an old agent build) into a single row. The board is
+            // sorted by total desc, so the first occurrence is the canonical/highest
+            // one; later dupes sharing the same GitHub avatar id are hidden.
+            const gh = githubIdOf(user);
+            if (gh && seenGithubIds.has(gh)) return null;
+            if (gh) seenGithubIds.add(gh);
+            const rank = idx + 1;
+            let userTotalEstimatedCost = 0;
           let userTotalTokens = typeof user.tokens?.total === 'number' ? user.tokens.total : 0;
           
           const toolsBreakdown = Object.entries(user.tokens || {})

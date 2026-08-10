@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
-import { kv } from '../../lib/kv';
+import { kv, scanKeys } from '../../lib/kv';
 
 // Maintenance endpoint for the timeseries store.
 //
-// Two jobs, both safe-by-default (DRY-RUN unless ?confirm=1):
+// Three jobs, all safe-by-default (DRY-RUN unless ?confirm=1):
 //
 //  1. PERSIST  — remove the TTL on every timeseries key so historical daily
 //     data survives past the previous 31-day cap (this is what made the 90d /
@@ -15,6 +15,14 @@ import { kv } from '../../lib/kv';
 //     day only when it is BOTH wildly above that user's own median daily volume
 //     AND above an absolute floor — i.e. genuine billion-scale pollution from
 //     the old context-resend inflation, not a busy real user.
+//
+//  3. MERGE    — dedupe profiles that belong to the SAME GitHub person but were
+//     created under different userIds (e.g. a stale orphan left by an old agent
+//     build that used a UUID instead of the GitHub id). Only an orphan that is a
+//     PROVABLE SUBSET of the canonical profile (every tool total and every
+//     date×tool timeseries total is <= the canonical's) is deleted — if it holds
+//     any data the canonical lacks, it is reported as a warning and left alone,
+//     so no real usage is ever lost.
 
 const ABSOLUTE_FLOOR = 1_000_000_000;   // 1B: only pollution historically exceeded this
 const MULTIPLE_OF_MEDIAN = 10;          // a day >10x the user's own median is suspect
@@ -25,6 +33,7 @@ export const GET: APIRoute = async ({ request }) => {
   const url = new URL(request.url);
   const confirm = url.searchParams.get('confirm') === '1';
   const persistOnly = url.searchParams.get('persist') === '1';
+  const mergeOnly = url.searchParams.get('merge') === '1';
 
   // 1. Collect every timeseries key + its events.
   const keyEvents: Record<string, any[]> = {};
@@ -123,6 +132,129 @@ export const GET: APIRoute = async ({ request }) => {
         }
       }
     }
+  }
+
+  // 4. Merge: dedupe profiles of the same GitHub person (stale orphan builds).
+  if (mergeOnly) {
+    const profileKeys = await scanKeys('user:*:data');
+    const profiles: any[] = [];
+    if (profileKeys.length) {
+      const raws = await kv.mget(profileKeys);
+      raws.forEach((r, i) => {
+        if (r) {
+          try {
+            const p = JSON.parse(r as string);
+            p.__key = profileKeys[i];
+            profiles.push(p);
+          } catch {}
+        }
+      });
+    }
+
+    const ghOf = (img: string): string | null => {
+      const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(img || '');
+      return m ? m[1] : null;
+    };
+
+    // Group GitHub-sourced profiles by their numeric GitHub id (reliable key).
+    const groups: Record<string, any[]> = {};
+    for (const p of profiles) {
+      const gh = ghOf(p.image);
+      if (!gh) continue; // only dedupe profiles with a real GitHub avatar
+      if (!groups[gh]) groups[gh] = [];
+      groups[gh].push(p);
+    }
+
+    const merges: any[] = [];
+    const warnings: string[] = [];
+
+    for (const [gh, ps] of Object.entries(groups)) {
+      if (ps.length < 2) continue;
+      // Canonical = the profile whose userId equals the GitHub id, else the
+      // highest-total one (the most complete / current upload).
+      let canonical = ps.find(p => String(p.userId) === gh);
+      if (!canonical) {
+        canonical = ps.slice().sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0))[0];
+      }
+
+      for (const orphan of ps) {
+        if (orphan === canonical) continue;
+
+        // (a) aggregated-token subset check
+        const oTokens: Record<string, any> = (orphan.tokens || {}) as Record<string, any>;
+        const cTokens: Record<string, any> = (canonical.tokens || {}) as Record<string, any>;
+        let isSubset = true;
+        for (const [tool, v] of Object.entries(oTokens)) {
+          if (tool === 'total' || tool === 'history') continue;
+          const oVal = typeof v === 'number' ? v : (v?.total || 0);
+          const cVal = typeof cTokens[tool] === 'number' ? cTokens[tool] : (cTokens[tool]?.total || 0);
+          if (oVal > cVal) { isSubset = false; break; }
+        }
+
+        // (b) timeseries subset check — every orphan date×tool must be present in
+        // the canonical with a >= total.
+        if (isSubset) {
+          const canonTs: Record<string, number> = {};
+          for (const [k, evs] of Object.entries(keyEvents)) {
+            const parts = k.split(':');
+            if (parts.slice(1, parts.length - 2).join(':') !== String(canonical.userId)) continue;
+            const date = parts[parts.length - 1];
+            for (const e of evs as any[]) {
+              const kt = `${date}:${e.tool}`;
+              canonTs[kt] = (canonTs[kt] || 0) + (Number(e.tokens) || 0);
+            }
+          }
+          const orphanTs: Record<string, number> = {};
+          for (const [k, evs] of Object.entries(keyEvents)) {
+            const parts = k.split(':');
+            if (parts.slice(1, parts.length - 2).join(':') !== String(orphan.userId)) continue;
+            const date = parts[parts.length - 1];
+            for (const e of evs as any[]) {
+              const kt = `${date}:${e.tool}`;
+              orphanTs[kt] = (orphanTs[kt] || 0) + (Number(e.tokens) || 0);
+            }
+          }
+          for (const [kt, val] of Object.entries(orphanTs)) {
+            if ((canonTs[kt] || 0) < val) { isSubset = false; break; }
+          }
+        }
+
+        if (isSubset) {
+          merges.push({
+            githubId: gh,
+            canonicalUserId: String(canonical.userId),
+            orphanUserId: String(orphan.userId),
+            orphanTotal: orphan.tokens?.total || 0
+          });
+          if (confirm) {
+            const devKeys = await scanKeys(`user:${orphan.userId}:device:*`);
+            const tsKeys = await scanKeys(`user:${orphan.userId}:timeseries:*`);
+            const delKeys = [
+              `user:${orphan.userId}:data`,
+              `user:${orphan.userId}:token`,
+              `user:${orphan.userId}:info`,
+              ...devKeys,
+              ...tsKeys
+            ];
+            if (delKeys.length) await kv.del(...delKeys);
+            await kv.zrem('leaderboard:total', orphan.userId);
+          }
+        } else {
+          warnings.push(
+            `SKIP gh:${gh}: orphan ${orphan.userId} (total ${orphan.tokens?.total || 0}) is NOT a subset of canonical ${canonical.userId} (total ${canonical.tokens?.total || 0}) — manual review needed`
+          );
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      mode: confirm ? 'CONFIRM (applied)' : 'DRY-RUN (preview — pass ?confirm=1 to apply)',
+      job: 'merge',
+      duplicatesFound: merges.length,
+      merges,
+      warnings
+    }), { headers: { 'Content-Type': 'application/json' } });
   }
 
   return new Response(JSON.stringify({
