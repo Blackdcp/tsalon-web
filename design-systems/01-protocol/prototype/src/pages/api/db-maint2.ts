@@ -178,20 +178,43 @@ export const POST: APIRoute = async ({ request }) => {
           if (bad) cleaned = true;
           return !bad;
         });
+
+        // Distributed pollution: a day flagged polluted but with no single event
+        // above the floor (e.g. 2026-08-09 = three ~100-440M Codex events). Cap
+        // the day at ~3x the median (a plausible busy day) by dropping the
+        // largest events first, so the obvious inflation is removed while a
+        // realistic real-day amount (consistent with the user's ~100M/day Codex
+        // figure) is preserved.
+        const dayCap = Math.max(MULTIPLE_OF_MEDIAN * 0.3 * (median || 1), 100_000_000);
+        let keptEvents = kept;
+        if (isPollutedDay) {
+          const sorted = [...kept].sort((a, b) => (Number(b.tokens) || 0) - (Number(a.tokens) || 0));
+          const capped: any[] = [];
+          let running = 0;
+          for (const e of sorted) {
+            const t = Number(e.tokens) || 0;
+            if (running + t > dayCap) { cleaned = true; continue; }
+            capped.push(e);
+            running += t;
+          }
+          keptEvents = capped;
+        }
+
+        const removed = evs.length - keptEvents.length;
         if (isPollutedDay) {
           if (action === 'fix') {
             await kv.del(`user:${userId}:timeseries:${date}`);
-            if (kept.length > 0) {
+            if (keptEvents.length > 0) {
               const pipe = kv.pipeline();
-              kept.forEach(e => pipe.rpush(`user:${userId}:timeseries:${date}`, JSON.stringify(e)));
+              keptEvents.forEach(e => pipe.rpush(`user:${userId}:timeseries:${date}`, JSON.stringify(e)));
               await pipe.exec();
             }
-            log.push(`cleaned timeseries ${userId} ${date}: ${evs.length - kept.length} polluted events removed`);
+            log.push(`cleaned ${userId} ${date}: removed ${removed} polluted events (day capped to ${(dayCap / 1e6).toFixed(0)}M)`);
           } else {
-            log.push(`DRY clean ${userId} ${date}: would remove ${evs.length - kept.length} events`);
+            log.push(`DRY clean ${userId} ${date}: would remove ${removed} events (day capped to ${(dayCap / 1e6).toFixed(0)}M)`);
           }
         }
-        for (const e of kept) {
+        for (const e of keptEvents) {
           const t = Number(e.tokens) || 0;
           const tool = e.tool || 'unknown';
           if (!recomputed[tool]) recomputed[tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
