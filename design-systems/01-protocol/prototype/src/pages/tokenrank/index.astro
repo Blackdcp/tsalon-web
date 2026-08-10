@@ -80,18 +80,7 @@ const getToolEstimatedCost = (tool: string, amount: any) => {
   return 0;
 };
 
-const getToolNoCache = (tool: string, amount: any) => {
-  if (typeof amount === 'number') {
-    let cacheRate = 0.5;
-    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') cacheRate = 0.93;
-    else if (tool === 'antigravity') cacheRate = 0.1;
-    else if (tool === 'claude') cacheRate = 0.8;
-    return amount * (1 - cacheRate);
-  }
-  return (amount.in || 0) + (amount.out || 0);
-};
-
-const formatDisplayAmount = (num: any, mode: string) => {
+const formatDisplayAmount = (num: any, mode: string = 'tokens') => {
   const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));
   if (n === 0) return '暂无消耗';
   if (mode === 'cost') return '$' + n.toFixed(2);
@@ -273,78 +262,76 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       </div>
     </div>
 
-    <!-- Time Filters & Mode Switch -->
+    <!-- Time Filters -->
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
-        <a href={`?time=today&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href={`?time=yesterday&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
-        <a href={`?time=3d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
-        <a href={`?time=7d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
-        <a href={`?time=30d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
-        <a href={`?time=90d&mode=${modeFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
-        <a href={`?time=all&mode=${modeFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+        <a href="?time=today" class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+        <a href="?time=yesterday" class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
+        <a href="?time=3d" class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+        <a href="?time=7d" class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+        <a href="?time=30d" class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+        <a href="?time=90d" class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+        <a href="?time=all" class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
       </div>
       
-      <div class="mode-switch-segmented">
-        <a href={`?time=${timeFilter}&mode=tokens`} class={`mode-tab ${modeFilter === 'tokens' ? 'active' : ''}`}>消耗 Token</a>
-        <a href={`?time=${timeFilter}&mode=cost`} class={`mode-tab ${modeFilter === 'cost' ? 'active' : ''}`}>预估成本</a>
+      <div class="date-display">
+        {new Date().toISOString().split('T')[0]}
       </div>
     </div>
 
       <div class="leaderboard-list-container">
-        <!-- Table Headers (Integrated Top Bar) -->
+        <!-- Table Headers (Integrated 5-Column Top Bar) -->
         <div class="lb-header-row">
-          <div class="lb-h-left">
-            <div class="lb-h-rank">排名</div>
-            <div class="lb-h-name">T友</div>
-            <div class="lb-h-details">消耗详情 (多端工具)</div>
-          </div>
-          <div class="lb-h-right">{modeFilter === 'cost' ? '预估成本 (USD)' : '总 TOKENS'}</div>
+          <div class="lb-col-rank">排名</div>
+          <div class="lb-col-user">T友</div>
+          <div class="lb-col-details">消耗详情 (多端工具)</div>
+          <div class="lb-col-tokens">消耗 Token</div>
+          <div class="lb-col-cost">预估成本</div>
         </div>
 
         <!-- Current User Section (Integrated Highlight) -->
         {currentUser ? (
           <div class="list-row list-row-highlight">
-            <div class="lb-card-left">
-              <div class="lb-rank">
-                <div class="rank-text highlight">{currentUserRank > 0 ? `#${currentUserRank}` : '-'}</div>
+            <div class="lb-col-rank">
+              <div class="rank-text highlight">{currentUserRank > 0 ? `#${currentUserRank}` : '-'}</div>
+            </div>
+            <div class="lb-col-user">
+              <div class="lb-avatar-wrapper">
+                <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
               </div>
-              <div class="lb-name-col">
-                <div class="lb-avatar-wrapper">
-                  <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
-                </div>
-                <div class="lb-name-text">
-                  <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
-                </div>
-              </div>
-              <div class="lb-details-col">
-                <span class="user-highlight-desc">感谢您的数据贡献</span>
+              <div class="lb-name-text">
+                <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
               </div>
             </div>
-            <div class="lb-card-right">
-              <div class="lb-totals">
-                <div class="lb-total-tokens">{formatDisplayAmount(currentUser.tokens?.total || 0, modeFilter)}</div>
-                <button class="btn-share-mini" onclick="openShareModal()">分享</button>
+            <div class="lb-col-details">
+              <span class="user-highlight-desc">感谢您的数据贡献</span>
+            </div>
+            <div class="lb-col-tokens">
+              <div class="lb-num-tokens">{formatDisplayAmount(currentUser.tokens?.total || 0, 'tokens')}</div>
+            </div>
+            <div class="lb-col-cost">
+              <div class="lb-num-cost">
+                ${Object.entries(currentUser.tokens || {}).filter(([k]) => k !== 'total').reduce((acc, [t, a]) => acc + getToolEstimatedCost(t, a), 0).toFixed(2)}
               </div>
+              <button class="btn-share-mini" onclick="openShareModal()">分享</button>
             </div>
           </div>
         ) : (
           <div class="list-row list-row-onboard">
-            <div class="lb-card-left">
-              <div class="lb-rank">
-                <div class="rank-text normal">-</div>
-              </div>
-              <div class="lb-name-col">
-                <div class="lb-name-text">
-                  <strong>尚未登榜</strong>
-                </div>
-              </div>
-              <div class="lb-details-col">
-                <span class="user-highlight-desc">将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。</span>
+            <div class="lb-col-rank">
+              <div class="rank-text normal">-</div>
+            </div>
+            <div class="lb-col-user">
+              <div class="lb-name-text">
+                <strong>尚未登榜</strong>
               </div>
             </div>
-            <div class="lb-card-right">
-              <a href="/tokenrank/connect/" class="btn-onboard-mini">绑定 GitHub 上榜 ↗</a>
+            <div class="lb-col-details">
+              <span class="user-highlight-desc">将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。</span>
+            </div>
+            <div class="lb-col-tokens">-</div>
+            <div class="lb-col-cost">
+              <a href="/tokenrank/connect/" class="btn-onboard-mini">绑定上榜 ↗</a>
             </div>
           </div>
         )}
@@ -355,7 +342,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       ) : (
         leaderboard.map((user, idx) => {
           let userTotalEstimatedCost = 0;
-          let userTotalDisplay = 0;
+          let userTotalTokens = typeof user.tokens?.total === 'number' ? user.tokens.total : 0;
           
           const toolsBreakdown = Object.entries(user.tokens || {})
             .filter(([k]) => k !== 'total')
@@ -363,48 +350,42 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
               const cost = getToolEstimatedCost(tool, rawAmount);
               const totalVal = typeof rawAmount === 'object' && rawAmount !== null ? (rawAmount.total || 0) : (Number(rawAmount) || 0);
               userTotalEstimatedCost += cost;
-              
-              let numericAmount = totalVal;
-              if (modeFilter === 'cost') numericAmount = cost;
-              
-              userTotalDisplay += numericAmount;
-              return { tool, amount: numericAmount };
+              return { tool, amount: totalVal };
             });
 
           return (
             <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
-              <div class="lb-card-left">
-                <div class="lb-rank">
-                  {idx === 0 ? <div class="rank-text rank-1">#1</div> : 
-                   idx === 1 ? <div class="rank-text rank-2">#2</div> : 
-                   idx === 2 ? <div class="rank-text rank-3">#3</div> : 
-                   <div class="rank-text normal">{idx + 1}</div>}
+              <div class="lb-col-rank">
+                {idx === 0 ? <div class="rank-text rank-1">#1</div> : 
+                 idx === 1 ? <div class="rank-text rank-2">#2</div> : 
+                 idx === 2 ? <div class="rank-text rank-3">#3</div> : 
+                 <div class="rank-text normal">{idx + 1}</div>}
+              </div>
+              <div class="lb-col-user">
+                <div class="lb-avatar-wrapper">
+                  <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
                 </div>
-                <div class="lb-name-col">
-                  <div class="lb-avatar-wrapper">
-                    <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
-                  </div>
-                  <div class="lb-name-text">
-                    <strong>{user.name}</strong>
-                  </div>
-                </div>
-                <div class="lb-details-col">
-                  {toolsBreakdown.map(({ tool, amount }) => {
-                      const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
-                      let tagClass = 'tag-default';
-                      const t = tool.toLowerCase();
-                      if (t.includes('codex')) tagClass = 'tag-codex';
-                      else if (t.includes('antigravity')) tagClass = 'tag-antigravity';
-                      else if (t.includes('cherry')) tagClass = 'tag-cherry';
-                      else if (t.includes('claude')) tagClass = 'tag-claude';
-                      return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, modeFilter)}</span>;
-                  })}
+                <div class="lb-name-text">
+                  <strong>{user.name}</strong>
                 </div>
               </div>
-              <div class="lb-card-right">
-                <div class="lb-totals">
-                  <div class="lb-total-tokens">{formatDisplayAmount(userTotalDisplay, modeFilter)}</div>
-                </div>
+              <div class="lb-col-details">
+                {toolsBreakdown.map(({ tool, amount }) => {
+                    const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+                    let tagClass = 'tag-default';
+                    const t = tool.toLowerCase();
+                    if (t.includes('codex')) tagClass = 'tag-codex';
+                    else if (t.includes('antigravity')) tagClass = 'tag-antigravity';
+                    else if (t.includes('cherry')) tagClass = 'tag-cherry';
+                    else if (t.includes('claude')) tagClass = 'tag-claude';
+                    return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, 'tokens')}</span>;
+                })}
+              </div>
+              <div class="lb-col-tokens">
+                <div class="lb-num-tokens">{formatDisplayAmount(userTotalTokens, 'tokens')}</div>
+              </div>
+              <div class="lb-col-cost">
+                <div class="lb-num-cost">${userTotalEstimatedCost.toFixed(2)}</div>
               </div>
             </div>
           );
@@ -589,7 +570,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   /* Table Headers (Integrated Top Bar) */
   .lb-header-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 0.9rem 1.5rem;
     font-size: 0.8rem;
@@ -599,21 +579,9 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     letter-spacing: 0.04em;
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 0;
+    gap: 1rem;
   }
   
-  .lb-h-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex: 1;
-  }
-
-  .lb-h-rank { width: 50px; text-align: center; }
-  .lb-h-name { width: 170px; }
-  .lb-h-details { flex: 1; }
-  .lb-h-right { text-align: right; min-width: 140px; }
-
   /* Leaderboard List Container */
   .leaderboard-list-container {
     background: #fff;
@@ -625,12 +593,12 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
 
   .list-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 1.25rem 1.5rem;
+    padding: 1.15rem 1.5rem;
     border-bottom: 1px solid #f1f5f9;
     transition: background 0.15s ease;
     cursor: pointer;
+    gap: 1rem;
   }
   
   .list-row:last-child {
@@ -657,19 +625,52 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     color: #64748b;
   }
 
-  .lb-card-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex: 1;
-  }
-
-  .lb-rank {
+  /* 5 Column System (Centered & Balanced) */
+  .lb-col-rank {
     width: 50px;
     display: flex;
     justify-content: center;
+    align-items: center;
+    text-align: center;
+    flex-shrink: 0;
   }
-  
+
+  .lb-col-user {
+    width: 170px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .lb-col-details {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .lb-col-tokens {
+    width: 130px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .lb-col-cost {
+    width: 140px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
   .rank-text {
     font-family: 'Inter', system-ui, sans-serif;
     font-size: 1.25rem;
@@ -683,8 +684,8 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   .rank-text.highlight { color: #10b981; }
 
   .lb-avatar-wrapper {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     padding: 2px;
     background: linear-gradient(135deg, var(--color-border) 0%, transparent 100%);
@@ -700,49 +701,9 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     object-fit: cover;
   }
 
-  .lb-name-col {
-    width: 170px;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  
   .lb-name-text strong {
     font-size: 1.05rem;
     color: var(--color-text);
-  }
-
-  .lb-details-col {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .lb-user-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.25rem;
-  }
-  
-  .lb-name-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  .lb-name-row strong {
-    font-size: 1.1rem;
-    color: var(--color-text);
-  }
-  
-  .lb-details-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
   }
 
   .tag-me {
@@ -754,19 +715,13 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     font-weight: 700;
   }
 
-  .lb-details-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    flex: 1;
-  }
-
   .tool-tag {
     padding: 0.25rem 0.6rem;
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.02em;
+    white-space: nowrap;
   }
   .tool-tag.tag-codex { background: #d1fae5; color: #065f46; }
   .tool-tag.tag-cursor { background: #e0e7ff; color: #3730a3; }
@@ -775,36 +730,8 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   .tool-tag.tag-claude { background: #ffedd5; color: #9a3412; }
   .tool-tag.tag-default { background: #f1f5f9; color: #475569; }
 
-  .lb-card-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: center;
-    min-width: 140px;
-    flex-shrink: 0;
-  }
-
-  .list-row-highlight .lb-card-right {
-    min-width: 220px;
-  }
-
-  .lb-totals {
-    text-align: right;
-    white-space: nowrap;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-  }
-
-  .list-row-highlight .lb-totals {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.85rem;
-    width: auto;
-  }
-
-  .lb-total-tokens {
-    font-size: 1.25rem;
+  .lb-num-tokens {
+    font-size: 1.15rem;
     font-weight: 800;
     color: var(--color-text);
     font-family: 'Inter', monospace;
@@ -812,11 +739,11 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     letter-spacing: -0.01em;
   }
 
-  .lb-total-cost {
-    font-size: 0.8rem;
-    color: var(--color-gray);
-    margin-top: 0.2rem;
-    font-weight: 500;
+  .lb-num-cost {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #059669;
+    font-family: 'Inter', monospace;
     white-space: nowrap;
   }
 
@@ -836,9 +763,9 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   .btn-share-mini {
     background: #10B981;
     color: #fff;
-    padding: 0.45rem 1rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 16px;
+    font-size: 0.8rem;
     font-weight: 600;
     border: none;
     cursor: pointer;
@@ -848,7 +775,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
   }
   
   .btn-onboard-mini:hover {
@@ -858,7 +784,6 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
   .btn-share-mini:hover {
     background: #059669;
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
   }
   
   /* Floating Pill Widget */
@@ -927,32 +852,29 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       display: none; /* Hide headers on mobile */
     }
     .list-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-    .lb-card-left {
-      width: 100%;
       flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 1rem;
     }
-    .lb-name-col {
-      width: auto;
+    .lb-col-rank {
+      width: 40px;
+    }
+    .lb-col-user {
       flex: 1;
+      width: auto;
     }
-    .lb-details-col {
+    .lb-col-details {
       width: 100%;
-      margin-left: 66px;
-      margin-top: 0.25rem;
+      order: 3;
+      margin-left: 50px;
     }
-    .lb-card-right {
-      width: 100%;
-      flex-direction: row;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 0.5rem;
+    .lb-col-tokens {
+      width: auto;
+      order: 2;
     }
-    .lb-totals {
-      text-align: right;
+    .lb-col-cost {
+      width: auto;
+      order: 2;
     }
   }
 
