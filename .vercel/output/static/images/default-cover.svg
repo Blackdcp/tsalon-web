@@ -1,0 +1,32 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="#0B1120"/>
+  
+  <!-- Subtle Grid -->
+  <g stroke="#1E293B" stroke-width="1">
+    <line x1="0" y1="120" x2="1920" y2="120" />
+    <line x1="0" y1="240" x2="1920" y2="240" />
+    <line x1="0" y1="360" x2="1920" y2="360" />
+    <line x1="0" y1="480" x2="1920" y2="480" />
+    <line x1="0" y1="600" x2="1920" y2="600" />
+    <line x1="0" y1="720" x2="1920" y2="720" />
+    <line x1="0" y1="840" x2="1920" y2="840" />
+    <line x1="0" y1="960" x2="1920" y2="960" />
+    
+    <line x1="240" y1="0" x2="240" y2="1080" />
+    <line x1="480" y1="0" x2="480" y2="1080" />
+    <line x1="720" y1="0" x2="720" y2="1080" />
+    <line x1="960" y1="0" x2="960" y2="1080" />
+    <line x1="1200" y1="0" x2="1200" y2="1080" />
+    <line x1="1440" y1="0" x2="1440" y2="1080" />
+    <line x1="1680" y1="0" x2="1680" y2="1080" />
+  </g>
+
+  <!-- Logo (using relative path that works on the web) -->
+  <!-- Assume logo is roughly square or wide. We center it around y=420 -->
+  <image href="/images/logo-dark.png" x="760" y="220" width="400" height="400" preserveAspectRatio="xMidYMid meet" />
+
+  <!-- Text -->
+  <text x="960" y="740" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="80" fill="#F8FAFC" text-anchor="middle" font-weight="bold">内容与观点</text>
+  <text x="960" y="840" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="40" fill="#94A3B8" text-anchor="middle" letter-spacing="10">INDUSTRY OBSERVATION</text>
+</svg>

@@ -1,0 +1,52 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/_astro/(.*)$",
+			"headers": {
+				"cache-control": "public, max-age=31536000, immutable"
+			},
+			"continue": true
+		},
+		{
+			"src": "^/_server-islands/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/_image/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/auth(?:/(.*?))?/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/rank/list/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/rank/upload/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/tokenrank/connect/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/tokenrank/user/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/tokenrank/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/.*$",
+			"dest": "/404.html",
+			"status": 404
+		}
+	]
+}

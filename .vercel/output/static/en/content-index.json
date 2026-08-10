@@ -1,0 +1,161 @@
+{
+  "language": "en",
+  "generatedAt": "2026-08-10T04:45:45.939Z",
+  "organization": {
+    "name": "T Salon",
+    "founded": "2016-03",
+    "url": "https://www.tsalon.tech/en/"
+  },
+  "events": [
+    {
+      "id": "hdx-7870619038900",
+      "title": "From AI Demo to Production: Engineering Practices for Agent and AI Native Applications",
+      "summary": "This event explores the engineering challenges of turning AI demos into sustainable products, featuring discussions on persistent agent memory, robust backend workflows, and efficient model routing.",
+      "startDate": "2026-08-01T05:30:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/hdx-7870619038900/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/hdx-7870619038900/"
+    },
+    {
+      "id": "tchat-series-launch",
+      "title": "T Chat — Engineering Inside Major Technology Companies",
+      "summary": "T Salon and Laosiji Weekly created an online conversation series combining focused talks with one-to-one interviews about real engineering work.",
+      "startDate": "2022-04-28T12:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/tchat-series-launch/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/tchat-series-launch/"
+    },
+    {
+      "id": "hdx-1703870201300",
+      "title": "WWDC Night — Beijing",
+      "summary": "A local developer gathering to watch Apple’s Worldwide Developers Conference and discuss what the new technologies mean in practice.",
+      "startDate": "2023-06-05T15:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/archive/hdx-1703870201300/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/archive/hdx-1703870201300/"
+    },
+    {
+      "id": "hdx-3711187585200",
+      "title": "Lalamove Mobile Technology Open Day",
+      "summary": "Mobile engineers discussed Android power consumption, cloud device testing, dynamic routing, AI and building products for global markets.",
+      "startDate": "2023-07-29T02:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/archive/hdx-3711187585200/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/archive/hdx-3711187585200/"
+    },
+    {
+      "id": "hdx-4704118639500",
+      "title": "WWDC Night — Shenzhen",
+      "summary": "A local developer gathering to watch Apple’s Worldwide Developers Conference and discuss what the new technologies mean in practice.",
+      "startDate": "2023-06-05T15:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/archive/hdx-4704118639500/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/archive/hdx-4704118639500/"
+    },
+    {
+      "id": "hdx-6704677921900",
+      "title": "ChatGPT Practice Day — T Salon",
+      "summary": "A Shenzhen developer gathering on the opportunities and practical challenges of building products with large language models.",
+      "startDate": "2023-06-17T06:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/archive/hdx-6704677921900/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/archive/hdx-6704677921900/"
+    },
+    {
+      "id": "hdx-7732324341700",
+      "title": "Lalamove Quality Engineering Open Day",
+      "summary": "An engineering open day on record-and-replay practices across Java, C++, mobile apps and mini programs, with testing specialists from Lalamove, Dewu and Trip.com.",
+      "startDate": "2024-01-13T05:30:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/archive/hdx-7732324341700/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/archive/hdx-7732324341700/"
+    },
+    {
+      "id": "hdx-8699104705200",
+      "title": "GPT Prompt Engineering Practice Day",
+      "summary": "A Shanghai gathering focused on real-world work with large language model applications, open-source projects and prompt engineering.",
+      "startDate": "2023-05-13T06:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/events/archive/hdx-8699104705200/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/events/archive/hdx-8699104705200/"
+    }
+  ],
+  "stories": [
+    {
+      "id": "agent-swarm-sqlite",
+      "type": "insight",
+      "title": "Agent Swarm Rewrites SQLite: Deep Dive into 5 Fatal Flaws and Architectural Reorganization",
+      "summary": "An in-depth analysis of the latest Agent Swarm experiment. By leveraging tree decomposition, a custom high-speed VCS, neutral merge agents, and a stigmergic Field Guide, the swarm reached an 80% SQLite (Rust) test pass rate in four hours and eventually achieved 100%.",
+      "topics": [
+        "Agent",
+        "Engineering",
+        "Rust"
+      ],
+      "publishedAt": "2026-07-21T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/articles/agent-swarm-sqlite/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/articles/agent-swarm-sqlite/"
+    },
+    {
+      "id": "ai-demo-to-production-recap",
+      "type": "field-note",
+      "title": "Event Recap: From AI Demo to Production｜Engineering Practices for Agent and AI Native Applications",
+      "summary": "A recap of the 'From AI Demo to Production' offline event held in Shanghai on August 1st, featuring four guests sharing engineering practices on persistent Agent memory, multi-model collaboration, Vibe Coding, and Agent execution environments.",
+      "topics": [
+        "AI Native",
+        "Agent",
+        "Engineering Practices"
+      ],
+      "publishedAt": "2026-08-03T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/articles/ai-demo-to-production-recap/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/articles/ai-demo-to-production-recap/"
+    },
+    {
+      "id": "hf-ai-hack",
+      "type": "insight",
+      "title": "Hugging Face Hacked by Autonomous AI Agent: The Backlash of Alignment in Forensics",
+      "summary": "Hugging Face disclosed an attack involving thousands of operations launched entirely by an autonomous AI agent framework. Ironically, during defense and forensics, the \"safety guardrails\" of commercial LLMs hindered the investigation, revealing new challenges in AI security.",
+      "topics": [
+        "AI Security",
+        "Engineering"
+      ],
+      "publishedAt": "2026-07-20T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/articles/hf-ai-hack/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/articles/hf-ai-hack/"
+    },
+    {
+      "id": "nvidia-cosmos-edge",
+      "type": "insight",
+      "title": "NVIDIA Open Sources Cosmos 3 Edge: How a 4B Parameter World Model is Reshaping Embodied AI",
+      "summary": "NVIDIA officially open-sources Cosmos 3 Edge. This lightweight 4 billion parameter model is not just a vision model, but a true \"world model\" built for edge devices, enabling robots to understand physical laws and generate actions in real-time without the cloud.",
+      "topics": [
+        "Open Source",
+        "Embodied AI",
+        "Edge Computing"
+      ],
+      "publishedAt": "2026-07-20T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/articles/nvidia-cosmos-edge/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/articles/nvidia-cosmos-edge/"
+    },
+    {
+      "id": "shenzhen-frontend-recap",
+      "type": "field-note",
+      "title": "Modern Frontend Engineering in Shenzhen — Five Practical Lessons",
+      "summary": "In May 2022, five engineers joined T Salon in Shenzhen to share practical work on frontend observability, Flutter, mini programs, engineering systems and Webpack performance.",
+      "topics": [
+        "Frontend Engineering",
+        "Flutter",
+        "Developer Tooling",
+        "Webpack"
+      ],
+      "publishedAt": "2022-05-10T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/articles/shenzhen-frontend-recap/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/articles/shenzhen-frontend-recap/"
+    },
+    {
+      "id": "tchat-launch",
+      "type": "news",
+      "title": "Why We Started T Chat — Inside Real Engineering Work",
+      "summary": "T Salon and Laosiji Weekly launched T Chat, an online conversation series where experienced engineers share the reality of their teams, systems and individual practice.",
+      "topics": [
+        "T Chat",
+        "Engineering",
+        "Community"
+      ],
+      "publishedAt": "2022-04-25T00:00:00.000Z",
+      "url": "https://www.tsalon.tech/en/articles/tchat-launch/",
+      "alternateLanguageUrl": "https://www.tsalon.tech/articles/tchat-launch/"
+    }
+  ]
+}

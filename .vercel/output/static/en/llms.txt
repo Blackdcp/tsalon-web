@@ -1,0 +1,28 @@
+# T Salon
+
+> T Salon is an online and offline technology community founded by iOS developers in 2016.
+
+## Primary pages
+- [Home](https://www.tsalon.tech/en/)
+- [Events](https://www.tsalon.tech/en/events/)
+- [Stories](https://www.tsalon.tech/en/articles/)
+- [About](https://www.tsalon.tech/en/about/)
+- [Community archive](https://www.tsalon.tech/en/history/)
+
+## Published events
+- [From AI Demo to Production: Engineering Practices for Agent and AI Native Applications](https://www.tsalon.tech/en/events/hdx-7870619038900/): This event explores the engineering challenges of turning AI demos into sustainable products, featuring discussions on persistent agent memory, robust backend workflows, and efficient model routing.
+- [T Chat — Engineering Inside Major Technology Companies](https://www.tsalon.tech/en/events/tchat-series-launch/): T Salon and Laosiji Weekly created an online conversation series combining focused talks with one-to-one interviews about real engineering work.
+- [Lalamove Quality Engineering Open Day](https://www.tsalon.tech/en/events/archive/hdx-7732324341700/): An engineering open day on record-and-replay practices across Java, C++, mobile apps and mini programs, with testing specialists from Lalamove, Dewu and Trip.com.
+- [Lalamove Mobile Technology Open Day](https://www.tsalon.tech/en/events/archive/hdx-3711187585200/): Mobile engineers discussed Android power consumption, cloud device testing, dynamic routing, AI and building products for global markets.
+- [ChatGPT Practice Day — T Salon](https://www.tsalon.tech/en/events/archive/hdx-6704677921900/): A Shenzhen developer gathering on the opportunities and practical challenges of building products with large language models.
+- [WWDC Night — Beijing](https://www.tsalon.tech/en/events/archive/hdx-1703870201300/): A local developer gathering to watch Apple’s Worldwide Developers Conference and discuss what the new technologies mean in practice.
+- [WWDC Night — Shenzhen](https://www.tsalon.tech/en/events/archive/hdx-4704118639500/): A local developer gathering to watch Apple’s Worldwide Developers Conference and discuss what the new technologies mean in practice.
+- [GPT Prompt Engineering Practice Day](https://www.tsalon.tech/en/events/archive/hdx-8699104705200/): A Shanghai gathering focused on real-world work with large language model applications, open-source projects and prompt engineering.
+
+## Published stories
+- [Event Recap: From AI Demo to Production｜Engineering Practices for Agent and AI Native Applications](https://www.tsalon.tech/en/articles/ai-demo-to-production-recap/): A recap of the 'From AI Demo to Production' offline event held in Shanghai on August 1st, featuring four guests sharing engineering practices on persistent Agent memory, multi-model collaboration, Vibe Coding, and Agent execution environments.
+- [Agent Swarm Rewrites SQLite: Deep Dive into 5 Fatal Flaws and Architectural Reorganization](https://www.tsalon.tech/en/articles/agent-swarm-sqlite/): An in-depth analysis of the latest Agent Swarm experiment. By leveraging tree decomposition, a custom high-speed VCS, neutral merge agents, and a stigmergic Field Guide, the swarm reached an 80% SQLite (Rust) test pass rate in four hours and eventually achieved 100%.
+- [Hugging Face Hacked by Autonomous AI Agent: The Backlash of Alignment in Forensics](https://www.tsalon.tech/en/articles/hf-ai-hack/): Hugging Face disclosed an attack involving thousands of operations launched entirely by an autonomous AI agent framework. Ironically, during defense and forensics, the "safety guardrails" of commercial LLMs hindered the investigation, revealing new challenges in AI security.
+- [NVIDIA Open Sources Cosmos 3 Edge: How a 4B Parameter World Model is Reshaping Embodied AI](https://www.tsalon.tech/en/articles/nvidia-cosmos-edge/): NVIDIA officially open-sources Cosmos 3 Edge. This lightweight 4 billion parameter model is not just a vision model, but a true "world model" built for edge devices, enabling robots to understand physical laws and generate actions in real-time without the cloud.
+- [Modern Frontend Engineering in Shenzhen — Five Practical Lessons](https://www.tsalon.tech/en/articles/shenzhen-frontend-recap/): In May 2022, five engineers joined T Salon in Shenzhen to share practical work on frontend observability, Flutter, mini programs, engineering systems and Webpack performance.
+- [Why We Started T Chat — Inside Real Engineering Work](https://www.tsalon.tech/en/articles/tchat-launch/): T Salon and Laosiji Weekly launched T Chat, an online conversation series where experienced engineers share the reality of their teams, systems and individual practice.

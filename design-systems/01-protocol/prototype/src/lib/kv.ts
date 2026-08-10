@@ -8,7 +8,7 @@ export interface UserRankData {
   userId: string;
   name: string;
   image: string;
-  tokens: Record<string, number>;
+  tokens: Record<string, any>;
   updatedAt: string;
 }
 
@@ -17,6 +17,10 @@ export interface TimeseriesEvent {
   tool: string;
   model: string;
   tokens: number;
+  inTokens?: number;
+  outTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
   cacheHit: boolean;
   deviceId?: string;
 }
@@ -39,32 +43,48 @@ export async function getUserIdByToken(token: string): Promise<string | null> {
   return kv.get(`token:${token}:userId`);
 }
 
-export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, number>, deviceId: string = 'default_device', historyData: Record<string, Record<string, number>> | null = null) {
+export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, any>, deviceId: string = 'default_device', historyData: Record<string, Record<string, any>> | null = null) {
   if (!kv) return;
   
+  // Normalize incoming tokens to always be {total, in, out, cache_read, cache_write}
+  const normalizedTokens: Record<string, any> = {};
+  for (const [k, v] of Object.entries(tokens)) {
+    if (k === 'total' || k === 'history') continue;
+    if (typeof v === 'number') {
+      normalizedTokens[k] = { total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
+    } else if (v && typeof v === 'object') {
+      normalizedTokens[k] = v;
+    }
+  }
+
   // 0. Fetch previous device data to calculate deltas
   const oldDeviceDataStr = await kv.get(`user:${userId}:device:${deviceId}:data`);
-  const oldDeviceTokens: Record<string, number> = {};
+  const oldDeviceTokens: Record<string, any> = {};
   if (oldDeviceDataStr) {
     try {
       const parsed = JSON.parse(oldDeviceDataStr);
       if (parsed.tokens) {
         for (const [k, v] of Object.entries(parsed.tokens)) {
-          oldDeviceTokens[k] = Number(v) || 0;
+          if (k === 'total' || k === 'history') continue;
+          if (typeof v === 'number') {
+            oldDeviceTokens[k] = { total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
+          } else if (v && typeof v === 'object') {
+            oldDeviceTokens[k] = v;
+          }
         }
       }
     } catch(e) {}
   }
   
   // 1. Save data for THIS device
-  const deviceTotal = Object.values(tokens).reduce((acc, val) => acc + val, 0);
-  tokens['total'] = deviceTotal;
+  const deviceTotal = Object.values(normalizedTokens).reduce((acc, val) => acc + (val.total || 0), 0);
+  normalizedTokens['total'] = deviceTotal;
   
   const deviceData = {
     userId,
     name,
     image,
-    tokens,
+    tokens: normalizedTokens,
     updatedAt: new Date().toISOString()
   };
   
@@ -233,7 +253,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   // 2. Fetch all devices for this user
   const deviceKeys = await kv.keys(`user:${userId}:device:*:data`);
   
-  const aggregatedTokens: Record<string, number> = {};
+  const aggregatedTokens: Record<string, any> = {};
   
   if (deviceKeys.length > 0) {
     const allDeviceData = await kv.mget(deviceKeys);
@@ -242,9 +262,21 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         try {
           const parsed = JSON.parse(dataStr as string);
           if (parsed && parsed.tokens) {
-            for (const [key, val] of Object.entries(parsed.tokens)) {
-              if (key !== 'total') {
-                aggregatedTokens[key] = (aggregatedTokens[key] || 0) + (Number(val) || 0);
+            for (const [t, v] of Object.entries(parsed.tokens)) {
+              if (t === 'total' || t === 'history') continue;
+              if (typeof v === 'number') {
+                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+                aggregatedTokens[t].total += v;
+                aggregatedTokens[t].in += v * 0.9;
+                aggregatedTokens[t].out += v * 0.1;
+              } else if (v && typeof v === 'object') {
+                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+                const objV = v as any;
+                aggregatedTokens[t].total += objV.total || 0;
+                aggregatedTokens[t].in += objV.in || 0;
+                aggregatedTokens[t].out += objV.out || 0;
+                aggregatedTokens[t].cache_read += objV.cache_read || 0;
+                aggregatedTokens[t].cache_write += objV.cache_write || 0;
               }
             }
           }
@@ -254,7 +286,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   }
   
   // 3. Calculate final total
-  const finalTotal = Object.values(aggregatedTokens).reduce((acc, val) => acc + val, 0);
+  const finalTotal = Object.values(aggregatedTokens).reduce((acc, val) => acc + val.total, 0);
   aggregatedTokens['total'] = finalTotal;
   
   // 4. Save to the main user profile
@@ -337,7 +369,7 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
     }
     
     let userTotal = 0;
-    const tokens: Record<string, number> = {};
+    const tokens: Record<string, any> = {};
     
     for (let i = 0; i < targetDates.length; i++) {
       const [err, events] = tsResults![resultIdx++] as [Error | null, string[]];
@@ -345,7 +377,25 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
         for (const evStr of events) {
           try {
             const ev = JSON.parse(evStr);
-            tokens[ev.tool] = (tokens[ev.tool] || 0) + ev.tokens;
+            if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+            tokens[ev.tool].total += ev.tokens;
+            
+            if (ev.cacheReadTokens !== undefined) {
+              tokens[ev.tool].in += ev.inTokens || 0;
+              tokens[ev.tool].out += ev.outTokens || 0;
+              tokens[ev.tool].cache_read += ev.cacheReadTokens || 0;
+              tokens[ev.tool].cache_write += ev.cacheWriteTokens || 0;
+            } else {
+              let fallbackCache = ev.tokens * 0.5;
+              if (ev.tool === 'cursor' || ev.tool === 'codex' || ev.tool === 'codex_proxy') fallbackCache = ev.tokens * 0.93;
+              else if (ev.tool === 'claude') fallbackCache = ev.tokens * 0.8;
+              else if (ev.tool === 'antigravity') fallbackCache = ev.tokens * 0.1;
+              
+              const freshTokens = Math.max(0, ev.tokens - fallbackCache);
+              tokens[ev.tool].in += freshTokens * 0.9;
+              tokens[ev.tool].out += freshTokens * 0.1;
+              tokens[ev.tool].cache_read += fallbackCache;
+            }
             userTotal += ev.tokens;
           } catch(e) {}
         }

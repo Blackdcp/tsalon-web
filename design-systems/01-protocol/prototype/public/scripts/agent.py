@@ -51,12 +51,6 @@ def query_locked_sqlite(db_path, query):
             os.remove(tmp_path)
         raise e
 
-def get_file_size(path):
-    try:
-        return os.path.getsize(path)
-    except:
-        return 0
-
 def estimate_tokens_from_dirs(dirs, exts):
     total_bytes = 0
     for d in dirs:
@@ -70,6 +64,18 @@ def estimate_tokens_from_dirs(dirs, exts):
                     except:
                         pass
     return total_bytes // 3
+
+def format_tokens(total, inp=0, out=0, cache_read=0, cache_write=0):
+    if inp == 0 and out == 0 and total > 0:
+        inp = int(total * 0.9)
+        out = int(total * 0.1)
+    return {
+        "total": int(total),
+        "in": int(inp),
+        "out": int(out),
+        "cache_read": int(cache_read),
+        "cache_write": int(cache_write)
+    }
 
 def get_cursor_tokens(home):
     db_paths = [
@@ -87,19 +93,16 @@ def get_cursor_tokens(home):
                         tokens += len(str(row[0])) // 3
             except:
                 pass
-    return tokens
+    return format_tokens(tokens)
 
 def get_codex_tokens(home):
     db_paths = [
         os.path.join(home, 'Library', 'Application Support', 'com.codexmanager.desktop', 'codexmanager.db'),
         os.path.join(home, '.config', 'codexmanager', 'codexmanager.db'),
         os.path.join(os.environ.get('APPDATA', ''), 'CodexManager', 'codexmanager.db'),
-        os.path.join(os.environ.get('APPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db'),
-        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'CodexManager', 'codexmanager.db'),
-        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'com.codexmanager.desktop', 'codexmanager.db')
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'CodexManager', 'codexmanager.db')
     ]
     
-    # Also discover state_*.sqlite in ~/.codex and ~/.opencodex
     for d in ['.codex', '.opencodex']:
         dp = os.path.join(home, d)
         if os.path.exists(dp):
@@ -107,68 +110,80 @@ def get_codex_tokens(home):
                 if f.startswith('state_') and f.endswith('.sqlite'):
                     db_paths.append(os.path.join(dp, f))
     
-    tokens = {'codex': 0, 'codex_proxy': 0, 'history': {}}
+    tokens = {
+        'codex': {'total':0, 'in':0, 'out':0, 'cache_read':0, 'cache_write':0},
+        'codex_proxy': {'total':0, 'in':0, 'out':0, 'cache_read':0, 'cache_write':0},
+        'history': {}
+    }
     
-    def add_history(date_str, tool_key, amount):
+    def add_history(date_str, tool_key, stats):
         if date_str not in tokens['history']:
             tokens['history'][date_str] = {}
         if tool_key not in tokens['history'][date_str]:
-            tokens['history'][date_str][tool_key] = 0
-        tokens['history'][date_str][tool_key] += amount
+            tokens['history'][date_str][tool_key] = {'total':0, 'in':0, 'out':0, 'cache_read':0, 'cache_write':0}
+        for k, v in stats.items():
+            tokens['history'][date_str][tool_key][k] += v
 
     for p in db_paths:
         if not p or not os.path.exists(p):
             continue
             
-        # Try state_*.sqlite schema (threads table)
         try:
-            rows = query_locked_sqlite(p, "SELECT date(created_at, 'unixepoch'), SUM(tokens_used) FROM threads GROUP BY 1")
-            if rows:
-                for row in rows:
-                    dt = row[0]
-                    t = int(row[1]) if row[1] else 0
-                    tokens['codex'] += t
-                    if dt:
-                        add_history(dt, 'codex', t)
-                continue
-        except:
-            pass
-            
-        # Try request_token_stats schema
-        try:
-            rows = query_locked_sqlite(p, "SELECT actual_source_kind, date(created_at, 'unixepoch'), SUM(input_tokens + output_tokens + cached_input_tokens + reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2")
+            rows = query_locked_sqlite(p, "SELECT actual_source_kind, created_at, SUM(input_tokens), SUM(output_tokens), SUM(cached_input_tokens), SUM(reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2")
             if rows:
                 for row in rows:
                     source = row[0]
-                    dt = row[1]
-                    t = int(row[2]) if row[2] else 0
-                    if not source or 'proxy' in source.lower() or source != 'openai_account':
-                        tokens['codex_proxy'] += t
-                        if dt:
-                            add_history(dt, 'codex_proxy', t)
+                    raw_dt = row[1]
+                    if isinstance(raw_dt, (int, float)):
+                        if raw_dt > 1e11: raw_dt /= 1000
+                        import datetime
+                        dt = datetime.datetime.utcfromtimestamp(raw_dt).strftime('%Y-%m-%d')
+                    elif raw_dt:
+                        dt = str(raw_dt)[:10]
                     else:
-                        tokens['codex'] += t
-                        if dt:
-                            add_history(dt, 'codex', t)
+                        dt = None
+                    
+                    inp = int(row[2]) if row[2] else 0
+                    out = int(row[3]) if row[3] else 0
+                    reasoning = int(row[5]) if len(row) > 5 and row[5] else 0
+                    out += reasoning
+                    cache = int(row[4]) if len(row) > 4 and row[4] else 0
+                    tot = inp + out + cache
+                    stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cache, 'cache_write': 0}
+                    
+                    if not source or 'proxy' in source.lower() or source != 'openai_account':
+                        for k in stats_obj: tokens['codex_proxy'][k] += stats_obj[k]
+                        if dt: add_history(dt, 'codex_proxy', stats_obj)
+                    else:
+                        for k in stats_obj: tokens['codex'][k] += stats_obj[k]
+                        if dt: add_history(dt, 'codex', stats_obj)
+                continue
+        except Exception as e:
+            pass
+            
+        # Fallbacks for older schemas...
+        try:
+            rows = query_locked_sqlite(p, "SELECT created_at, SUM(tokens_used) FROM threads GROUP BY 1")
+            if rows:
+                for row in rows:
+                    raw_dt = row[0]
+                    if isinstance(raw_dt, (int, float)):
+                        if raw_dt > 1e11: raw_dt /= 1000
+                        import datetime
+                        dt = datetime.datetime.utcfromtimestamp(raw_dt).strftime('%Y-%m-%d')
+                    elif raw_dt:
+                        dt = str(raw_dt)[:10]
+                    else:
+                        dt = None
+                        
+                    t = int(row[1]) if row[1] else 0
+                    stats_obj = format_tokens(t)
+                    for k in stats_obj: tokens['codex'][k] += stats_obj[k]
+                    if dt: add_history(dt, 'codex', stats_obj)
                 continue
         except:
             pass
             
-        try:
-            rows = query_locked_sqlite(p, "SELECT SUM(total_tokens) FROM request_token_stats")
-            if rows and rows[0][0]:
-                tokens['codex'] += int(rows[0][0])
-                continue
-        except:
-            pass
-            
-        try:
-            rows = query_locked_sqlite(p, "SELECT payload_json FROM thread_timeline_ledger")
-            for row in rows:
-                if row[0]:
-                    tokens['codex'] += len(str(row[0])) // 3
-        except:
-            pass
     return tokens
 
 def get_claude_tokens(home):
@@ -178,73 +193,69 @@ def get_claude_tokens(home):
         os.path.join(os.environ.get('APPDATA', ''), 'Claude', 'usage.json'),
         os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Claude', 'usage.json')
     ]
-    tokens = 0
+    tot, inp, out, cr, cw = 0, 0, 0, 0, 0
     for cp in claude_paths:
         if cp and os.path.exists(cp):
             try:
                 with open(cp, 'r') as f:
                     data = json.load(f)
-                    if 'total_tokens' in data:
-                        tokens += data['total_tokens']
-                    elif 'usage' in data and 'total_tokens' in data['usage']:
-                        tokens += data['usage']['total_tokens']
+                    u = data.get('usage', data)
+                    
+                    if 'input_tokens' in u: inp += u['input_tokens']
+                    if 'output_tokens' in u: out += u['output_tokens']
+                    if 'cache_read_input_tokens' in u: cr += u['cache_read_input_tokens']
+                    if 'cache_creation_input_tokens' in u: cw += u['cache_creation_input_tokens']
+                    
+                    if 'total_tokens' in u:
+                        tot += u['total_tokens']
+                    else:
+                        tot += inp + out + cr + cw
             except:
                 pass
-    return tokens
+    return format_tokens(tot, inp, out, cr, cw)
 
 def scan_generic_app(home, folder_names):
     dirs_to_scan = []
-    # Mac
     for fn in folder_names:
         dirs_to_scan.append(os.path.join(home, 'Library', 'Application Support', fn))
-    # Windows
     appdata = os.environ.get('APPDATA', '')
     localappdata = os.environ.get('LOCALAPPDATA', '')
     for fn in folder_names:
         if appdata: dirs_to_scan.append(os.path.join(appdata, fn))
         if localappdata: dirs_to_scan.append(os.path.join(localappdata, fn))
-    # Linux
     for fn in folder_names:
         dirs_to_scan.append(os.path.join(home, '.config', fn))
-        
     exts = ['.json', '.log', '.txt', '.db', '.sqlite', '.vscdb', '.jsonl']
-    return estimate_tokens_from_dirs(dirs_to_scan, exts)
+    return format_tokens(estimate_tokens_from_dirs(dirs_to_scan, exts))
 
 def scan_generic_extension(home, keywords):
     dirs_to_scan = []
-    # VSCode Extensions
     ext_dir = os.path.join(home, '.vscode', 'extensions')
     if os.path.exists(ext_dir):
         for d in os.listdir(ext_dir):
             if any(kw.lower() in d.lower() for kw in keywords):
                 dirs_to_scan.append(os.path.join(ext_dir, d))
-                
-    # VSCode Global Storage
     for base in [os.path.join(home, 'Library', 'Application Support', 'Code', 'User', 'globalStorage'),
                  os.path.join(home, '.config', 'Code', 'User', 'globalStorage')]:
         if os.path.exists(base):
             for d in os.listdir(base):
                 if any(kw.lower() in d.lower() for kw in keywords):
                     dirs_to_scan.append(os.path.join(base, d))
-                    
     exts = ['.json', '.log', '.txt', '.db', '.sqlite', '.vscdb', '.jsonl']
-    return estimate_tokens_from_dirs(dirs_to_scan, exts)
+    return format_tokens(estimate_tokens_from_dirs(dirs_to_scan, exts))
 
 def scan_agent_logs(home, folder_name):
-    dirs = [os.path.join(home, folder_name)]
-    exts = ['.jsonl', '.json', '.log', '.txt']
-    return estimate_tokens_from_dirs(dirs, exts)
+    return format_tokens(estimate_tokens_from_dirs([os.path.join(home, folder_name)], ['.jsonl', '.json', '.log', '.txt']))
 
 def main():
-    parser = argparse.ArgumentParser(description='T Salon Token Agent')
-    parser.add_argument('--token', required=True, help='Your personal T Salon access token')
-    parser.add_argument('--host', default='https://www.tsalon.tech', help='API Host')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--token', required=True)
+    parser.add_argument('--host', default='https://www.tsalon.tech')
     args = parser.parse_args()
 
     print("🚀 [T Salon Token Agent] Starting extraction...")
     home = str(Path.home())
     
-    # Plugin Registry
     results = {}
     history = {}
     
@@ -253,51 +264,39 @@ def main():
     
     print("Scanning CodexManager...")
     codex_data = get_codex_tokens(home)
-    results['codex'] = codex_data.get('codex', 0)
-    results['codex_proxy'] = codex_data.get('codex_proxy', 0)
+    results['codex'] = codex_data.get('codex')
+    results['codex_proxy'] = codex_data.get('codex_proxy')
     if 'history' in codex_data:
         history = codex_data['history']
     
     print("Scanning Claude Code...")
     results['claude'] = get_claude_tokens(home)
     
-    print("Scanning Cherry Studio...")
+    print("Scanning generic tools...")
     results['cherry'] = scan_generic_app(home, ['cherry-studio', 'CherryStudio'])
-    
-    print("Scanning Kimi Code...")
     results['kimi'] = scan_generic_extension(home, ['kimi', 'moonshot'])
-    
-    print("Scanning Antigravity...")
     results['antigravity'] = scan_agent_logs(home, '.gemini/antigravity')
-    
-    print("Scanning OpenClaw...")
     results['openclaw'] = scan_agent_logs(home, '.openclaw')
-    
-    print("Scanning Hermes...")
     results['hermes'] = scan_agent_logs(home, '.hermes')
-    
-    print("Scanning Kimi Code...")
-    results['kimi'] = scan_generic_extension(home, ['kimi', 'moonshot'])
-    
-    print("Scanning Qorder...")
     results['qorder'] = scan_generic_extension(home, ['qorder', 'lingma', 'tongyi'])
-    
-    print("Scanning Workbuddy...")
     results['workbuddy'] = scan_generic_extension(home, ['workbuddy'])
     
-    # Filter out empty ones to keep the payload clean
-    final_tokens = {k: v for k, v in results.items() if v > 0}
-    total = sum(final_tokens.values())
-    final_tokens['total'] = total
+    final_tokens = {}
+    for k, v in results.items():
+        if v and isinstance(v, dict) and v.get('total', 0) > 0:
+            final_tokens[k] = v
+            
+    total_all = sum(v.get('total', 0) for v in final_tokens.values())
+    final_tokens['total'] = total_all
     if history:
         final_tokens['history'] = history
     
     print(f"📊 Extracted Data:")
     for k, v in final_tokens.items():
-        if k == 'history' or not isinstance(v, (int, float)):
+        if k == 'history' or k == 'total':
             continue
-        print(f"  - {k.capitalize()}: {v:,} tokens")
-    print(f"  => Total: {total:,} tokens")
+        print(f"  - {k.capitalize()}: {v['total']:,} tokens (In: {v.get('in', 0):,}, Out: {v.get('out', 0):,}, Cache: {v.get('cache_read', 0):,})")
+    print(f"  => Grand Total: {total_all:,} tokens")
     
     device_id = get_or_create_device_id(home)
     
@@ -307,9 +306,7 @@ def main():
         'data': final_tokens
     }
     
-    # Send data
     try:
-        # Note: Added trailing slash to match Vercel's trailingSlash: true configuration
         req = urllib.request.Request(f"{args.host}/api/rank/upload/", data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
         with urllib.request.urlopen(req, timeout=10) as response:
             result = json.loads(response.read().decode('utf-8'))
