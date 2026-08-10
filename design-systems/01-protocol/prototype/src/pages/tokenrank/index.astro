@@ -194,7 +194,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
           <span class="bc-trend positive">+473%</span>
         </div>
         <div class="bc-value">
-          {(effectiveTokens / 10000).toFixed(1)} <span class="bc-unit">万</span>
+          {(effectiveTokens / 100_000_000).toFixed(2)} <span class="bc-unit">亿</span>
         </div>
         <div class="bc-subtext">占 {(globalTokens > 0 ? (effectiveTokens / globalTokens) * 100 : 0).toFixed(1)}%</div>
       </div>
