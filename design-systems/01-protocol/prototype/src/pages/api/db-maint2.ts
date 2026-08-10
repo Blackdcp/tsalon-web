@@ -18,7 +18,12 @@ export const prerender = false;
 //           from the cleaned timeseries, reset device snapshots so the next
 //           upload computes a correct delta, and refresh the leaderboard.
 
-const ABSOLUTE_FLOOR = 1_000_000_000;
+// Absolute floor below which a single event is never treated as pollution.
+// Tuned so legit heavy days (max observed ~695M on 2026-07-26) are safe, while
+// the 902M phantom on 2026-08-09 (and the >1B days) are caught. Note: the fix
+// only ever processes GitHub-avatar users (the owner's own account + its
+// orphan duplicates), so this threshold cannot affect any other site user.
+const ABSOLUTE_FLOOR = 850_000_000;
 const MULTIPLE_OF_MEDIAN = 10;
 
 export const POST: APIRoute = async ({ request }) => {
