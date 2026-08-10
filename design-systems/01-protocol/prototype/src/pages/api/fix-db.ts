@@ -71,7 +71,7 @@ export const GET: APIRoute = async ({ request }) => {
       mode: confirm ? 'CONFIRM (applied)' : 'DRY-RUN',
       job: 'persist',
       keysTouched: persistedKeys
-    }), { headers: { 'Content-Type': 'application/json' } });
+    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
   // 3. Clean: compute per-user median daily total, flag anomalies.
@@ -254,7 +254,7 @@ export const GET: APIRoute = async ({ request }) => {
       duplicatesFound: merges.length,
       merges,
       warnings
-    }), { headers: { 'Content-Type': 'application/json' } });
+    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
   return new Response(JSON.stringify({
@@ -265,5 +265,5 @@ export const GET: APIRoute = async ({ request }) => {
     keysPersisted: persistedKeys,
     anomaliesFound: removedCount,
     log
-  }), { headers: { 'Content-Type': 'application/json' } });
+  }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 };
