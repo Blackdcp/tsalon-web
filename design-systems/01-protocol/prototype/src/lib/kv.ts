@@ -143,16 +143,12 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     const delta = valTotal - oldTotal;
     
     let model = 'unknown';
-    let cacheRate = 0.5;
     if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
       model = 'gpt-5.6-sol';
-      cacheRate = 0.93;
     } else if (tool === 'antigravity') {
       model = 'gemini-2.5-pro';
-      cacheRate = 0.1;
     } else if (tool === 'claude') {
       model = 'claude-3-5-sonnet';
-      cacheRate = 0.8;
     }
 
     let toolHasHistory = false;

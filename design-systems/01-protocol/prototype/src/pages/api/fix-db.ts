@@ -70,7 +70,6 @@ export const GET: APIRoute = async ({ request }) => {
   for (const [key, events] of Object.entries(keyEvents)) {
     const parts = key.split(':');
     const userId = parts.slice(1, parts.length - 2).join(':');
-    const date = parts[parts.length - 1];
     const dayTotal = events.reduce((s, e) => s + (Number(e.tokens) || 0), 0);
     if (dayTotal > 0) {
       if (!userDailyTotals[userId]) userDailyTotals[userId] = [];
