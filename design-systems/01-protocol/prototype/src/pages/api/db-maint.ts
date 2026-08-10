@@ -69,13 +69,50 @@ export const POST: APIRoute = async ({ request }) => {
   if (!kv) return new Response('No KV', { status: 500 });
 
   let action = 'dryrun';
+  let body: any = {};
   try {
-    const body = await request.json();
+    body = await request.json();
     if (body && typeof body.action === 'string') action = body.action;
   } catch {}
+  const targetGh = body && typeof body.gh === 'string' ? body.gh : null;
 
   const { keyEvents, profiles } = await loadData();
   const groups = groupByGithub(profiles);
+
+  if (action === 'inspect') {
+    const inspectOut: any[] = [];
+    for (const [gh, ps] of Object.entries(groups)) {
+      if (targetGh && gh !== targetGh) continue;
+      if (ps.length === 0) continue;
+      const canonical = ps.slice().sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0))[0];
+      const recompute: Record<string, number> = {};
+      const byDate: Record<string, number> = {};
+      for (const [k, evs] of Object.entries(keyEvents)) {
+        const parts = k.split(':');
+        if (parts.slice(1, parts.length - 2).join(':') !== String(canonical.userId)) continue;
+        const date = parts[parts.length - 1];
+        for (const e of evs as any[]) {
+          const t = Number(e.tokens) || 0;
+          const tool = e.tool || 'unknown';
+          recompute[tool] = (recompute[tool] || 0) + t;
+          byDate[date] = (byDate[date] || 0) + t;
+        }
+      }
+      const recomputedTotal = Object.values(recompute).reduce((s, v) => s + v, 0);
+      const dates = Object.keys(byDate).sort().reverse().slice(0, 25);
+      inspectOut.push({
+        githubId: gh,
+        canonicalUserId: String(canonical.userId),
+        profileCount: ps.length,
+        storedTotal: canonical.tokens?.total || 0,
+        storedTokens: canonical.tokens || {},
+        recomputedTotal,
+        recomputedByTool: recompute,
+        recentDates: dates.map(d => ({ date: d, total: byDate[d] }))
+      });
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'INSPECT (read-only)', inspect: inspectOut }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
 
   const merges: any[] = [];
   const warnings: string[] = [];
