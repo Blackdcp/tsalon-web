@@ -96,20 +96,6 @@ def get_cursor_tokens(home):
     return format_tokens(tokens)
 
 def get_codex_tokens(home):
-    db_paths = [
-        os.path.join(home, 'Library', 'Application Support', 'com.codexmanager.desktop', 'codexmanager.db'),
-        os.path.join(home, '.config', 'codexmanager', 'codexmanager.db'),
-        os.path.join(os.environ.get('APPDATA', ''), 'CodexManager', 'codexmanager.db'),
-        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'CodexManager', 'codexmanager.db')
-    ]
-    
-    for d in ['.codex', '.opencodex']:
-        dp = os.path.join(home, d)
-        if os.path.exists(dp):
-            for f in os.listdir(dp):
-                if f.startswith('state_') and f.endswith('.sqlite'):
-                    db_paths.append(os.path.join(dp, f))
-    
     tokens = {
         'codex': {'total':0, 'in':0, 'out':0, 'cache_read':0, 'cache_write':0},
         'codex_proxy': {'total':0, 'in':0, 'out':0, 'cache_read':0, 'cache_write':0},
@@ -124,66 +110,129 @@ def get_codex_tokens(home):
         for k, v in stats.items():
             tokens['history'][date_str][tool_key][k] += v
 
-    for p in db_paths:
-        if not p or not os.path.exists(p):
-            continue
-            
+    # 1. Parse ~/.codex/sessions/*/*/*/*.jsonl (Direct Codex Agent Sessions)
+    session_files = glob.glob(os.path.join(home, '.codex', 'sessions', '*', '*', '*', '*.jsonl'))
+    for sf in session_files:
+        parts = sf.split(os.sep)
         try:
-            rows = query_locked_sqlite(p, "SELECT actual_source_kind, created_at, SUM(input_tokens), SUM(output_tokens), SUM(cached_input_tokens), SUM(reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2")
-            if rows:
-                for row in rows:
-                    source = row[0]
-                    raw_dt = row[1]
-                    if isinstance(raw_dt, (int, float)):
-                        if raw_dt > 1e11: raw_dt /= 1000
-                        import datetime
-                        dt = datetime.datetime.utcfromtimestamp(raw_dt).strftime('%Y-%m-%d')
-                    elif raw_dt:
-                        dt = str(raw_dt)[:10]
-                    else:
-                        dt = None
-                    
-                    inp = int(row[2]) if row[2] else 0
-                    out = int(row[3]) if row[3] else 0
-                    reasoning = int(row[5]) if len(row) > 5 and row[5] else 0
-                    out += reasoning
-                    cache = int(row[4]) if len(row) > 4 and row[4] else 0
-                    tot = inp + out + cache
-                    stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cache, 'cache_write': 0}
-                    
-                    if not source or 'proxy' in source.lower() or source != 'openai_account':
-                        for k in stats_obj: tokens['codex_proxy'][k] += stats_obj[k]
-                        if dt: add_history(dt, 'codex_proxy', stats_obj)
-                    else:
-                        for k in stats_obj: tokens['codex'][k] += stats_obj[k]
-                        if dt: add_history(dt, 'codex', stats_obj)
-                continue
-        except Exception as e:
-            pass
-            
-        # Fallbacks for older schemas...
-        try:
-            rows = query_locked_sqlite(p, "SELECT created_at, SUM(tokens_used) FROM threads GROUP BY 1")
-            if rows:
-                for row in rows:
-                    raw_dt = row[0]
-                    if isinstance(raw_dt, (int, float)):
-                        if raw_dt > 1e11: raw_dt /= 1000
-                        import datetime
-                        dt = datetime.datetime.utcfromtimestamp(raw_dt).strftime('%Y-%m-%d')
-                    elif raw_dt:
-                        dt = str(raw_dt)[:10]
-                    else:
-                        dt = None
-                        
-                    t = int(row[1]) if row[1] else 0
-                    stats_obj = format_tokens(t)
-                    for k in stats_obj: tokens['codex'][k] += stats_obj[k]
-                    if dt: add_history(dt, 'codex', stats_obj)
-                continue
+            idx = parts.index('sessions')
+            dt_str = f"{parts[idx+1]}-{parts[idx+2]}-{parts[idx+3]}"
         except:
+            dt_str = None
+
+        last_usage = None
+        try:
+            with open(sf, 'r', encoding='utf-8', errors='ignore') as fp:
+                for line in fp:
+                    if 'token_count' in line:
+                        try:
+                            d = json.loads(line)
+                            p = d.get('payload', {})
+                            if p.get('type') == 'token_count':
+                                info = p.get('info', {})
+                                if 'total_token_usage' in info:
+                                    last_usage = info['total_token_usage']
+                        except:
+                            pass
+            if last_usage:
+                inp = int(last_usage.get('input_tokens') or 0)
+                out = int(last_usage.get('output_tokens') or 0)
+                cr = int(last_usage.get('cached_input_tokens') or last_usage.get('cache_read_input_tokens') or 0)
+                cw = int(last_usage.get('cache_write_input_tokens') or 0)
+                tot = int(last_usage.get('total_tokens') or (inp + out))
+                stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cr, 'cache_write': cw}
+                for k in stats_obj:
+                    tokens['codex'][k] += stats_obj[k]
+                if dt_str:
+                    add_history(dt_str, 'codex', stats_obj)
+        except Exception:
             pass
-            
+
+    # 2. Parse ~/.opencodex/usage.jsonl (OpenCodex Proxy Gateway)
+    oc_usage_paths = [
+        os.path.join(home, '.opencodex', 'usage.jsonl'),
+        os.path.join(home, '.config', 'opencodex', 'usage.jsonl')
+    ]
+    for ocp in oc_usage_paths:
+        if os.path.exists(ocp):
+            try:
+                with open(ocp, 'r', encoding='utf-8', errors='ignore') as fp:
+                    for line in fp:
+                        if not line.strip(): continue
+                        try:
+                            d = json.loads(line)
+                            ts = d.get('timestamp')
+                            if ts:
+                                if ts > 1e11: ts /= 1000
+                                import datetime
+                                dt_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+                            else:
+                                dt_str = None
+                            
+                            u = d.get('usage') or {}
+                            inp = int(u.get('inputTokens') or 0)
+                            out = int((u.get('outputTokens') or 0) + (u.get('reasoningOutputTokens') or 0))
+                            cr = int(u.get('cachedInputTokens') or u.get('cacheReadInputTokens') or 0)
+                            cw = int(u.get('cacheCreationInputTokens') or 0)
+                            tot = int(u.get('totalTokens') or (inp + out))
+                            if tot > 0:
+                                stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cr, 'cache_write': cw}
+                                for k in stats_obj:
+                                    tokens['codex_proxy'][k] += stats_obj[k]
+                                if dt_str:
+                                    add_history(dt_str, 'codex_proxy', stats_obj)
+                        except:
+                            pass
+            except Exception:
+                pass
+
+    # 3. Parse SQLite databases (CodexManager / state.sqlite) if no session files were found
+    if tokens['codex']['total'] == 0:
+        db_paths = [
+            os.path.join(home, 'Library', 'Application Support', 'com.codexmanager.desktop', 'codexmanager.db'),
+            os.path.join(home, '.config', 'codexmanager', 'codexmanager.db'),
+            os.path.join(os.environ.get('APPDATA', ''), 'CodexManager', 'codexmanager.db'),
+            os.path.join(os.environ.get('LOCALAPPDATA', ''), 'CodexManager', 'codexmanager.db')
+        ]
+        for d in ['.codex', '.opencodex']:
+            dp = os.path.join(home, d)
+            if os.path.exists(dp):
+                for f in os.listdir(dp):
+                    if f.endswith('.sqlite'):
+                        db_paths.append(os.path.join(dp, f))
+
+        for p in db_paths:
+            if not p or not os.path.exists(p):
+                continue
+            try:
+                rows = query_locked_sqlite(p, "SELECT actual_source_kind, created_at, SUM(input_tokens), SUM(output_tokens), SUM(cached_input_tokens), SUM(reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2")
+                if rows:
+                    for row in rows:
+                        source = row[0]
+                        raw_dt = row[1]
+                        if isinstance(raw_dt, (int, float)):
+                            if raw_dt > 1e11: raw_dt /= 1000
+                            import datetime
+                            dt = datetime.datetime.utcfromtimestamp(raw_dt).strftime('%Y-%m-%d')
+                        elif raw_dt:
+                            dt = str(raw_dt)[:10]
+                        else:
+                            dt = None
+                        
+                        inp = int(row[2]) if row[2] else 0
+                        out = int(row[3]) if row[3] else 0
+                        reasoning = int(row[5]) if len(row) > 5 and row[5] else 0
+                        out += reasoning
+                        cache = int(row[4]) if len(row) > 4 and row[4] else 0
+                        tot = inp + out + cache
+                        stats_obj = {'total': tot, 'in': inp, 'out': out, 'cache_read': cache, 'cache_write': 0}
+                        
+                        target_tool = 'codex_proxy' if (not source or 'proxy' in source.lower() or source != 'openai_account') else 'codex'
+                        for k in stats_obj: tokens[target_tool][k] += stats_obj[k]
+                        if dt: add_history(dt, target_tool, stats_obj)
+            except Exception:
+                pass
+
     return tokens
 
 def get_claude_tokens(home):
