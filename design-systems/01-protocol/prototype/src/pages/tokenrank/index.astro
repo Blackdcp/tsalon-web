@@ -201,7 +201,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <!-- Card 1 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">{timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 (Top 100) <span class="help-icon">?</span></span>
+          <span class="bc-title">{timeFilter === 'today' ? '当日' : timeFilter === 'yesterday' ? '昨日' : timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 (Top 100) <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {formatDisplayAmount(globalTokens, modeFilter).replace('亿', '').replace('万', '')}
