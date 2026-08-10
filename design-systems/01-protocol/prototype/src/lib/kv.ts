@@ -285,7 +285,23 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
     
     const keys = userIds.map(id => `user:${id}:data`);
     const results = await kv.mget(keys);
-    return results.filter(Boolean).map(res => JSON.parse(res as string));
+    const rawList = results.filter(Boolean).map(res => JSON.parse(res as string));
+
+    const seenNames = new Map<string, UserRankData>();
+    for (const item of rawList) {
+      const key = (item.name || '').toLowerCase().trim();
+      if (!seenNames.has(key)) {
+        seenNames.set(key, item);
+      } else {
+        const existing = seenNames.get(key)!;
+        if ((/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId)) || (item.tokens?.total || 0) > (existing.tokens?.total || 0)) {
+          seenNames.set(key, item);
+        }
+      }
+    }
+    const finalLeaderboard = Array.from(seenNames.values());
+    finalLeaderboard.sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0));
+    return finalLeaderboard.slice(0, limit);
   }
   
   // Dynamic aggregation for time windows
@@ -384,8 +400,23 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
     }
   }
   
-  aggregatedList.sort((a, b) => b.tokens.total - a.tokens.total);
-  return aggregatedList.slice(0, limit);
+  // Deduplicate by name and keep the one with the highest tokens or GitHub ID
+  const seenNames = new Map<string, UserRankData>();
+  for (const item of aggregatedList) {
+    const key = (item.name || '').toLowerCase().trim();
+    if (!seenNames.has(key)) {
+      seenNames.set(key, item);
+    } else {
+      const existing = seenNames.get(key)!;
+      if ((/^\d+$/.test(item.userId) && !/^\d+$/.test(existing.userId)) || item.tokens.total > existing.tokens.total) {
+        seenNames.set(key, item);
+      }
+    }
+  }
+
+  const finalLeaderboard = Array.from(seenNames.values());
+  finalLeaderboard.sort((a, b) => b.tokens.total - a.tokens.total);
+  return finalLeaderboard.slice(0, limit);
 }
 
 export async function getGlobalStats(leaderboardData: UserRankData[] | null = null) {

@@ -52,10 +52,10 @@ const seoJsonLd = {
 };
 
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
-  'gpt-5.6-sol': { in: 5, out: 30, cache: 0.5 },
-  'gemini-2.5-pro': { in: 2, out: 12, cache: 0.2 },
-  'claude-3-5-sonnet': { in: 2, out: 10, cache: 0.2 },
-  'default': { in: 0.5, out: 2, cache: 0.075 }
+  'gpt-5.6-sol': { in: 2.5, out: 10, cache: 0.5 },
+  'gemini-2.5-pro': { in: 1.25, out: 5, cache: 0.3 },
+  'claude-3-5-sonnet': { in: 3.0, out: 15, cache: 0.3 },
+  'default': { in: 1.0, out: 4, cache: 0.2 }
 };
 
 const getToolEstimatedCost = (tool: string, amount: any) => {
@@ -73,9 +73,13 @@ const getToolEstimatedCost = (tool: string, amount: any) => {
     const millions = amount / 1_000_000;
     return (millions * cacheRate * p.cache) + (millions * (1 - cacheRate) * (0.9 * p.in + 0.1 * p.out));
   } else if (amount) {
-    return ((amount.in || 0) / 1_000_000 * p.in) + 
-           ((amount.out || 0) / 1_000_000 * p.out) + 
-           ((amount.cache_read || 0) / 1_000_000 * p.cache);
+    const rawIn = Number(amount.in) || 0;
+    const cacheRead = Number(amount.cache_read) || 0;
+    const freshIn = Math.max(0, rawIn - cacheRead);
+    const out = Number(amount.out) || 0;
+    return (freshIn / 1_000_000 * p.in) + 
+           (out / 1_000_000 * p.out) + 
+           (cacheRead / 1_000_000 * p.cache);
   }
   return 0;
 };

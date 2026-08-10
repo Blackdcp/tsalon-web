@@ -57,20 +57,34 @@ if (timeFilter === 'all' && periodTokens === 0 && userData && userData.tokens) {
 }
 
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
-  'gpt-5.6-sol': { in: 5, out: 30, cache: 0.5 },
-  'gemini-2.5-pro': { in: 2, out: 12, cache: 0.2 },
-  'claude-3-5-sonnet': { in: 2, out: 10, cache: 0.2 },
-  'default': { in: 0.5, out: 2, cache: 0.075 }
+  'gpt-5.6-sol': { in: 2.5, out: 10, cache: 0.5 },
+  'gemini-2.5-pro': { in: 1.25, out: 5, cache: 0.3 },
+  'claude-3-5-sonnet': { in: 3.0, out: 15, cache: 0.3 },
+  'default': { in: 1.0, out: 4, cache: 0.2 }
 };
 
 const getEventCost = (e: any) => {
   const p = PRICING[e.model] || PRICING['default'];
+  if (e.cacheReadTokens !== undefined) {
+    const rawIn = e.inTokens || 0;
+    const cacheRead = e.cacheReadTokens || 0;
+    const freshIn = Math.max(0, rawIn - cacheRead);
+    const out = e.outTokens || 0;
+    return (freshIn / 1_000_000 * p.in) + 
+           (out / 1_000_000 * p.out) + 
+           (cacheRead / 1_000_000 * p.cache);
+  }
   const millions = e.tokens / 1_000_000;
   return e.cacheHit ? (millions * p.cache) : (millions * (0.9 * p.in + 0.1 * p.out));
 };
 
 const getEventNoCacheCost = (e: any) => {
   const p = PRICING[e.model] || PRICING['default'];
+  if (e.inTokens !== undefined) {
+    const rawIn = e.inTokens || 0;
+    const out = e.outTokens || 0;
+    return (rawIn / 1_000_000 * p.in) + (out / 1_000_000 * p.out);
+  }
   const millions = e.tokens / 1_000_000;
   return millions * (0.9 * p.in + 0.1 * p.out);
 };
@@ -88,13 +102,18 @@ if (timeFilter === 'all' && periodCost === 0 && userData && userData.tokens) {
   Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
     if (tool === 'total' || tool === 'history') return;
     const tot = typeof rawVal === 'object' && rawVal !== null ? (rawVal.total || 0) : (Number(rawVal) || 0);
+    const cacheRead = typeof rawVal === 'object' && rawVal !== null ? (rawVal.cache_read || 0) : Math.floor(tot * 0.93);
+    const rawIn = typeof rawVal === 'object' && rawVal !== null ? (rawVal.in || 0) : Math.floor(tot * 0.9);
+    const out = typeof rawVal === 'object' && rawVal !== null ? (rawVal.out || 0) : Math.floor(tot * 0.1);
+    const freshIn = Math.max(0, rawIn - cacheRead);
+    
     let p = PRICING['default'];
     if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') p = PRICING['gpt-5.6-sol'];
     else if (tool === 'antigravity') p = PRICING['gemini-2.5-pro'];
     else if (tool === 'claude') p = PRICING['claude-3-5-sonnet'];
-    const millions = tot / 1_000_000;
-    periodCost += millions * (0.93 * p.cache + 0.07 * (0.9 * p.in + 0.1 * p.out));
-    periodNoCacheCost += millions * (0.9 * p.in + 0.1 * p.out);
+    
+    periodCost += (freshIn / 1_000_000 * p.in) + (out / 1_000_000 * p.out) + (cacheRead / 1_000_000 * p.cache);
+    periodNoCacheCost += (rawIn / 1_000_000 * p.in) + (out / 1_000_000 * p.out);
   });
 }
 
