@@ -71,11 +71,12 @@ const getToolEstimatedCost = (tool: string, amount: any) => {
     else if (model === 'gemini-2.5-pro') cacheRate = 0.1;
     const millions = amount / 1_000_000;
     return (millions * cacheRate * p.cache) + (millions * (1 - cacheRate) * (0.9 * p.in + 0.1 * p.out));
+  } else if (amount) {
+    return ((amount.in || 0) / 1_000_000 * p.in) + 
+           ((amount.out || 0) / 1_000_000 * p.out) + 
+           ((amount.cache_read || 0) / 1_000_000 * p.cache);
   }
-  
-  return (amount.in / 1_000_000 * p.in) + 
-         (amount.out / 1_000_000 * p.out) + 
-         (amount.cache_read / 1_000_000 * p.cache);
+  return 0;
 };
 
 const getToolNoCache = (tool: string, amount: any) => {
@@ -134,10 +135,10 @@ leaderboard.forEach(user => {
       const millions = amount / 1_000_000;
       globalNoCacheCost += millions * (0.9 * p.in + 0.1 * p.out);
       globalOutputTokens += (amount * (1 - cacheRate)) * 0.1;
-    } else {
+    } else if (amount) {
       globalCacheHitTokens += amount.cache_read || 0;
       const noCacheTokens = (amount.in || 0) + (amount.out || 0);
-      globalNoCacheCost += (amount.in / 1_000_000 * p.in) + (amount.out / 1_000_000 * p.out);
+      globalNoCacheCost += ((amount.in || 0) / 1_000_000 * p.in) + ((amount.out || 0) / 1_000_000 * p.out);
       globalOutputTokens += amount.out || 0;
     }
   });
