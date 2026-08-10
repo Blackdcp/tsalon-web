@@ -74,7 +74,7 @@ const seoJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
   name: 'T Salon Token Leaderboard',
-  description: 'A live leaderboard of AI developers’ token consumption — tracking local AI code generation across the community in real time.'
+  description: 'A live leaderboard of AI coding token usage — see how developers across the community stack up, in real time.'
 };
 
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
@@ -196,7 +196,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
     <header class="page-title" style="margin-bottom: 1.5rem; border-bottom: none; padding-bottom: 0;">
       <div class="page-title-main">
         <h1>Token Leaderboard</h1>
-        <p class="page-subtitle">AI coding energy showdown among developers</p>
+        <p class="page-subtitle">Developers ranked by AI token usage</p>
       </div>
       <div class="page-title-side">
         <span class="mono">STATS / TOKEN RANK</span>
@@ -208,7 +208,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 1 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">{timeLabel} consumption (Top 100) <span class="help-icon">?</span></span>
+          <span class="bc-title">{timeLabel} total (Top 100) <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {formatDisplayAmount(globalTokens, modeFilter)}
@@ -224,13 +224,13 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
         <div class="bc-value">
           <span class="bc-unit-prefix">$</span>{globalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}
         </div>
-        <div class="bc-subtext">Cache saved ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+        <div class="bc-subtext">Saved via cache: ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
       </div>
 
       <!-- Card 3 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">Effective Tokens <span class="help-icon">?</span></span>
+          <span class="bc-title">Billable Tokens <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {(effectiveTokens / 1_000_000_000).toFixed(2)} <span class="bc-unit">B</span>
@@ -263,7 +263,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 6 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">AI Time <span class="help-icon" title={`Cumulative time the model actually spent generating content (timed per generation round), excluding idle waiting for input — not the user's online duration.\nCurrent estimate basis: ${averageGenerationSpeed} tokens/sec`}>?</span></span>
+          <span class="bc-title">AI Time <span class="help-icon" title={`Total time the model spent actively generating, counted per generation — not your time online. Basis: ${averageGenerationSpeed} tokens/sec`}>?</span></span>
         </div>
         <div class="bc-value">
           {aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="bc-unit">{aiUnit}</span>
@@ -274,7 +274,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 7 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">Cache Hit <span class="help-icon">?</span></span>
+          <span class="bc-title">Cache Hit Rate <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {globalCacheHitRate} <span class="bc-unit">%</span>
@@ -299,10 +299,10 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <div class="time-filter-pills">
         <a href="?time=today" class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>Today</a>
         <a href="?time=yesterday" class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>Yesterday</a>
-        <a href="?time=3d" class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>Last 3d</a>
-        <a href="?time=7d" class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>Last 7d</a>
-        <a href="?time=30d" class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>Last 30d</a>
-        <a href="?time=90d" class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>Last 90d</a>
+        <a href="?time=3d" class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>3D</a>
+        <a href="?time=7d" class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>7D</a>
+        <a href="?time=30d" class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>30D</a>
+        <a href="?time=90d" class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>90D</a>
         <a href="?time=all" class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>All</a>
       </div>
 
@@ -315,8 +315,8 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
         <!-- Table Headers (Integrated 5-Column Top Bar) -->
         <div class="lb-header-row">
           <div class="lb-col-rank">Rank</div>
-          <div class="lb-col-user">Member</div>
-          <div class="lb-col-details">Breakdown (multi-tool)</div>
+          <div class="lb-col-user">Developer</div>
+          <div class="lb-col-details">By tool</div>
           <div class="lb-col-tokens">Tokens</div>
           <div class="lb-col-cost">Est. Cost</div>
         </div>
@@ -336,8 +336,8 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
               </div>
             </div>
             <div class="lb-col-details" style="display: flex; align-items: center; gap: 0.85rem;">
-              <span class="user-highlight-desc">Thanks for your data contribution</span>
-              <button class="btn-share-mini" onclick="openShareModal()">Generate poster ↗</button>
+              <span class="user-highlight-desc">Thanks for sharing your data</span>
+              <button class="btn-share-mini" onclick="openShareModal()">Share ↗</button>
             </div>
             <div class="lb-col-tokens">
               <div class="lb-num-tokens">{formatDisplayAmount(currentUser.tokens?.total || 0, 'tokens')}</div>
@@ -359,18 +359,18 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
               </div>
             </div>
             <div class="lb-col-details">
-              <span class="user-highlight-desc">Bind your GitHub account to your local environment and run the dedicated extraction script to get on the board quickly.</span>
+              <span class="user-highlight-desc">Link your GitHub account and run our sync script locally to join the leaderboard in seconds.</span>
             </div>
             <div class="lb-col-tokens">-</div>
             <div class="lb-col-cost">
-              <a href="/en/tokenrank/connect" class="btn-onboard-mini">Connect &amp; rank ↗</a>
+              <a href="/en/tokenrank/connect" class="btn-onboard-mini">Get on the board ↗</a>
             </div>
           </div>
         )}
 
       <!-- Main Leaderboard -->
       {leaderboard.length === 0 ? (
-        <div class="content-section" style="margin-top: 1rem;"><p>No data in this period yet — be the first to post!</p></div>
+        <div class="content-section" style="margin-top: 1rem;"><p>No activity in this period yet — be the first to appear!</p></div>
       ) : (
         leaderboard.map((user, idx) => {
             // Collapse duplicate profiles of the SAME GitHub person (e.g. a stale

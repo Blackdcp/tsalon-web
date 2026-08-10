@@ -348,7 +348,7 @@ const chartData = {
 };
 ---
 
-<BaseLayout alternatePath={`/tokenrank/user/${id}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`View ${userData.name}'s detailed token consumption trends and AI dashboard.`}>
+<BaseLayout alternatePath={`/tokenrank/user/${id}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`See ${userData.name}'s AI token trends, cost, and tool breakdown.`}>
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div class="user-info">
@@ -371,11 +371,11 @@ const chartData = {
     <div class="tabs">
       <a href="?time=today" class={timeFilter === 'today' ? 'active' : ''}>Today</a>
       <a href="?time=yesterday" class={timeFilter === 'yesterday' ? 'active' : ''}>Yesterday</a>
-      <a href="?time=3d" class={timeFilter === '3d' ? 'active' : ''}>Last 3d</a>
-      <a href="?time=7d" class={timeFilter === '7d' ? 'active' : ''}>Last 7d</a>
-      <a href="?time=30d" class={timeFilter === '30d' ? 'active' : ''}>Last 30d</a>
-      <a href="?time=90d" class={timeFilter === '90d' ? 'active' : ''}>Last 90d</a>
-      <a href="?time=all" class={timeFilter === 'all' ? 'active' : ''}>All-time</a>
+      <a href="?time=3d" class={timeFilter === '3d' ? 'active' : ''}>3D</a>
+      <a href="?time=7d" class={timeFilter === '7d' ? 'active' : ''}>7D</a>
+      <a href="?time=30d" class={timeFilter === '30d' ? 'active' : ''}>30D</a>
+      <a href="?time=90d" class={timeFilter === '90d' ? 'active' : ''}>90D</a>
+      <a href="?time=all" class={timeFilter === 'all' ? 'active' : ''}>All time</a>
       <span class="current-date">{todayDateStr}</span>
     </div>
 
@@ -383,7 +383,7 @@ const chartData = {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">{timeLabel} consumption ❔</span>
+          <span class="label">{timeLabel} tokens ❔</span>
         </div>
         <div class="value">{periodTokensObj.val}<span class="unit">{periodTokensObj.unit}</span></div>
         <div class="subtext">Daily avg {formatAmountStr(avgTokens)}</div>
@@ -397,7 +397,7 @@ const chartData = {
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">Effective Tokens ❔</span>
+          <span class="label">Billable Tokens ❔</span>
         </div>
         <div class="value">{freshTokensObj.val}<span class="unit">{freshTokensObj.unit}</span></div>
         <div class="subtext">{(periodTokens > 0 ? (freshTokens / periodTokens * 100).toFixed(1) : 0)}% of total</div>
@@ -422,11 +422,11 @@ const chartData = {
           <span class="label">AI Time ❔</span>
         </div>
         <div class="value">{aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="unit">{aiUnit}</span></div>
-        <div class="subtext">Est. at 80 tok/s actual generation</div>
+        <div class="subtext">Est. at 80 tokens/sec of active generation</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">Cache Hit ❔</span>
+          <span class="label">Cache Hit Rate ❔</span>
         </div>
         <div class="value">{cacheHitRate}<span class="unit">%</span></div>
         <div class="subtext">Cache read {formatAmountStr(cacheHitTokens)}</div>
@@ -443,7 +443,7 @@ const chartData = {
     <!-- Key Facts Banner -->
     <div class="key-facts-banner">
       <div class="fact-col">
-        <span class="fact-label">Single-day record</span>
+        <span class="fact-label">Best single day</span>
         <span class="fact-value">{formatAmountStr(maxDayTokens)} · {maxDayStr}</span>
       </div>
       <div class="fact-col">
