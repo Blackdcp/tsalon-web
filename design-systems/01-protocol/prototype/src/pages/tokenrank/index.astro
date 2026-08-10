@@ -354,15 +354,16 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
                    idx === 2 ? <div class="rank-badge bronze">3</div> : 
                    <div class="rank-badge normal">{idx + 1}</div>}
                 </div>
-                <div class="lb-avatar-wrapper">
-                  <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
-                </div>
-                <div class="lb-user-info">
-                  <div class="lb-name-row">
+                <div class="lb-name-col">
+                  <div class="lb-avatar-wrapper">
+                    <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
+                  </div>
+                  <div class="lb-name-text">
                     <strong>{user.name}</strong>
                   </div>
-                  <div class="lb-details-row">
-                    {toolsBreakdown.map(({ tool, amount }) => {
+                </div>
+                <div class="lb-details-col">
+                  {toolsBreakdown.map(({ tool, amount }) => {
                       const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
                       let tagClass = 'tag-default';
                       const t = tool.toLowerCase();
@@ -371,8 +372,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
                       else if (t.includes('cherry')) tagClass = 'tag-cherry';
                       else if (t.includes('claude')) tagClass = 'tag-claude';
                       return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, modeFilter)}</span>;
-                    })}
-                  </div>
+                  })}
                 </div>
               </div>
               <div class="lb-card-right">
@@ -653,21 +653,49 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     object-fit: cover;
   }
 
+  .lb-name-col {
+    width: 170px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .lb-name-text strong {
+    font-size: 1.05rem;
+    color: var(--color-text);
+  }
+
+  .lb-details-col {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
   .lb-user-info {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 0.25rem;
-    flex: 1;
   }
-
+  
   .lb-name-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 1.15rem;
-    font-weight: 700;
+  }
+  
+  .lb-name-row strong {
+    font-size: 1.1rem;
     color: var(--color-text);
-    width: 150px;
+  }
+  
+  .lb-details-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .tag-me {
