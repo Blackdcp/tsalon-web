@@ -5,7 +5,17 @@ import { kv, getUserAnalytics } from '../../../lib/kv';
 export const prerender = false;
 
 const { id } = Astro.params;
-const days = Number(Astro.url.searchParams.get('days') || '30');
+const rawTime = Astro.url.searchParams.get('time') || (Astro.url.searchParams.get('days') === '1' ? 'today' : (Astro.url.searchParams.get('days') ? `${Astro.url.searchParams.get('days')}d` : 'today'));
+const timeFilter = ['today', 'yesterday', '3d', '7d', '30d', '90d', 'all'].includes(rawTime) ? rawTime : 'today';
+
+let days = 1;
+if (timeFilter === 'today') days = 1;
+else if (timeFilter === 'yesterday') days = 2;
+else if (timeFilter === '3d') days = 3;
+else if (timeFilter === '7d') days = 7;
+else if (timeFilter === '30d') days = 30;
+else if (timeFilter === '90d') days = 90;
+else if (timeFilter === 'all') days = 365;
 
 // Verify user exists
 const userDataStr = await kv?.get(`user:${id}:data`);
@@ -15,12 +25,37 @@ if (!userDataStr) {
 const userData = JSON.parse(userDataStr);
 
 // Fetch analytics
-const events = await getUserAnalytics(id as string, days);
+const rawEvents = await getUserAnalytics(id as string, days);
+
+// Dates setup
+const todayDateStr = new Date().toISOString().split('T')[0];
+const yesterdayDateStr = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+})();
+
+let events = rawEvents;
+if (timeFilter === 'yesterday') {
+  events = rawEvents.filter(e => {
+    const d = new Date(e.timestamp).toISOString().split('T')[0];
+    return d === yesterdayDateStr;
+  });
+} else if (timeFilter === 'today') {
+  events = rawEvents.filter(e => {
+    const d = new Date(e.timestamp).toISOString().split('T')[0];
+    return d === todayDateStr;
+  });
+}
 
 // Basic aggregations
-const todayDateStr = new Date().toISOString().split('T')[0];
+let periodTokens = events.reduce((acc, e) => acc + (e.tokens || 0), 0);
 
-const periodTokens = events.reduce((acc, e) => acc + e.tokens, 0);
+// Fallback to userData.tokens when in 'all' mode or when no events in DB
+if (timeFilter === 'all' && periodTokens === 0 && userData && userData.tokens) {
+  periodTokens = typeof userData.tokens.total === 'number' ? userData.tokens.total : 0;
+}
+
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
   'gpt-5.6-sol': { in: 5, out: 30, cache: 0.5 },
   'gemini-2.5-pro': { in: 2, out: 12, cache: 0.2 },
@@ -48,16 +83,32 @@ events.forEach(e => {
   periodNoCacheCost += getEventNoCacheCost(e);
 });
 
-const cacheSavings = periodNoCacheCost - periodCost;
+// Fallback cost for 'all' mode if events empty
+if (timeFilter === 'all' && periodCost === 0 && userData && userData.tokens) {
+  Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const tot = typeof rawVal === 'object' && rawVal !== null ? (rawVal.total || 0) : (Number(rawVal) || 0);
+    let p = PRICING['default'];
+    if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') p = PRICING['gpt-5.6-sol'];
+    else if (tool === 'antigravity') p = PRICING['gemini-2.5-pro'];
+    else if (tool === 'claude') p = PRICING['claude-3-5-sonnet'];
+    const millions = tot / 1_000_000;
+    periodCost += millions * (0.93 * p.cache + 0.07 * (0.9 * p.in + 0.1 * p.out));
+    periodNoCacheCost += millions * (0.9 * p.in + 0.1 * p.out);
+  });
+}
 
-const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + e.tokens, 0);
-const cacheHitRate = periodTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : '0.0';
-const freshTokens = periodTokens - cacheHitTokens;
+const cacheSavings = Math.max(0, periodNoCacheCost - periodCost);
 
-const toolsUsed = new Set(events.map(e => e.tool)).size;
+const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + (e.tokens || 0), 0);
+const cacheHitRate = periodTokens > 0 ? (cacheHitTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : (timeFilter === 'all' ? '93.0' : '0.0')) : '0.0';
+const freshTokens = Math.max(0, periodTokens - cacheHitTokens);
+
+const toolsUsed = events.length > 0 ? new Set(events.map(e => e.tool)).size : (userData.tokens ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length : 0);
 
 // Daily averages
-const avgTokens = days > 0 ? Math.floor(periodTokens / days) : 0;
+const effectiveDays = timeFilter === 'today' || timeFilter === 'yesterday' ? 1 : days;
+const avgTokens = effectiveDays > 0 ? Math.floor(periodTokens / effectiveDays) : 0;
 
 // Group by Date for tables and streaks
 const dailyMap: Record<string, any> = {};
@@ -80,6 +131,10 @@ for (const [date, data] of Object.entries(dailyMap)) {
     maxDayStr = date;
   }
 }
+if (maxDayTokens === 0 && userData && userData.tokens) {
+  maxDayTokens = periodTokens;
+  maxDayStr = todayDateStr;
+}
 
 // Streak
 let activeStreak = 0;
@@ -93,8 +148,9 @@ for (let i = 0; i < days; i++) {
     break;
   }
 }
+if (activeStreak === 0 && periodTokens > 0) activeStreak = 1;
 
-const activeDaysHistory = Object.keys(dailyMap).length;
+const activeDaysHistory = Math.max(1, Object.keys(dailyMap).length);
 
 const formatAmountObj = (num: number) => {
   if (num >= 100_000_000) return { val: (num / 100_000_000).toFixed(2), unit: '亿' };
@@ -113,7 +169,8 @@ const freshTokensObj = formatAmountObj(freshTokens);
 
 // For charts
 const lastXDays = [];
-for(let i=days-1; i>=0; i--) {
+const chartWindow = Math.min(days, 30);
+for(let i=chartWindow-1; i>=0; i--) {
   const d = new Date();
   d.setDate(d.getDate() - i);
   lastXDays.push(d.toISOString().split('T')[0]);
@@ -125,10 +182,23 @@ const dailyCost = lastXDays.map(date => dailyMap[date]?.cost || 0);
 const toolBreakdown: Record<string, number> = {};
 const modelBreakdown: Record<string, number> = {};
 
-events.forEach(e => {
-  toolBreakdown[e.tool] = (toolBreakdown[e.tool] || 0) + e.tokens;
-  modelBreakdown[e.model] = (modelBreakdown[e.model] || 0) + e.tokens;
-});
+if (events.length > 0) {
+  events.forEach(e => {
+    toolBreakdown[e.tool] = (toolBreakdown[e.tool] || 0) + (e.tokens || 0);
+    modelBreakdown[e.model] = (modelBreakdown[e.model] || 0) + (e.tokens || 0);
+  });
+} else if (userData && userData.tokens) {
+  Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const tot = typeof rawVal === 'object' && rawVal !== null ? (rawVal.total || 0) : (Number(rawVal) || 0);
+    toolBreakdown[tool] = tot;
+    let mod = 'unknown';
+    if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') mod = 'gpt-5.6-sol';
+    else if (tool === 'antigravity') mod = 'gemini-2.5-pro';
+    else if (tool === 'claude') mod = 'claude-3-5-sonnet';
+    modelBreakdown[mod] = (modelBreakdown[mod] || 0) + tot;
+  });
+}
 
 const toolKeys = Object.keys(toolBreakdown).sort((a,b) => toolBreakdown[b] - toolBreakdown[a]);
 const toolValues = toolKeys.map(k => toolBreakdown[k]);
@@ -157,12 +227,13 @@ const chartData = {
     </header>
 
     <div class="tabs">
-      <a href="?days=1" class={days === 1 ? 'active' : ''}>今天</a>
-      <a href="?days=3" class={days === 3 ? 'active' : ''}>近3天</a>
-      <a href="?days=7" class={days === 7 ? 'active' : ''}>近7天</a>
-      <a href="?days=30" class={days === 30 ? 'active' : ''}>近30天</a>
-      <a href="?days=90" class={days === 90 ? 'active' : ''}>近90天</a>
-      <a href="?days=365" class={days === 365 ? 'active' : ''}>全部</a>
+      <a href="?time=today" class={timeFilter === 'today' ? 'active' : ''}>今天</a>
+      <a href="?time=yesterday" class={timeFilter === 'yesterday' ? 'active' : ''}>昨天</a>
+      <a href="?time=3d" class={timeFilter === '3d' ? 'active' : ''}>近3天</a>
+      <a href="?time=7d" class={timeFilter === '7d' ? 'active' : ''}>近7天</a>
+      <a href="?time=30d" class={timeFilter === '30d' ? 'active' : ''}>近30天</a>
+      <a href="?time=90d" class={timeFilter === '90d' ? 'active' : ''}>近90天</a>
+      <a href="?time=all" class={timeFilter === 'all' ? 'active' : ''}>全部</a>
       <span class="current-date">{todayDateStr}</span>
     </div>
 
@@ -170,7 +241,7 @@ const chartData = {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">{days === 1 ? '当日消耗' : `近${days}天消耗`} ❔</span>
+          <span class="label">{timeFilter === 'today' ? '当日消耗' : timeFilter === 'yesterday' ? '昨日消耗' : timeFilter === 'all' ? '历史总消耗' : `近${days}天消耗`} ❔</span>
           <span class="trend positive">+558%</span>
         </div>
         <div class="value">{periodTokensObj.val}<span class="unit">{periodTokensObj.unit}</span></div>

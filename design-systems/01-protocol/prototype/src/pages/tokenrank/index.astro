@@ -7,7 +7,7 @@ import { getLeaderboard, getGlobalStats } from '../../lib/kv';
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
-const timeFilter = Astro.url.searchParams.get('time') || '30d';
+const timeFilter = Astro.url.searchParams.get('time') || 'today';
 const rawMode = Astro.url.searchParams.get('mode') || 'tokens';
 const modeFilter = rawMode === 'cost' ? 'cost' : 'tokens';
 
@@ -285,7 +285,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
           <div class="lb-col-rank">排名</div>
           <div class="lb-col-user">T友</div>
           <div class="lb-col-details">消耗详情 (多端工具)</div>
-          <div class="lb-col-tokens">消耗 Token</div>
+          <div class="lb-col-tokens">消耗 Tokens</div>
           <div class="lb-col-cost">预估成本</div>
         </div>
 
