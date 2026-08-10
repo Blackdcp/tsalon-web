@@ -113,36 +113,22 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   const pipe = kv.pipeline();
   let hasTimeseriesEvents = false;
   
-  // If exact history is provided, we can sync it directly!
-  if (historyData && Object.keys(historyData).length > 0) {
-    // 1. Wipe old timeseries data ONLY for tools present in historyData to avoid duplicates
-    const keysToFilter = await scanKeys(`user:${userId}:timeseries:*`);
-    const toolsInHistory = new Set<string>();
-    for (const toolsObj of Object.values(historyData)) {
-      Object.keys(toolsObj).forEach(t => toolsInHistory.add(t));
-    }
-    
-    for (const key of keysToFilter) {
-      const rawEvents = await kv.lrange(key, 0, -1);
-      const events: TimeseriesEvent[] = rawEvents.map((str: any) => typeof str === 'string' ? JSON.parse(str) : str);
-      const filteredEvents = events.filter(e => !(toolsInHistory.has(e.tool) && e.deviceId === deviceId));
-      await kv.del(key);
-      if (filteredEvents.length > 0) {
-        const pipeline = kv.pipeline();
-        filteredEvents.forEach(e => pipeline.rpush(key, JSON.stringify(e)));
-        await pipeline.exec();
-      }
-    }
-  }
-
-  // Delta logic
+  // Always derive the daily timeseries from the DELTA vs the previous device
+  // snapshot — never from the agent's absolute per-day `history` values.
+  //
+  // Why: the agent reports its CUMULATIVE lifetime total as the current day's
+  // history value, so trusting `history` inflated "today" by ~20x and every
+  // cleanup was overwritten on the next upload. The delta (reported - snapshot)
+  // is the true daily usage and is immune to that. The lifetime profile/ranking
+  // still uses the agent's reported totals via the device snapshot below, so the
+  // all-time leaderboard stays correct.
   for (const [tool, valObj] of Object.entries(normalizedTokens)) {
     if (tool === 'total' || tool === 'history') continue;
     const oldToolData = oldDeviceTokens[tool];
     const oldTotal = oldToolData ? (Number(oldToolData.total) || 0) : 0;
     const valTotal = Number(valObj.total) || 0;
     const delta = valTotal - oldTotal;
-    
+
     let model = 'unknown';
     if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') {
       model = 'gpt-5.6-sol';
@@ -152,84 +138,45 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       model = 'claude-3-5-sonnet';
     }
 
-    let toolHasHistory = false;
-    if (historyData) {
-      for (const toolsObj of Object.values(historyData)) {
-        if (toolsObj[tool]) {
-          toolHasHistory = true;
-          break;
-        }
-      }
-    }
+    // Record only forward progress: a positive delta, or the very first time we
+    // see this tool (full amount). Negative deltas (agent reset/recount) are
+    // skipped so they can't erase real history.
+    if (!(delta > 0 || (valTotal > 0 && oldTotal === 0))) continue;
 
-    if (toolHasHistory) {
-      for (const [dateStr, toolsObj] of Object.entries(historyData!)) {
-        const rawVal = toolsObj[tool];
-        if (!rawVal) continue;
-        const hVal = typeof rawVal === 'object' && rawVal !== null ? (Number(rawVal.total) || 0) : (Number(rawVal) || 0);
-        if (hVal > 0) {
-          const inTokens = typeof rawVal === 'object' ? Number(rawVal.in || 0) : Math.floor(hVal * 0.9);
-          const outTokens = typeof rawVal === 'object' ? Number(rawVal.out || 0) : Math.floor(hVal * 0.1);
-          const cacheReadTokens = typeof rawVal === 'object' ? Number(rawVal.cache_read || 0) : 0;
-          const cacheWriteTokens = typeof rawVal === 'object' ? Number(rawVal.cache_write || 0) : 0;
+    const eventTokens = delta > 0 ? delta : valTotal;
+    const inTokens =
+      delta > 0
+        ? Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0))
+        : (Number(valObj.in) || 0);
+    const outTokens =
+      delta > 0
+        ? Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0))
+        : (Number(valObj.out) || 0);
+    const cacheReadTokens =
+      delta > 0
+        ? Math.max(0, (Number(valObj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0))
+        : (Number(valObj.cache_read) || 0);
+    const cacheWriteTokens =
+      delta > 0
+        ? Math.max(0, (Number(valObj.cache_write) || 0) - (oldToolData ? Number(oldToolData.cache_write) || 0 : 0))
+        : (Number(valObj.cache_write) || 0);
 
-          const event: TimeseriesEvent = {
-            timestamp: new Date(dateStr).getTime(),
-            tool,
-            model,
-            tokens: hVal,
-            inTokens,
-            outTokens,
-            cacheReadTokens,
-            cacheWriteTokens,
-            cacheHit: cacheReadTokens > 0,
-            deviceId: deviceId
-          };
-          pipe.rpush(`user:${userId}:timeseries:${dateStr}`, JSON.stringify(event));
-        }
-      }
-      hasTimeseriesEvents = true;
-    } else if (delta > 0 || (valTotal > 0 && oldTotal === 0)) {
-      // No exact history for this tool: record the new total (or its delta vs
-      // the previous snapshot) on TODAY only. We deliberately do NOT backfill a
-      // fake 30-day flatline — that produced phantom daily spikes (a heavy user
-      // looked like they generated billions every day for a month) and corrupted
-      // the by-day table and the 90d/period views.
-      const eventTokens = delta > 0 ? delta : valTotal;
-      const inTokens =
-        delta > 0
-          ? Math.max(0, (Number(valObj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0))
-          : (Number(valObj.in) || 0);
-      const outTokens =
-        delta > 0
-          ? Math.max(0, (Number(valObj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0))
-          : (Number(valObj.out) || 0);
-      const cacheReadTokens =
-        delta > 0
-          ? Math.max(0, (Number(valObj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0))
-          : (Number(valObj.cache_read) || 0);
-      const cacheWriteTokens =
-        delta > 0
-          ? Math.max(0, (Number(valObj.cache_write) || 0) - (oldToolData ? Number(oldToolData.cache_write) || 0 : 0))
-          : (Number(valObj.cache_write) || 0);
-
-      const event: TimeseriesEvent = {
-        timestamp: now,
-        tool,
-        model,
-        tokens: eventTokens,
-        inTokens,
-        outTokens,
-        cacheReadTokens,
-        cacheWriteTokens,
-        // Honest cache flag: true only when we actually have cache reads. The
-        // old `Math.random() < cacheRate` made cost & hit-rate non-reproducible.
-        cacheHit: cacheReadTokens > 0,
-        deviceId: deviceId
-      };
-      pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
-      hasTimeseriesEvents = true;
-    }
+    const event: TimeseriesEvent = {
+      timestamp: now,
+      tool,
+      model,
+      tokens: eventTokens,
+      inTokens,
+      outTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      // Honest cache flag: true only when we actually have cache reads. The
+      // old `Math.random() < cacheRate` made cost & hit-rate non-reproducible.
+      cacheHit: cacheReadTokens > 0,
+      deviceId: deviceId
+    };
+    pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
+    hasTimeseriesEvents = true;
   }
   
   if (hasTimeseriesEvents) {

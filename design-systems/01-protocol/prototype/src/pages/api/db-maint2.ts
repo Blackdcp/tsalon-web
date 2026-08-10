@@ -105,6 +105,32 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ success: true, mode: 'EVENTS', date, dump }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Scope-limited: wipe polluted historical timeseries for ONE account so the
+  // 7d/30d views are clean; deltas rebuild going forward. Requires an explicit
+  // userId or githubId so it can never touch other site users.
+  if (action === 'cleartimeseries') {
+    const wantUid = b && typeof b.userId === 'string' ? b.userId : null;
+    const wantGh = b && typeof b.githubId === 'string' ? b.githubId : null;
+    let cleared = 0;
+    const targets: string[] = [];
+    for (const [gh, ps] of Object.entries(groups)) {
+      if (wantGh && gh !== wantGh) continue;
+      for (const p of ps) {
+        const uid = String(p.userId);
+        if (wantUid && uid !== wantUid) continue;
+        if (!targets.includes(uid)) targets.push(uid);
+      }
+    }
+    for (const uid of targets) {
+      const keys = await scanKeys(`user:${uid}:timeseries:*`);
+      if (keys.length) {
+        await kv.del(...keys);
+        cleared += keys.length;
+      }
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'CLEAR_TIMESERIES', targets, cleared }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
   if (action === 'inspect') {
     const out: any[] = [];
     for (const [gh, ps] of Object.entries(groups)) {
