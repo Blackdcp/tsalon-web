@@ -1,7 +1,7 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { getSession } from 'auth-astro/server';
-import { getOrCreateUploadToken, kv } from '../../lib/kv';
+import { getOrCreateUploadToken, kv } from '../../../lib/kv';
 
 export const prerender = false;
 
@@ -17,17 +17,19 @@ if (session?.user?.id) {
     await kv.set(`user:${session.user.id}:info`, JSON.stringify({ name, image }));
   }
 }
+
+const displayToken = uploadToken || '';
 ---
 
-<BaseLayout alternatePath="/en/tokenrank/connect/" title="生成专属接入命令 — T Salon" description="绑定 GitHub，生成你的专属 Token 提取命令，加入排行榜。" image="/images/home-community-group.webp">
+<BaseLayout alternatePath="/tokenrank/connect/" title="Generate your personal access command — T Salon" description="Bind your GitHub account and generate your personal Token extraction command to join the leaderboard." image="/images/home-community-group.webp">
   <main>
     <header class="container page-title">
       <div class="page-title-main">
-        <h1>如何上榜</h1>
-        <p class="lead">绑定账号并生成接入命令</p>
+        <h1>How to get ranked</h1>
+        <p class="lead">Link your account and generate the access command</p>
       </div>
       <div class="page-title-side">
-        <a class="btn btn-outline" href="/tokenrank/">← 返回排行榜</a>
+        <a class="btn btn-outline" href="/en/tokenrank/">← Back to leaderboard</a>
       </div>
     </header>
 
@@ -37,17 +39,17 @@ if (session?.user?.id) {
           
           {!session ? (
             <div>
-              <p style="margin-bottom: 2rem;">上榜命令与你的 GitHub 账号绑定，需登录后才能查看。</p>
+              <p style="margin-bottom: 2rem;">The ranking command is bound to your GitHub account. Please sign in to view it.</p>
               <button id="login" class="btn btn-dark btn-block" style="font-size: 1.2rem; padding: 1rem;">
                 <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; vertical-align: middle;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-                使用 GitHub 登录
+                Sign in with GitHub
               </button>
             </div>
           ) : (
             <div>
               <img src={session.user?.image} alt={session.user?.name} style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 1rem;" />
-              <h3>已登录为 {session.user?.name}</h3>
-              <p style="margin-bottom: 2rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
+              <h3>Signed in as {session.user?.name}</h3>
+              <p style="margin-bottom: 2rem; color: var(--color-gray);">This is your personal access command. Do not share it with anyone.</p>
               <div class="code-tabs" style="margin-top: 1.5rem; text-align: left;">
                 <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.5rem; background: var(--background-subtle); border: 1px solid var(--border-default); border-radius: 6px; padding: 4px;">
                   <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1.5rem; border: none; background: var(--action-primary); color: var(--background-page); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Mac / Linux</button>
@@ -56,30 +58,30 @@ if (session?.user?.id) {
                 
                 <div id="mac-linux" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    极客方案：后台自动守护 (每 30 分钟)
+                    Geek mode: background auto-guard (every 30 min)
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端 (Terminal) 中运行一次，将立即同步首发数据并永久挂载后台定时任务：</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in Terminal — it syncs your first data immediately and permanently mounts a background scheduled task:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    (crontab -l 2>/dev/null | grep -v tsalon.tech; echo "*/30 * * * * bash -c \"\$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)\" -- --token=\"{uploadToken}\" > /tmp/tsalon-agent.log 2>&1") | crontab - && bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)" -- --token="{uploadToken}"
+                    (crontab -l 2>/dev/null | grep -v tsalon.tech; echo "*/30 * * * * bash -c \"\$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)\" -- --token="{displayToken}" > /tmp/tsalon-agent.log 2>&1") | crontab - && bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)" -- --token="{displayToken}"
                   </code>
                 </div>
 
                 <div id="windows" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    极客方案：后台自动守护 (每 30 分钟)
+                    Geek mode: background auto-guard (every 30 min)
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell (管理员) 中运行一次，将立即同步首发数据并挂载 30 分钟静默任务：</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in PowerShell (Admin) — it syncs your first data immediately and mounts a silent 30-minute task:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{uploadToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U; Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Principal $principal -Force; Start-ScheduledTask -TaskName "TSalonTokenAgent"
+                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{displayToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U; Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Principal $principal -Force; Start-ScheduledTask -TaskName "TSalonTokenAgent"
                   </code>
                 </div>
               </div>
               
               <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                完成后刷新 <a href="/tokenrank/" style="color: var(--action-link); text-decoration: underline;">排行榜页面</a> 即可看到数据。
+                After that, refresh the <a href="/en/tokenrank/" style="color: var(--action-link); text-decoration: underline;">leaderboard page</a> to see your data.
               </p>
               
-              <button id="logout" class="btn btn-outline" style="margin-top: 2rem;">退出登录</button>
+              <button id="logout" class="btn btn-outline" style="margin-top: 2rem;">Sign out</button>
             </div>
           )}
 
