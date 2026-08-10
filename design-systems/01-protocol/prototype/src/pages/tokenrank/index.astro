@@ -86,6 +86,7 @@ const getToolNoCache = (tool: string, tokens: number) => {
 };
 
 const formatDisplayAmount = (num: number, mode: string) => {
+  if (num === 0) return '暂无消耗';
   if (mode === 'cost') return '$' + num.toFixed(2);
   if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
   if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
@@ -93,6 +94,7 @@ const formatDisplayAmount = (num: number, mode: string) => {
 };
 
 const formatAmountStr = (num: number) => {
+  if (num === 0) return '0';
   if (num >= 100_000_000) return (num / 100_000_000).toFixed(2) + '亿';
   if (num >= 10_000) return (num / 10_000).toFixed(1) + '万';
   return num.toString();
@@ -164,7 +166,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       <!-- Card 1 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">{timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 <span class="help-icon">?</span></span>
+          <span class="bc-title">{timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 (Top 100) <span class="help-icon">?</span></span>
           {timeFilter !== 'today' && <span class="bc-trend positive">+558%</span>}
         </div>
         <div class="bc-value">
@@ -271,8 +273,6 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
       </div>
     </div>
 
-    <div class="leaderboard-list">
-      
       <!-- Table Headers (Desktop Only) -->
       <div class="lb-header-row">
         <div class="lb-h-left">
@@ -282,45 +282,54 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
         </div>
         <div class="lb-h-right">总 {modeFilter === 'cost' ? '花费' : 'Tokens'}</div>
       </div>
-      
-      <!-- Current User Section -->
-      {currentUser ? (
-        <div class="lb-card user-highlight-card">
-          <div class="lb-card-left">
-            <div class="lb-avatar-wrapper">
-              <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
+
+      <div class="leaderboard-list-container">
+        <!-- Current User Section (Integrated Highlight) -->
+        {currentUser ? (
+          <div class="list-row list-row-highlight">
+            <div class="lb-card-left">
+              <div class="lb-rank">
+                <div class="rank-text highlight">{currentUserRank > 0 ? `#${currentUserRank}` : '-'}</div>
+              </div>
+              <div class="lb-name-col">
+                <div class="lb-avatar-wrapper">
+                  <img src={currentUser.image} alt={currentUser.name} class="lb-avatar" crossorigin="anonymous" />
+                </div>
+                <div class="lb-name-text">
+                  <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
+                </div>
+              </div>
+              <div class="lb-details-col">
+                <span class="user-highlight-desc">感谢您的数据贡献</span>
+              </div>
             </div>
-            <div class="lb-user-info">
-              <div class="lb-name-row">
-                <strong>{currentUser.name}</strong> <span class="tag-me">我</span>
-              </div>
-              <div class="lb-details-row">
-                {(currentUser.tokens.total / 100000000).toFixed(2)}亿 tokens · {Object.keys(currentUser.tokens).length - 1} 个工具
-              </div>
-            </div>
-          </div>
-          <div class="lb-card-right">
-            <div class="lb-highlight-rank">{currentUserRank > 0 ? `#${currentUserRank}` : '-'}</div>
-            <button class="btn-share" onclick="openShareModal()">分享</button>
-          </div>
-        </div>
-      ) : (
-        <div class="lb-card user-onboard-card">
-          <div class="lb-card-left">
-            <div class="lb-user-info">
-              <div class="lb-name-row">
-                <strong>你尚未登榜</strong>
-              </div>
-              <div class="lb-details-row">
-                将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。
+            <div class="lb-card-right">
+              <div class="lb-totals" style="display: flex; align-items: center; gap: 1rem; justify-content: flex-end; width: 100%;">
+                <div class="lb-total-tokens">{formatDisplayAmount(currentUser.tokens.total || 0, modeFilter)}</div>
+                <button class="btn-share-mini" onclick="openShareModal()">分享</button>
               </div>
             </div>
           </div>
-          <div class="lb-card-right">
-            <a href="/tokenrank/connect/" class="btn-onboard">绑定 GitHub 上榜 ↗</a>
+        ) : (
+          <div class="list-row list-row-onboard">
+            <div class="lb-card-left">
+              <div class="lb-rank">
+                <div class="rank-text normal">-</div>
+              </div>
+              <div class="lb-name-col">
+                <div class="lb-name-text">
+                  <strong>尚未登榜</strong>
+                </div>
+              </div>
+              <div class="lb-details-col">
+                <span class="user-highlight-desc">将 GitHub 账号与本地环境绑定，运行专属提取脚本即可快速上榜。</span>
+              </div>
+            </div>
+            <div class="lb-card-right">
+              <a href="/tokenrank/connect/" class="btn-onboard-mini">绑定 GitHub 上榜 ↗</a>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <!-- Main Leaderboard -->
       {leaderboard.length === 0 ? (
@@ -346,13 +355,13 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
             });
 
           return (
-            <div class="lb-card" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
+            <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
               <div class="lb-card-left">
                 <div class="lb-rank">
-                  {idx === 0 ? <div class="rank-badge gold">1</div> : 
-                   idx === 1 ? <div class="rank-badge silver">2</div> : 
-                   idx === 2 ? <div class="rank-badge bronze">3</div> : 
-                   <div class="rank-badge normal">{idx + 1}</div>}
+                  {idx === 0 ? <div class="rank-text rank-1">#1</div> : 
+                   idx === 1 ? <div class="rank-text rank-2">#2</div> : 
+                   idx === 2 ? <div class="rank-text rank-3">#3</div> : 
+                   <div class="rank-text normal">{idx + 1}</div>}
                 </div>
                 <div class="lb-name-col">
                   <div class="lb-avatar-wrapper">
@@ -385,7 +394,7 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
           );
         })
       )}
-    </div>
+      </div>
 
     <!-- Floating Onboarding Widget (Bottom Pill) -->
     <a href="/tokenrank/connect/" class="floating-pill-widget">
@@ -564,29 +573,47 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
   .lb-h-details { flex: 1; }
   .lb-h-right { text-align: right; width: 120px; }
 
-  /* Leaderboard List */
-  .leaderboard-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+  /* Leaderboard List Container */
+  .leaderboard-list-container {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #eaeaea;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
   }
 
-  .lb-card {
+  .list-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1.25rem 1.5rem;
-    border-radius: 12px;
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
-    transition: all 0.2s ease;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s ease;
     cursor: pointer;
   }
-  .lb-card:hover {
-    background: var(--color-bg-alt);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-    border-color: var(--color-gray);
+  
+  .list-row:last-child {
+    border-bottom: none;
+  }
+
+  .list-row:hover {
+    background: #fafafa;
+  }
+  
+  /* Highlight Row (Current User) */
+  .list-row-highlight {
+    background: #f8fafc;
+    border-left: 3px solid #10b981;
+  }
+  
+  .list-row-onboard {
+    background: #f8f9fa;
+    border-left: 3px solid #cbd5e1;
+  }
+
+  .user-highlight-desc {
+    font-size: 0.9rem;
+    color: #64748b;
   }
 
   .lb-card-left {
@@ -602,38 +629,17 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     justify-content: center;
   }
   
-  .rank-badge {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
+  .rank-text {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 1.25rem;
     font-weight: 800;
-    font-size: 1rem;
-    color: var(--color-text);
   }
   
-  .rank-badge.gold {
-    background: linear-gradient(135deg, #FFD700 0%, #F59E0B 100%);
-    color: #fff;
-    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
-  }
-  .rank-badge.silver {
-    background: linear-gradient(135deg, #E2E8F0 0%, #94A3B8 100%);
-    color: #1E293B;
-    box-shadow: 0 4px 10px rgba(148, 163, 184, 0.3);
-  }
-  .rank-badge.bronze {
-    background: linear-gradient(135deg, #FDBA74 0%, #D97706 100%);
-    color: #fff;
-    box-shadow: 0 4px 10px rgba(217, 119, 6, 0.3);
-  }
-  .rank-badge.normal {
-    font-family: 'Inter', monospace;
-    color: var(--color-gray);
-    font-size: 1.1rem;
-  }
+  .rank-1 { color: #d97706; } /* Gold-ish */
+  .rank-2 { color: #475569; } /* Silver-ish */
+  .rank-3 { color: #b45309; } /* Bronze-ish */
+  .rank-text.normal { color: #94a3b8; font-size: 1.15rem; font-weight: 600; }
+  .rank-text.highlight { color: #10b981; }
 
   .lb-avatar-wrapper {
     width: 48px;
@@ -721,11 +727,12 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     font-weight: 600;
     letter-spacing: 0.02em;
   }
-  .tag-codex { background: rgba(16, 185, 129, 0.15); color: #059669; }
-  .tag-antigravity { background: rgba(139, 92, 246, 0.15); color: #7C3AED; }
-  .tag-cherry { background: var(--color-bg-alt); color: var(--color-text); border: 1px solid var(--color-border); }
-  .tag-claude { background: rgba(245, 158, 11, 0.15); color: #D97706; }
-  .tag-default { background: var(--color-bg-alt); color: var(--color-gray); }
+  .tool-tag.tag-codex { background: #d1fae5; color: #065f46; }
+  .tool-tag.tag-cursor { background: #e0e7ff; color: #3730a3; }
+  .tool-tag.tag-antigravity { background: #f3e8ff; color: #6b21a8; }
+  .tool-tag.tag-cherry { background: #ffe4e6; color: #9f1239; }
+  .tool-tag.tag-claude { background: #ffedd5; color: #9a3412; }
+  .tool-tag.tag-default { background: #f1f5f9; color: #475569; }
 
   .lb-card-right {
     display: flex;
@@ -752,68 +759,35 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     font-weight: 500;
   }
 
-  /* User Highlight Card */
-  .user-highlight-card {
-    background: var(--color-bg-alt);
-    border: 2px solid var(--color-text);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .user-highlight-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #10B981, #3B82F6, #8B5CF6);
-  }
-
-  .lb-highlight-rank {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: var(--color-text);
-    margin-bottom: 0.5rem;
-  }
-
-  .user-onboard-card {
-    background: var(--color-bg-alt);
-    border: 1px dashed var(--color-border);
-  }
-
-  .btn-onboard {
+  .btn-onboard-mini {
     background: var(--color-text);
     color: var(--color-bg);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
     font-weight: 600;
     text-decoration: none;
-    border: none;
-    cursor: pointer;
     transition: all 0.2s;
   }
   
-  .btn-share {
-    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  .btn-share-mini {
+    background: #10B981;
     color: #fff;
-    padding: 0.6rem 1.5rem;
-    border-radius: 24px;
-    font-size: 0.95rem;
-    font-weight: 700;
+    padding: 0.4rem 0.85rem;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
     border: none;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     transition: all 0.2s ease;
   }
   
-  .btn-onboard:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  .btn-onboard-mini:hover {
+    background: #333;
   }
 
-  .btn-share:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+  .btn-share-mini:hover {
+    background: #059669;
   }
   
   /* Floating Pill Widget */
@@ -881,22 +855,33 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
     .lb-header-row {
       display: none; /* Hide headers on mobile */
     }
-    .lb-user-info {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.25rem;
-    }
-    .lb-name-row {
-      width: auto;
-    }
-    .lb-card {
+    .list-row {
       flex-direction: column;
       align-items: flex-start;
       gap: 1rem;
     }
+    .lb-card-left {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    .lb-name-col {
+      width: auto;
+      flex: 1;
+    }
+    .lb-details-col {
+      width: 100%;
+      margin-left: 66px;
+      margin-top: 0.25rem;
+    }
     .lb-card-right {
       width: 100%;
-      justify-content: flex-end;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+    .lb-totals {
+      text-align: right;
     }
   }
 </style>

@@ -284,7 +284,8 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
   }
   
   // Dynamic aggregation for time windows
-  const userIds = await kv.zrevrange('leaderboard:total', 0, 500);
+  // Only query timeseries for the requested limit (e.g., top 100) to avoid 15000+ pipeline commands
+  const userIds = await kv.zrevrange('leaderboard:total', 0, limit > 0 ? limit - 1 : 99);
   if (!userIds || userIds.length === 0) return [];
 
   let days = 1;

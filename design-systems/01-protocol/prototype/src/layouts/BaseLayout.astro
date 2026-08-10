@@ -3,6 +3,7 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { localeFromPath, localizedPath, type SiteLocale } from '../lib/i18n';
 import '../../assets/pages.css';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title: string;
@@ -58,6 +59,7 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />
     <meta name="twitter:card" content="summary_large_image" />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    <ClientRouter />
   </head>
   <body>
     <a class="skip-link" href="#main-content">{locale === 'zh' ? '跳到主要内容' : 'Skip to main content'}</a>
