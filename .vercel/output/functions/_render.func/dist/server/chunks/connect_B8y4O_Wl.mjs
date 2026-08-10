@@ -1,9 +1,9 @@
-import { t as __exportAll } from "./rolldown-runtime_D7D4PA-g.mjs";
+import { n as __exportAll } from "./rolldown-runtime_Bl3dcgcQ.mjs";
 import { T as createAstro, g as addAttribute, i as renderComponent, m as maybeRenderHead, u as renderTemplate } from "./server_BYoeFzmQ.mjs";
 import { t as createComponent } from "./compiler_T6xVSnf5.mjs";
 import { n as renderScript, t as $$BaseLayout } from "./BaseLayout_CEcTJqZU.mjs";
 import { n as getSession } from "./server_B2Y7iMCN.mjs";
-import { o as kv, r as getOrCreateUploadToken } from "./kv_XNbTWQ3x.mjs";
+import { t as require_kv } from "./kv_BST5rHsr.mjs";
 //#region src/pages/tokenrank/connect.astro
 var connect_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Connect,
@@ -11,6 +11,7 @@ var connect_exports = /* @__PURE__ */ __exportAll({
 	prerender: () => false,
 	url: () => $$url
 });
+var import_kv = require_kv();
 createAstro("https://www.tsalon.tech");
 var $$Connect = createComponent(async ($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
@@ -18,10 +19,10 @@ var $$Connect = createComponent(async ($$result, $$props, $$slots) => {
 	const session = await getSession(Astro.request);
 	let uploadToken = null;
 	if (session?.user?.id) {
-		uploadToken = await getOrCreateUploadToken(session.user.id);
+		uploadToken = await (0, import_kv.getOrCreateUploadToken)(session.user.id);
 		const name = session.user?.name || "Anonymous";
 		const image = session.user?.image || "/icon-512x512.png";
-		if (kv) await kv.set(`user:${session.user.id}:info`, JSON.stringify({
+		if (import_kv.kv) await import_kv.kv.set(`user:${session.user.id}:info`, JSON.stringify({
 			name,
 			image
 		}));

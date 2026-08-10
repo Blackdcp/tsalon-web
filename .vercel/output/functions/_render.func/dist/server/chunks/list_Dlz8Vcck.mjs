@@ -1,14 +1,15 @@
-import { t as __exportAll } from "./rolldown-runtime_D7D4PA-g.mjs";
-import { n as getLeaderboard, t as getGlobalStats } from "./kv_XNbTWQ3x.mjs";
+import { n as __exportAll } from "./rolldown-runtime_Bl3dcgcQ.mjs";
+import { t as require_kv } from "./kv_BST5rHsr.mjs";
 //#region src/pages/api/rank/list.ts
 var list_exports = /* @__PURE__ */ __exportAll({
 	GET: () => GET,
 	prerender: () => false
 });
+var import_kv = require_kv();
 var GET = async () => {
 	try {
-		const leaderboard = await getLeaderboard(100);
-		const stats = await getGlobalStats();
+		const leaderboard = await (0, import_kv.getLeaderboard)(100);
+		const stats = await (0, import_kv.getGlobalStats)();
 		return new Response(JSON.stringify({
 			success: true,
 			data: {

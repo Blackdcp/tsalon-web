@@ -1,8 +1,11 @@
-import { t as __exportAll } from "./rolldown-runtime_D7D4PA-g.mjs";
+import { n as __exportAll } from "./rolldown-runtime_Bl3dcgcQ.mjs";
 import { T as createAstro, _ as defineScriptVars, g as addAttribute, i as renderComponent, m as maybeRenderHead, u as renderTemplate } from "./server_BYoeFzmQ.mjs";
 import { t as createComponent } from "./compiler_T6xVSnf5.mjs";
 import { n as renderScript, t as $$BaseLayout } from "./BaseLayout_CEcTJqZU.mjs";
-import { i as getUserAnalytics, o as kv } from "./kv_XNbTWQ3x.mjs";
+import { t as require_kv } from "./kv_BST5rHsr.mjs";
+//#region src/pages/tokenrank/user/[id].astro?astro&type=style&index=0&lang.css
+var import_kv = require_kv();
+//#endregion
 //#region src/pages/tokenrank/user/[id].astro
 var _id__exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Id,
@@ -16,10 +19,10 @@ var $$Id = createComponent(async ($$result, $$props, $$slots) => {
 	Astro.self = $$Id;
 	const { id } = Astro.params;
 	const days = Number(Astro.url.searchParams.get("days") || "30");
-	const userDataStr = await kv?.get(`user:${id}:data`);
+	const userDataStr = await import_kv.kv?.get(`user:${id}:data`);
 	if (!userDataStr) return Astro.redirect("/tokenrank");
 	const userData = JSON.parse(userDataStr);
-	const events = await getUserAnalytics(id, days);
+	const events = await (0, import_kv.getUserAnalytics)(id, days);
 	const todayDateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
 	const periodTokens = events.reduce((acc, e) => acc + e.tokens, 0);
 	const PRICING = {
