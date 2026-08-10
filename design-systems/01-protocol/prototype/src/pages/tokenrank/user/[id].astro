@@ -123,7 +123,9 @@ const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + (
 const cacheHitRate = periodTokens > 0 ? (cacheHitTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : (timeFilter === 'all' ? '93.0' : '0.0')) : '0.0';
 const freshTokens = Math.max(0, periodTokens - cacheHitTokens);
 
-const toolsUsed = events.length > 0 ? new Set(events.map(e => e.tool)).size : (userData.tokens ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length : 0);
+const toolsUsed = (timeFilter === 'all' && userData?.tokens)
+  ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length
+  : (events.length > 0 ? new Set(events.map(e => e.tool)).size : (userData?.tokens ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length : 0));
 
 // Daily averages
 const effectiveDays = timeFilter === 'today' || timeFilter === 'yesterday' ? 1 : days;
@@ -201,7 +203,21 @@ const dailyCost = lastXDays.map(date => dailyMap[date]?.cost || 0);
 const toolBreakdown: Record<string, number> = {};
 const modelBreakdown: Record<string, number> = {};
 
-if (events.length > 0) {
+// For 'all' mode, prefer the persistent userData (timeseries events have a 31-day
+// TTL so they miss any tool whose data is older than that — e.g. Cherry Studio
+// disappears from the personal page while still showing on the homepage).
+if (timeFilter === 'all' && userData && userData.tokens) {
+  Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const tot = typeof rawVal === 'object' && rawVal !== null ? (rawVal.total || 0) : (Number(rawVal) || 0);
+    toolBreakdown[tool] = tot;
+    let mod = 'unknown';
+    if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') mod = 'gpt-5.6-sol';
+    else if (tool === 'antigravity') mod = 'gemini-2.5-pro';
+    else if (tool === 'claude') mod = 'claude-3-5-sonnet';
+    modelBreakdown[mod] = (modelBreakdown[mod] || 0) + tot;
+  });
+} else if (events.length > 0) {
   events.forEach(e => {
     toolBreakdown[e.tool] = (toolBreakdown[e.tool] || 0) + (e.tokens || 0);
     modelBreakdown[e.model] = (modelBreakdown[e.model] || 0) + (e.tokens || 0);

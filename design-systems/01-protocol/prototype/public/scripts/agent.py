@@ -298,6 +298,33 @@ def scan_generic_extension(home, keywords):
 def scan_agent_logs(home, folder_name):
     return format_tokens(estimate_tokens_from_dirs([os.path.join(home, folder_name)], ['.jsonl', '.json', '.log', '.txt']))
 
+def scan_workbuddy(home):
+    # WorkBuddy is a standalone desktop app (not a VS Code extension), so its
+    # data lives in ~/.workbuddy/ on both Mac and Windows (home-based path).
+    # Scan usage-related files (traces, logs, sessions, app data) but skip
+    # runtime/marketplace dirs (binaries, plugins, connectors) which are not
+    # usage data. Estimate tokens as bytes/3 (same heuristic as other generic
+    # tools like Cherry Studio).
+    dirs_to_scan = [os.path.join(home, '.workbuddy')]
+    appdata = os.environ.get('APPDATA', '')
+    if appdata:
+        dirs_to_scan.append(os.path.join(appdata, 'workbuddy'))
+    exts = ['.json', '.log', '.txt', '.db', '.sqlite', '.vscdb', '.jsonl']
+    skip_dirs = {'binaries', 'plugins', 'connectors-marketplace', 'connectors', 'node_modules'}
+    total_bytes = 0
+    for d in dirs_to_scan:
+        if not os.path.exists(d):
+            continue
+        for root, dirs, files in os.walk(d):
+            dirs[:] = [x for x in dirs if x not in skip_dirs]
+            for f in files:
+                if any(f.lower().endswith(ext) for ext in exts):
+                    try:
+                        total_bytes += os.path.getsize(os.path.join(root, f))
+                    except:
+                        pass
+    return format_tokens(total_bytes // 3)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', required=True)
@@ -330,7 +357,7 @@ def main():
     results['openclaw'] = scan_agent_logs(home, '.openclaw')
     results['hermes'] = scan_agent_logs(home, '.hermes')
     results['qorder'] = scan_generic_extension(home, ['qorder', 'lingma', 'tongyi'])
-    results['workbuddy'] = scan_generic_extension(home, ['workbuddy'])
+    results['workbuddy'] = scan_workbuddy(home)
     
     final_tokens = {}
     for k, v in results.items():
