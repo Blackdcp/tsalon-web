@@ -183,6 +183,41 @@ export const POST: APIRoute = async ({ request }) => {
     }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Read-only: full key-state dump for ONE user (by numeric GitHub id). Answers
+  // "did this user connect? did they upload?" by showing info/token/data/
+  // timeseries/device keys and any token->userId mappings.
+  if (action === 'userdump') {
+    const uid = String((b?.githubId as string) || (b?.userId as string) || '');
+    const out: any = { githubId: uid, present: false, keys: {} as any };
+    if (!uid) {
+      return new Response(JSON.stringify({ success: false, error: 'githubId required' }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    }
+    const infoRaw = await kv.get(`user:${uid}:info`);
+    const tokenRaw = await kv.get(`user:${uid}:token`);
+    const dataRaw = await kv.get(`user:${uid}:data`);
+    out.keys.info = infoRaw ? JSON.parse(infoRaw as string) : null;
+    out.keys.token = tokenRaw || null;
+    out.keys.data = dataRaw ? JSON.parse(dataRaw as string) : null;
+    const tsKeys = await scanKeys(`user:${uid}:timeseries:*`);
+    out.keys.timeseriesDates = tsKeys.map(k => k.split(':').pop()).sort();
+    const devKeys = await scanKeys(`user:${uid}:device:*`);
+    out.keys.deviceKeys = devKeys;
+    const snapKeys = await scanKeys(`user:${uid}:device:*:snap:*`);
+    out.keys.snapshotKeys = snapKeys;
+    // reverse: any token mapping to this user
+    const allTokenKeys = await scanKeys('token:*:userId');
+    const reverse: string[] = [];
+    for (const tk of allTokenKeys) {
+      const v = await kv.get(tk);
+      if (v === uid) reverse.push(tk);
+    }
+    out.keys.tokenMappingsToThisUser = reverse;
+    out.present = !!(infoRaw || tokenRaw || dataRaw || tsKeys.length || devKeys.length);
+    const inLeaderboard = await kv.zscore('leaderboard:total', uid);
+    out.keys.leaderboardScore = inLeaderboard;
+    return new Response(JSON.stringify({ success: true, mode: 'USERDUMP', ...out }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
   // Read-only: show device cumulative SNAPSHOT keys and the per-day deltas the
   // robust attribution relies on. Confirms snapshots are being written on upload
   // and that gap-healing will work going forward.
