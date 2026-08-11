@@ -153,6 +153,16 @@ function formatTokens(total, inp = 0, out = 0, cacheRead = 0, cacheWrite = 0) {
   };
 }
 
+// Bucket an ISO timestamp into a Beijing (UTC+8) calendar date string.
+// Claude Code session jsonl timestamps are ISO with an offset; converting to
+// UTC+8 keeps daily buckets consistent with the server's beijingDateString.
+function beijingDateStr(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const beijing = new Date(d.getTime() + 8 * 3600 * 1000);
+  return beijing.toISOString().slice(0, 10);
+}
+
 // ---------------------------------------------------------------------------
 // directory-size estimate (cherry / kimi / generic extensions / agent logs)
 // ---------------------------------------------------------------------------
@@ -340,53 +350,111 @@ async function getCodexTokens(home) {
 }
 
 // ---------------------------------------------------------------------------
-// Claude Code — FIXED
-// Modern Claude Code stores per-project usage under `projects/<path>/` as
-// lastTotalInputTokens / lastTotalOutputTokens / lastTotalCacheReadInputTokens
-// / lastTotalCacheCreationInputTokens (plus a lastModelUsage tree). Older
-// versions used a top-level `usage` object with input_tokens / output_tokens /
-// cache_read_input_tokens / cache_creation_input_tokens. We read BOTH so the
-// detector works across versions. (Note: lastTotal*Tokens is the most-recent
-// session total per project; summing is a real, large number — a true lifetime
-// total would additionally require parsing ~/.claude/projects/*/<session>.jsonl.)
+// Claude Code — per-day history from session jsonl
+// Modern Claude Code stores cumulative usage per session in
+//   ~/.claude/projects/<encoded-path>/<session>.jsonl
+// Each assistant/result entry carries a cumulative `usage` for that session.
+// We take the FINAL cumulative usage of each session (overwriting as we scan,
+// so we never double-count mid-session increments) and bucket it by the
+// session's Beijing date. This yields both a true lifetime total AND a proper
+// per-day history (like codex), instead of the old single-lump snapshot.
+// We still read the per-project lastTotal*Tokens snapshot as a fallback for
+// machines where the projects dir is absent or empty.
 // ---------------------------------------------------------------------------
 function getClaudeTokens(home) {
+  // --- snapshot fallback (per-project lastTotal*Tokens / legacy usage) ---
   const claudePaths = [
     path.join(home, '.claude.json'),
     path.join(home, '.claude', 'usage.json'),
     path.join(process.env.APPDATA || '', 'Claude', 'usage.json'),
     path.join(process.env.LOCALAPPDATA || '', 'Claude', 'usage.json'),
   ];
-  let tot = 0, inp = 0, out = 0, cr = 0, cw = 0;
+  let snapIn = 0, snapOut = 0, snapCr = 0, snapCw = 0;
   for (const cp of claudePaths) {
     if (!cp || !fileExists(cp)) continue;
     try {
       const data = JSON.parse(fs.readFileSync(cp, 'utf8'));
-
-      // Modern schema: per-project lastTotal*Tokens
       const projects = data.projects;
       if (projects && typeof projects === 'object') {
         for (const pv of Object.values(projects)) {
           if (!pv || typeof pv !== 'object') continue;
-          inp += Number(pv.lastTotalInputTokens) || 0;
-          out += Number(pv.lastTotalOutputTokens) || 0;
-          cr += Number(pv.lastTotalCacheReadInputTokens) || 0;
-          cw += Number(pv.lastTotalCacheCreationInputTokens) || 0;
+          snapIn += Number(pv.lastTotalInputTokens) || 0;
+          snapOut += Number(pv.lastTotalOutputTokens) || 0;
+          snapCr += Number(pv.lastTotalCacheReadInputTokens) || 0;
+          snapCw += Number(pv.lastTotalCacheCreationInputTokens) || 0;
         }
       }
-
-      // Legacy schema: top-level usage object
       const u = data.usage;
       if (u && typeof u === 'object') {
-        inp += Number(u.input_tokens) || 0;
-        out += Number(u.output_tokens) || 0;
-        cr += Number(u.cache_read_input_tokens) || 0;
-        cw += Number(u.cache_creation_input_tokens) || 0;
+        snapIn += Number(u.input_tokens) || 0;
+        snapOut += Number(u.output_tokens) || 0;
+        snapCr += Number(u.cache_read_input_tokens) || 0;
+        snapCw += Number(u.cache_creation_input_tokens) || 0;
       }
     } catch {}
   }
-  tot = inp + out + cr + cw;
-  return formatTokens(tot, inp, out, cr, cw);
+  const snapTotal = snapIn + snapOut + snapCr + snapCw;
+
+  // --- true lifetime + per-day history from session jsonl ---
+  const dayMap = {}; // dateStr -> {total,in,out,cache_read,cache_write}
+  let jsonlTotal = 0;
+  const projectsDir = path.join(home, '.claude', 'projects');
+  if (dirExists(projectsDir)) {
+    const files = [];
+    walk(projectsDir, (f) => { if (f.endsWith('.jsonl')) files.push(f); });
+    for (const sf of files) {
+      let lastUsage = null;
+      let sessDate = null;
+      try {
+        const content = fs.readFileSync(sf, 'utf8');
+        for (const line of content.split('\n')) {
+          if (!line.trim()) continue;
+          let d;
+          try { d = JSON.parse(line); } catch { continue; }
+          if (!d || typeof d !== 'object') continue;
+          if (!sessDate) {
+            const bd = beijingDateStr(d.timestamp);
+            if (bd) sessDate = bd;
+          }
+          const u = d.usage;
+          if (u && typeof u === 'object') {
+            const inT = Number(u.input_tokens) || 0;
+            const outT = Number(u.output_tokens) || 0;
+            const cwT = Number(u.cache_creation_input_tokens) || 0;
+            const crT = Number(u.cache_read_input_tokens) || 0;
+            if (inT || outT || cwT || crT) {
+              lastUsage = { in: inT, out: outT, cache_read: crT, cache_write: cwT };
+            }
+          }
+        }
+      } catch {}
+      if (lastUsage && sessDate) {
+        const tot = lastUsage.in + lastUsage.out + lastUsage.cache_read + lastUsage.cache_write;
+        if (!dayMap[sessDate]) dayMap[sessDate] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+        const m = dayMap[sessDate];
+        m.total += tot; m.in += lastUsage.in; m.out += lastUsage.out;
+        m.cache_read += lastUsage.cache_read; m.cache_write += lastUsage.cache_write;
+        jsonlTotal += tot;
+      }
+    }
+  }
+
+  // Prefer the true jsonl lifetime; fall back to snapshot only if no jsonl data.
+  const useJsonl = jsonlTotal > 0;
+  const total = useJsonl ? Math.max(jsonlTotal, snapTotal) : snapTotal;
+  const inT = useJsonl ? Object.values(dayMap).reduce((a, m) => a + m.in, 0) : snapIn;
+  const outT = useJsonl ? Object.values(dayMap).reduce((a, m) => a + m.out, 0) : snapOut;
+  const crT = useJsonl ? Object.values(dayMap).reduce((a, m) => a + m.cache_read, 0) : snapCr;
+  const cwT = useJsonl ? Object.values(dayMap).reduce((a, m) => a + m.cache_write, 0) : snapCw;
+
+  // history[date][tool] matches the codex shape the server already consumes.
+  const history = {};
+  for (const [dateStr, m] of Object.entries(dayMap)) {
+    history[dateStr] = {
+      claude: { total: m.total, in: m.in, out: m.out, cache_read: m.cache_read, cache_write: m.cache_write },
+    };
+  }
+  return { claude: formatTokens(total, inT, outT, crT, cwT), history };
 }
 
 // ---------------------------------------------------------------------------
@@ -490,7 +558,9 @@ async function main() {
   if (codexData.history) Object.assign(history, codexData.history);
 
   console.log('Scanning Claude Code...');
-  results.claude = getClaudeTokens(home);
+  const claudeData = getClaudeTokens(home);
+  results.claude = claudeData.claude;
+  if (claudeData.history) Object.assign(history, claudeData.history);
 
   console.log('Scanning generic tools...');
   results.cherry = scanGenericApp(home, ['cherry-studio', 'CherryStudio']);
