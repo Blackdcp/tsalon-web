@@ -325,6 +325,42 @@ export const POST: APIRoute = async ({ request }) => {
     }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Comprehensive orphan cleanup: wipe the ENTIRE key namespace for any user
+  // whose userId is a non-numeric UUID (leftovers from an old agent version).
+  // Removes `user:<uuid>:*` (device/data/info/timeseries/snap) AND any reverse
+  // `token:<tok>:userId` map pointing at a stale uuid. DRY-run unless confirm.
+  // Never touches a numeric GitHub-id profile.
+  if (action === 'stalekeys') {
+    const userKeys = await scanKeys('user:*');
+    const staleUserIds: string[] = [];
+    const orphanKeys: string[] = [];
+    for (const k of userKeys) {
+      const uid = k.split(':')[1];
+      if (!/^\d+$/.test(uid || '')) {
+        if (!staleUserIds.includes(uid)) staleUserIds.push(uid);
+        orphanKeys.push(k);
+      }
+    }
+    const staleTokenMaps: string[] = [];
+    const allTokenKeys = await scanKeys('token:*:userId');
+    for (const tk of allTokenKeys) {
+      const v = await kv.get(tk);
+      if (v && !/^\d+$/.test(v) && staleUserIds.includes(v)) staleTokenMaps.push(tk);
+    }
+    let deleted: string[] = [];
+    if (b?.confirm) {
+      if (orphanKeys.length) await kv.del(...orphanKeys);
+      if (staleTokenMaps.length) await kv.del(...staleTokenMaps);
+      deleted = [...orphanKeys, ...staleTokenMaps];
+    }
+    return new Response(JSON.stringify({
+      success: true, mode: 'STALEKEYS', dryRun: !b?.confirm,
+      staleUserIds, orphanKeyCount: orphanKeys.length, orphanKeysSample: orphanKeys.slice(0, 30),
+      staleTokenMapCount: staleTokenMaps.length, deletedCount: deleted.length
+    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
+
   if (action === 'inspect') {
     const out: any[] = [];
     for (const [gh, ps] of Object.entries(groups)) {
