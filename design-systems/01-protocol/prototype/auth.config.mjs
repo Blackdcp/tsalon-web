@@ -11,24 +11,28 @@ export default defineConfig({
   callbacks: {
     jwt: ({ token, profile }) => {
       // Upon initial sign-in, profile contains the GitHub user profile
-      if (profile?.id) {
-        token.sub = profile.id.toString();
+      const p = /** @type {any} */ (profile);
+      const t = /** @type {any} */ (token);
+      if (p?.id) {
+        t.sub = p.id.toString();
       }
       // Capture the GitHub LOGIN (username) so the leaderboard can show the
       // canonical GitHub handle instead of the free-text display name.
-      if ((profile as any)?.login) {
-        (token as any).login = (profile as any).login;
+      if (p?.login) {
+        t.login = p.login;
       }
-      return token;
+      return t;
     },
     session: ({ session, token }) => {
-      if (session?.user) {
-        session.user.id = token.sub;
-        if ((token as any).login) {
-          (session.user as any).login = (token as any).login;
+      const s = /** @type {any} */ (session);
+      const t = /** @type {any} */ (token);
+      if (s?.user) {
+        s.user.id = t.sub;
+        if (t?.login) {
+          s.user.login = t.login;
         }
       }
-      return session;
+      return s;
     },
   },
 });
