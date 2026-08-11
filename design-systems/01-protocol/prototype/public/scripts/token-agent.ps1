@@ -1,7 +1,7 @@
 param (
     [Parameter(Mandatory=$false)]
     [string]$token,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$host_url = "https://www.tsalon.tech"
 )
@@ -11,27 +11,41 @@ if (-not $token) {
     exit 1
 }
 
-$agentScriptUrl = "$host_url/scripts/agent.py"
-$tempAgentPath = Join-Path $env:TEMP "tsalon-agent.py"
+# Detect node
+$nodeCmd = $null
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    $nodeCmd = "node"
+} elseif (Get-Command nodejs -ErrorAction SilentlyContinue) {
+    $nodeCmd = "nodejs"
+}
 
-Write-Host "⬇️ Downloading Token Agent script for Windows..." -ForegroundColor Cyan
-try {
-    Invoke-WebRequest -Uri $agentScriptUrl -OutFile $tempAgentPath -UseBasicParsing
-} catch {
-    Write-Host "❌ Failed to download agent script." -ForegroundColor Red
+if (-not $nodeCmd) {
+    Write-Host "❌ Node.js is not installed or not in PATH. Install Node.js (https://nodejs.org) and retry." -ForegroundColor Red
     exit 1
 }
 
-$pythonCmd = "python"
-if (Get-Command py -ErrorAction SilentlyContinue) {
-    $pythonCmd = "py"
-} elseif (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    if (-not (Get-Command python3 -ErrorAction SilentlyContinue)) {
-        Write-Host "❌ Python is not installed or not in PATH. Please install Python first." -ForegroundColor Red
-        exit 1
-    } else {
-        $pythonCmd = "python3"
-    }
+$tsalonDir = Join-Path $env:USERPROFILE ".tsalon"
+if (-not (Test-Path $tsalonDir)) {
+    New-Item -ItemType Directory -Path $tsalonDir -Force | Out-Null
 }
 
-& $pythonCmd $tempAgentPath --token=$token --host=$host_url
+$agentPath  = Join-Path $tsalonDir "agent.mjs"
+$sqlJsPath  = Join-Path $tsalonDir "sql-wasm.cjs"
+$sqlWasmPath = Join-Path $tsalonDir "sql-wasm.wasm"
+$logPath    = Join-Path $tsalonDir "agent.log"
+
+Write-Host "⬇️ Downloading Token Agent (Node.js)..." -ForegroundColor Cyan
+Invoke-WebRequest -Uri "$host_url/scripts/agent.mjs" -OutFile $agentPath -UseBasicParsing
+if (-not (Test-Path $sqlJsPath) -or (Get-Item $sqlJsPath).Length -eq 0) {
+    Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.cjs" -OutFile $sqlJsPath -UseBasicParsing
+}
+if (-not (Test-Path $sqlWasmPath) -or (Get-Item $sqlWasmPath).Length -eq 0) {
+    Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.wasm" -OutFile $sqlWasmPath -UseBasicParsing
+}
+
+# Run and capture all output to a log so failures are never silent.
+& $nodeCmd $agentPath --token=$token --host=$host_url *> $logPath
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Agent exited with error. See $logPath" -ForegroundColor Red
+    exit $LASTEXITCODE
+}

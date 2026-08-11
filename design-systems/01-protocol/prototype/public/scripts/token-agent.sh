@@ -1,5 +1,5 @@
 #!/bin/bash
-# T Salon Token Agent
+# T Salon Token Agent (Node.js)
 # Usage: curl -sL https://www.tsalon.tech/scripts/token-agent.sh | bash -s -- --token="YOUR_TOKEN"
 
 # Parse arguments
@@ -29,24 +29,28 @@ if [ -z "$HOST" ]; then
     HOST="https://www.tsalon.tech"
 fi
 
-# Determine python command
-if command -v python3 &>/dev/null; then
-    PYTHON_CMD="python3"
-elif command -v python &>/dev/null; then
-    PYTHON_CMD="python"
+# Determine node command
+if command -v node >/dev/null 2>&1; then
+    NODE_CMD="node"
+elif command -v nodejs >/dev/null 2>&1; then
+    NODE_CMD="nodejs"
 else
-    echo "❌ Error: Python 3 is required but not installed."
+    echo "❌ Error: Node.js is required but not installed. Install Node.js (https://nodejs.org) and retry."
     exit 1
 fi
 
-echo "⬇️ Downloading Token Agent script..."
-curl -sL "${HOST}/scripts/agent.py" -o /tmp/tsalon-agent.py
+TSALON_DIR="$HOME/.tsalon"
+mkdir -p "$TSALON_DIR"
 
-if [ $? -ne 0 ]; then
-    echo "❌ Error: Failed to download the agent script."
-    exit 1
+echo "⬇️ Downloading Token Agent (Node.js)..."
+curl -fsSL "${HOST}/scripts/agent.mjs" -o "$TSALON_DIR/agent.mjs"
+
+# sql.js assets: download once and cache (avoid re-fetching the wasm every run)
+if [ ! -s "$TSALON_DIR/sql-wasm.cjs" ]; then
+    curl -fsSL "${HOST}/scripts/sql-wasm.cjs" -o "$TSALON_DIR/sql-wasm.cjs"
+fi
+if [ ! -s "$TSALON_DIR/sql-wasm.wasm" ]; then
+    curl -fsSL "${HOST}/scripts/sql-wasm.wasm" -o "$TSALON_DIR/sql-wasm.wasm"
 fi
 
-$PYTHON_CMD /tmp/tsalon-agent.py --token="$TOKEN" --host="$HOST"
-
-rm /tmp/tsalon-agent.py
+"$NODE_CMD" "$TSALON_DIR/agent.mjs" --token="$TOKEN" --host="$HOST"
