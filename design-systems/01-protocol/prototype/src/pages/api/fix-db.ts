@@ -1,6 +1,13 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
 
+// CRITICAL: with `output: 'static'` (astro.config.mjs) every route is
+// prerendered to a static file unless it opts out. Without this, the GET
+// handler runs at BUILD time and ignores the ?merge/?confirm/?persist query
+// string entirely (the frozen build output is always returned). This broke the
+// merge/clean/persist jobs silently until they were called with the right flag.
+export const prerender = false;
+
 // Maintenance endpoint for the timeseries store.
 //
 // Three jobs, all safe-by-default (DRY-RUN unless ?confirm=1):
