@@ -1,0 +1,31 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props { event: CollectionEntry<'eventsEn'>; }
+const { event } = Astro.props;
+const ended = event.data.endDate.getTime() < Date.now() || event.data.registration.status === 'archived';
+const registrationOpen = !ended && ['open', 'waitlist'].includes(event.data.registration.status);
+const href = `/en/events/${event.id}/`;
+const cta = ended ? 'Event recap' : registrationOpen ? 'Register now' : 'Event details';
+const state = ended ? 'Ended' : registrationOpen ? 'Open' : 'Upcoming';
+const stateClass = ended ? 'is-ended' : registrationOpen ? 'is-open' : 'is-upcoming';
+const date = event.data.startDate.toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric', timeZone: event.data.timezone });
+const mode = event.data.attendanceMode === 'offline' ? 'In person' : event.data.attendanceMode === 'online' ? 'Online' : 'Hybrid';
+---
+<a
+  class="event-tile"
+  href={href}
+>
+  <figure class="event-tile-media">
+    <img src={event.data.cover} alt={event.data.coverAlt} loading="lazy" />
+  </figure>
+  <div class="event-tile-body">
+    <p class="event-tile-series mono"><span>{event.data.series.toUpperCase()} / {mode}</span><i class:list={['event-tile-status', stateClass]}>{state}</i></p>
+    <h3>{event.data.title}</h3>
+    <div class="event-tile-facts">
+      <span><i>Date</i>{date}</span>
+      <span><i>Location</i>{event.data.city ?? mode}</span>
+    </div>
+    <strong class="event-tile-action">{cta} <i>→</i></strong>
+  </div>
+</a>
