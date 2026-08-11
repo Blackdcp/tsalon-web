@@ -197,20 +197,20 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         if (tool === 'total' || tool === 'history') continue;
         const isObj = typeof rawVal === 'object' && rawVal !== null;
         const hVal = isObj ? (Number((rawVal as any).total) || 0) : (Number(rawVal) || 0);
-        // Drop zeros. Also reject CUMULATIVE-DUMP misreports: when the agent sends
-        // its full lifetime total in place of a daily value, hVal ≈ deviceTotal.
-        // Skip those so we never write a phantom that then displays as 0 — the
-        // snapshot-delta path below is the reliable source for such days.
+        // Drop zeros only. The ONLY safe rejection for a past-day history entry is
+        // a CUMULATIVE-DUMP misreport (agent sent its lifetime total as a day:
+        // hVal ≈ deviceTotal). We must NOT drop legitimately large days just for
+        // exceeding a median-derived cap — that silently zeroed out busy days
+        // (e.g. 2026-08-10 reported 2.33B but 3×median was only 1.34B, so the
+        // whole day was discarded and the personal page showed 0).
         const isCumulativeDump = deviceTotal > 0 && hVal > 0.5 * deviceTotal;
-        if (hVal <= 0 || hVal > DAY_CAP || isCumulativeDump) continue;
+        if (hVal <= 0 || isCumulativeDump) continue;
         outEvents.push({ tool, tokens: hVal });
       }
-      // cap the day at DAY_CAP by dropping the largest events
-      outEvents.sort((a, b) => b.tokens - a.tokens);
-      let running = 0;
+      // Write every event for the day. No DAY_CAP truncation: a real busy day can
+      // legitimately exceed any statistical cap, and the cumulative-dump guard
+      // above is the sole protective filter.
       for (const e of outEvents) {
-        if (running > 0 && running + e.tokens > DAY_CAP) break;
-        running += e.tokens;
         const isObj = typeof (toolsObj as Record<string, any>)[e.tool] === 'object';
         const rv: any = (toolsObj as Record<string, any>)[e.tool];
         const inT = isObj && rv.in ? Number(rv.in) || 0 : e.tokens * 0.9;
