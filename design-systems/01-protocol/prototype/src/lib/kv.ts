@@ -25,6 +25,7 @@ export interface TimeseriesEvent {
   cacheWriteTokens?: number;
   cacheHit: boolean;
   deviceId?: string;
+  source?: string;
 }
 
 
@@ -105,11 +106,28 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   };
   
   await kv.set(`user:${userId}:device:${deviceId}:data`, JSON.stringify(deviceData));
-  
+
+  const todayStr = beijingDateString();
+
+  // 1.4 Record a daily cumulative SNAPSHOT for this device. Cumulative snapshots
+  // are reliable (the agent's "today" delta of 275M verified accurate); per-day
+  // historyData is NOT. Daily usage is later derived from the delta between
+  // consecutive snapshots — immune to the agent reporting its lifetime total as
+  // a single day. Retain ~120 days per device.
+  {
+    const snapKey = `user:${userId}:device:${deviceId}:snap:${todayStr}`;
+    await kv.set(snapKey, JSON.stringify({ date: todayStr, total: deviceTotal, updatedAt: new Date().toISOString() }));
+    const snaps = await scanKeys(`user:${userId}:device:${deviceId}:snap:*`);
+    if (snaps.length > 120) {
+      snaps.sort();
+      const toDel = snaps.slice(0, snaps.length - 120);
+      if (toDel.length) await kv.del(...toDel);
+    }
+  }
+
   // 1.5 Generate Timeseries Deltas
   const now = Date.now();
-  const todayStr = beijingDateString();
-  
+
   const pipe = kv.pipeline();
   let hasTimeseriesEvents = false;
   
@@ -129,7 +147,6 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   //    value if present, else skip and let the next upload (now baselined)
   //    record the real delta.
   // ---------------------------------------------------------------------------
-  const ABSOLUTE_FLOOR = 1_000_000_000;
   const DAY_FLOOR = 850_000_000;
 
   const modelFor = (tool: string): string => {
@@ -180,7 +197,12 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         if (tool === 'total' || tool === 'history') continue;
         const isObj = typeof rawVal === 'object' && rawVal !== null;
         const hVal = isObj ? (Number((rawVal as any).total) || 0) : (Number(rawVal) || 0);
-        if (hVal <= 0 || hVal > ABSOLUTE_FLOOR) continue; // drop zero + phantom events
+        // Drop zeros. Also reject CUMULATIVE-DUMP misreports: when the agent sends
+        // its full lifetime total in place of a daily value, hVal ≈ deviceTotal.
+        // Skip those so we never write a phantom that then displays as 0 — the
+        // snapshot-delta path below is the reliable source for such days.
+        const isCumulativeDump = deviceTotal > 0 && hVal > 0.5 * deviceTotal;
+        if (hVal <= 0 || hVal > DAY_CAP || isCumulativeDump) continue;
         outEvents.push({ tool, tokens: hVal });
       }
       // cap the day at DAY_CAP by dropping the largest events
@@ -211,6 +233,72 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         hasTimeseriesEvents = true;
       }
     }
+  }
+
+  // 1.6 Heal MISSING past days from cumulative SNAPSHOT DELTAS (robust path).
+  // Each device upload stores `snap:DATE = cumulative total`. The delta between
+  // consecutive snapshots is the true daily usage for the later date — immune to
+  // the agent's flaky per-day history. Runs every upload, so gaps self-heal as
+  // snapshots accumulate across days. `today` is handled by the delta loop below,
+  // so it is skipped here. We only fill days that have NO timeseries yet, never
+  // overwriting good data.
+  {
+    const snapKeysAll = await scanKeys(`user:${userId}:device:*:snap:*`);
+    const perDevice: Record<string, { date: string; total: number }[]> = {};
+    for (const sk of snapKeysAll) {
+      const raw = await kv.get(sk);
+      if (!raw) continue;
+      try {
+        const o = JSON.parse(raw);
+        const did = sk.split(':')[3];
+        (perDevice[did] ||= []).push({ date: o.date, total: o.total });
+      } catch { /* ignore */ }
+    }
+    // Derive a sane cap from the distribution of snapshot deltas so a context-
+    // resend phantom (~full lifetime in one jump) is rejected, but legit big days pass.
+    const allDeltas: number[] = [];
+    for (const did of Object.keys(perDevice)) {
+      const arr = perDevice[did].sort((a, b) => (a.date < b.date ? -1 : 1));
+      for (let i = 1; i < arr.length; i++) {
+        const d = arr[i].total - arr[i - 1].total;
+        if (d > 0) allDeltas.push(d);
+      }
+    }
+    allDeltas.sort((a, b) => a - b);
+    const snapMedian = allDeltas.length ? allDeltas[Math.floor(allDeltas.length / 2)] : 0;
+    const SNAP_DAY_CAP = snapMedian > 0 ? Math.max(10 * snapMedian, 2_000_000_000) : 2_000_000_000;
+
+    const snapPipe = kv.pipeline();
+    let snapHasEvents = false;
+    for (const did of Object.keys(perDevice)) {
+      const arr = perDevice[did].sort((a, b) => (a.date < b.date ? -1 : 1));
+      for (let i = 1; i < arr.length; i++) {
+        const prev = arr[i - 1];
+        const cur = arr[i];
+        if (cur.date >= todayStr) continue; // today handled by delta loop
+        const dayKey = `user:${userId}:timeseries:${cur.date}`;
+        const existing = await kv.lrange(dayKey, 0, -1);
+        if (existing.length) continue; // already attributed — never overwrite good data
+        const delta = cur.total - prev.total;
+        if (delta <= 0 || delta > SNAP_DAY_CAP) continue;
+        const ev: TimeseriesEvent = {
+          timestamp: new Date(cur.date).getTime(),
+          tool: 'codex',
+          model: 'gpt-5.6-sol',
+          tokens: delta,
+          inTokens: delta * 0.9,
+          outTokens: delta * 0.1,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          cacheHit: false,
+          deviceId: did,
+          source: 'snapshot-delta'
+        };
+        snapPipe.rpush(dayKey, JSON.stringify(ev));
+        snapHasEvents = true;
+      }
+    }
+    if (snapHasEvents) await snapPipe.exec();
   }
 
   // --- TODAY from delta ---
