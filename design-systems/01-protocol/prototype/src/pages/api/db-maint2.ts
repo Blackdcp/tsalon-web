@@ -233,27 +233,35 @@ export const POST: APIRoute = async ({ request }) => {
       const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(info.image || '');
       const ghId = m ? m[1] : null;
       let login = info.login || '';
-      if (!login && ghId) {
+      let ghName = info.name || '';
+      if (ghId) {
         try {
           const r = await fetch(`https://api.github.com/user/${ghId}`, { headers: { 'User-Agent': 'tsalon' } });
-          if (r.ok) { const j = await r.json(); login = j.login || ''; }
+          if (r.ok) {
+            const j = await r.json();
+            login = login || j.login || '';
+            // Always refresh the DISPLAY name from GitHub so stale/empty values
+            // (e.g. a login stored as name) get corrected to the real display name.
+            if (j.name) ghName = j.name;
+          }
         } catch {}
       }
-      if (!login) continue;
+      if (!login && !ghName) continue;
       const uid = ik.split(':')[1];
-      info.login = login;
+      info.login = login || info.login;
+      info.name = ghName || info.name;
       if (b?.confirm) {
         await kv.set(ik, JSON.stringify(info));
         const dataRaw = await kv.get(`user:${uid}:data`);
         if (dataRaw) {
           try {
             const d = JSON.parse(dataRaw as string);
-            d.name = login;
+            d.name = ghName || d.name;
             await kv.set(`user:${uid}:data`, JSON.stringify(d));
           } catch {}
         }
       }
-      results.push({ uid, login, applied: !!b?.confirm });
+      results.push({ uid, login, name: ghName, applied: !!b?.confirm });
     }
     return new Response(JSON.stringify({ success: true, mode: 'BACKFILL_LOGIN', dryRun: !b?.confirm, updated: results }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
