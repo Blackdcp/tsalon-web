@@ -55,7 +55,10 @@ export const POST: APIRoute = async ({ request }) => {
     }
   } while (cursor !== '0');
 
-  const profileKeys = await scanKeys('user:*:data');
+  // Exclude device snapshots (`user:*:device:*:data`, which also end in `:data`)
+  // so they aren't mis-counted as profiles and so the `fix` action never rewrites
+  // a device key thinking it's a profile.
+  const profileKeys = (await scanKeys('user:*:data')).filter(k => !k.includes(':device:'));
   const profiles: any[] = [];
   if (profileKeys.length) {
     const raws = await kv.mget(profileKeys);
