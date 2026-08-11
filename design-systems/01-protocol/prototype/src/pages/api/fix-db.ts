@@ -143,7 +143,12 @@ export const GET: APIRoute = async ({ request }) => {
 
   // 4. Merge: dedupe profiles of the same GitHub person (stale orphan builds).
   if (mergeOnly) {
-    const profileKeys = await scanKeys('user:*:data');
+    // IMPORTANT: `user:*:data` also matches device snapshots
+    // (`user:*:device:*:data`), which end in `:data`. Those are NOT profiles and
+    // must be excluded, or they get mis-counted as duplicate profiles and break
+    // the subset check (device keys carry no timeseries, so every orphan would
+    // falsely fail the timeseries-subset test).
+    const profileKeys = (await scanKeys('user:*:data')).filter(k => !k.includes(':device:'));
     const profiles: any[] = [];
     if (profileKeys.length) {
       const raws = await kv.mget(profileKeys);
