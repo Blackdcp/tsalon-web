@@ -235,7 +235,7 @@ export const POST: APIRoute = async ({ request }) => {
       let login = info.login || '';
       if (!login && ghId) {
         try {
-          const r = await fetch(`https://api.github.com/users/${ghId}`, { headers: { 'User-Agent': 'tsalon' } });
+          const r = await fetch(`https://api.github.com/user/${ghId}`, { headers: { 'User-Agent': 'tsalon' } });
           if (r.ok) { const j = await r.json(); login = j.login || ''; }
         } catch {}
       }
