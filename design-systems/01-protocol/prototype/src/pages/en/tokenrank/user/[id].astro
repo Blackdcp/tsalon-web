@@ -80,9 +80,11 @@ if (timeFilter === 'yesterday') {
 // Basic aggregations
 let periodTokens = events.reduce((acc, e) => acc + (e.tokens || 0), 0);
 
-// Fallback to userData.tokens when in 'all' mode or when no events in DB
-if (timeFilter === 'all' && periodTokens === 0 && userData && userData.tokens) {
-  periodTokens = typeof userData.tokens.total === 'number' ? userData.tokens.total : 0;
+// For 'all' (lifetime) view, the headline total must be the persistent lifetime
+// total from the profile — not just the sum of the days we have daily
+// timeseries for. Keeps the personal page consistent with the homepage 'all'.
+if (timeFilter === 'all' && userData && userData.tokens) {
+  periodTokens = typeof userData.tokens.total === 'number' ? userData.tokens.total : periodTokens;
 }
 
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
@@ -148,14 +150,18 @@ if (timeFilter === 'all' && periodCost === 0 && userData && userData.tokens) {
 
 const cacheSavings = Math.max(0, periodNoCacheCost - periodCost);
 
-const cacheHitTokens = events.filter(e => e.cacheHit).reduce((acc, e) => acc + (e.tokens || 0), 0);
+// Cache READ tokens only (not the whole event), so "effective" = total minus
+// the cached portion. This matches the homepage dashboard's definition; the old
+// code summed the full event for cache-hit events, which over-subtracted and
+// made the personal page's effective token / cache hit-rate diverge.
+const cacheReadTokensTotal = events.reduce((acc, e) => acc + (e.cacheReadTokens || 0), 0);
 // Real hit-rate from events; when the window has expired ('all' with no
 // timeseries), derive it from the persistent user breakdown instead of a
 // hardcoded 93%.
 let cacheHitRate = periodTokens > 0
-  ? (cacheHitTokens > 0 ? (cacheHitTokens / periodTokens * 100).toFixed(1) : '0.0')
+  ? (cacheReadTokensTotal > 0 ? (cacheReadTokensTotal / periodTokens * 100).toFixed(1) : '0.0')
   : '0.0';
-if (cacheHitTokens === 0 && userData && userData.tokens) {
+if (cacheReadTokensTotal === 0 && userData && userData.tokens) {
   let cRead = 0, cTotal = 0;
   Object.entries(userData.tokens).forEach(([tool, raw]: [string, any]) => {
     if (tool === 'total' || tool === 'history') return;
@@ -165,7 +171,7 @@ if (cacheHitTokens === 0 && userData && userData.tokens) {
   });
   if (cTotal > 0) cacheHitRate = (cRead / cTotal * 100).toFixed(1);
 }
-const freshTokens = Math.max(0, periodTokens - cacheHitTokens);
+const freshTokens = Math.max(0, periodTokens - cacheReadTokensTotal);
 
 const toolsUsed = (timeFilter === 'all' && userData?.tokens)
   ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length
@@ -420,7 +426,7 @@ const chartData = {
           <span class="label">Cache Hit Rate ❔</span>
         </div>
         <div class="value">{cacheHitRate}<span class="unit">%</span></div>
-        <div class="subtext">Cache read {formatAmountStr(cacheHitTokens)}</div>
+        <div class="subtext">Cache read {formatAmountStr(cacheReadTokensTotal)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
