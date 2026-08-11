@@ -154,6 +154,32 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ success: true, mode: 'CLEAR_DAY', date, targets, cleared }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Read-only: enumerate the REAL profile keys (`user:*:data` excluding device
+  // snapshots) vs device keys (`user:*:device:*:data`), since both end in
+  // `:data` and a naive scan conflates them. This reveals whether profile
+  // totals are inflated by summing multiple device cumulative snapshots.
+  if (action === 'listprofiles') {
+    const allKeys = await scanKeys('user:*:data');
+    const profiles: any[] = [];
+    const devices: any[] = [];
+    for (const k of allKeys) {
+      const raw = await kv.get(k);
+      if (!raw) continue;
+      try {
+        const p = JSON.parse(raw as string);
+        const entry = { key: k, userId: String(p.userId), name: p.name, image: p.image, total: p.tokens?.total || 0, updatedAt: p.updatedAt };
+        if (k.includes(':device:')) devices.push(entry);
+        else profiles.push(entry);
+      } catch {}
+    }
+    const lb = await kv.zrange('leaderboard:total', 0, -1);
+    return new Response(JSON.stringify({
+      success: true, mode: 'LISTPROFILES',
+      profileKeyCount: profiles.length, deviceKeyCount: devices.length,
+      profiles, devices, leaderboardMembers: lb
+    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
 
   if (action === 'inspect') {
     const out: any[] = [];
