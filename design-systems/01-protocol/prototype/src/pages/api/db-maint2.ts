@@ -218,6 +218,46 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ success: true, mode: 'USERDUMP', ...out }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Backfill the GitHub LOGIN (username) into every existing `user:*:info` and
+  // into `user:*:data` so the leaderboard shows the canonical handle. The login
+  // is resolved from the numeric GitHub id embedded in the avatar URL via the
+  // public GitHub API. DRY-run unless ?confirm=1.
+  if (action === 'backfilllogin') {
+    const infoKeys = await scanKeys('user:*:info');
+    const results: any[] = [];
+    for (const ik of infoKeys) {
+      const raw = await kv.get(ik);
+      if (!raw) continue;
+      let info: any;
+      try { info = JSON.parse(raw as string); } catch { continue; }
+      const m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(info.image || '');
+      const ghId = m ? m[1] : null;
+      let login = info.login || '';
+      if (!login && ghId) {
+        try {
+          const r = await fetch(`https://api.github.com/users/${ghId}`, { headers: { 'User-Agent': 'tsalon' } });
+          if (r.ok) { const j = await r.json(); login = j.login || ''; }
+        } catch {}
+      }
+      if (!login) continue;
+      const uid = ik.split(':')[1];
+      info.login = login;
+      if (b?.confirm) {
+        await kv.set(ik, JSON.stringify(info));
+        const dataRaw = await kv.get(`user:${uid}:data`);
+        if (dataRaw) {
+          try {
+            const d = JSON.parse(dataRaw as string);
+            d.name = login;
+            await kv.set(`user:${uid}:data`, JSON.stringify(d));
+          } catch {}
+        }
+      }
+      results.push({ uid, login, applied: !!b?.confirm });
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'BACKFILL_LOGIN', dryRun: !b?.confirm, updated: results }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
   // Read-only: show device cumulative SNAPSHOT keys and the per-day deltas the
   // robust attribution relies on. Confirms snapshots are being written on upload
   // and that gap-healing will work going forward.

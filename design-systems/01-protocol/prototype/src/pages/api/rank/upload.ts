@@ -35,7 +35,9 @@ export const POST: APIRoute = async ({ request }) => {
     // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.
     const rawInfo = await kv.get(`user:${userId}:info`);
     const userInfo = rawInfo ? JSON.parse(rawInfo) : null;
-    const name = userInfo?.name || 'Anonymous Developer';
+    // Prefer the GitHub LOGIN (username) so the leaderboard shows the canonical
+    // handle, falling back to the display name, then a generic label.
+    const name = userInfo?.login || userInfo?.name || 'Anonymous Developer';
     const image = userInfo?.image || '/icon-512x512.png';
 
     // Preserve the full breakdown {total, in, out, cache_read, cache_write} when

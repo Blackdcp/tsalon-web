@@ -12,9 +12,10 @@ if (session?.user?.id) {
   uploadToken = await getOrCreateUploadToken(session.user.id);
   // Also store user info so the CLI agent can pick it up
   const name = session.user?.name || 'Anonymous';
+  const login = (session.user as any)?.login || '';
   const image = session.user?.image || '/icon-512x512.png';
   if (kv) {
-    await kv.set(`user:${session.user.id}:info`, JSON.stringify({ name, image }));
+    await kv.set(`user:${session.user.id}:info`, JSON.stringify({ name, login, image }));
   }
 }
 ---
