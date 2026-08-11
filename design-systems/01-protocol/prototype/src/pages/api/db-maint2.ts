@@ -183,6 +183,34 @@ export const POST: APIRoute = async ({ request }) => {
     }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Read-only: show device cumulative SNAPSHOT keys and the per-day deltas the
+  // robust attribution relies on. Confirms snapshots are being written on upload
+  // and that gap-healing will work going forward.
+  if (action === 'snapcheck') {
+    const wantGh = (body.githubId as string) || (body.userId as string);
+    const snapKeysAll = await scanKeys('user:*:device:*:snap:*');
+    const perDevice: Record<string, { date: string; total: number }[]> = {};
+    for (const sk of snapKeysAll) {
+      const raw = await kv.get(sk);
+      if (!raw) continue;
+      try {
+        const o = JSON.parse(raw);
+        const uid = sk.split(':')[1];
+        if (wantGh && uid !== wantGh) continue;
+        const did = sk.split(':')[3];
+        const k = `${uid}/${did}`;
+        (perDevice[k] ||= []).push({ date: o.date, total: o.total });
+      } catch {}
+    }
+    const out: any[] = [];
+    for (const k of Object.keys(perDevice)) {
+      const arr = perDevice[k].sort((a, b) => (a.date < b.date ? -1 : 1));
+      const deltas = arr.slice(1).map((c, i) => ({ date: c.date, delta: c.total - arr[i].total }));
+      out.push({ device: k, snapshots: arr, computedDailyDeltas: deltas });
+    }
+    return new Response(JSON.stringify({ success: true, mode: 'SNAPCHECK', snapshotKeyCount: snapKeysAll.length, devices: out }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+
 
   if (action === 'inspect') {
     const out: any[] = [];
