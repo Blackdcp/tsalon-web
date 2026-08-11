@@ -187,7 +187,7 @@ export const POST: APIRoute = async ({ request }) => {
   // robust attribution relies on. Confirms snapshots are being written on upload
   // and that gap-healing will work going forward.
   if (action === 'snapcheck') {
-    const wantGh = (body.githubId as string) || (body.userId as string);
+    const wantGh = (b?.githubId as string) || (b?.userId as string);
     const snapKeysAll = await scanKeys('user:*:device:*:snap:*');
     const perDevice: Record<string, { date: string; total: number }[]> = {};
     for (const sk of snapKeysAll) {
