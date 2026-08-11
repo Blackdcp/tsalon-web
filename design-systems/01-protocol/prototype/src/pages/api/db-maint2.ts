@@ -294,6 +294,36 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ success: true, mode: 'SNAPCHECK', snapshotKeyCount: snapKeysAll.length, devices: out }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
+  // Read-only first, then scope-limited delete: enumerate every `user:*:info`
+  // key and flag the ones whose userId is a non-numeric UUID (leftovers from an
+  // old agent version — orphan :info keys that are not on the leaderboard and
+  // have no :data profile). DRY-run unless confirm. Confirm deletes ONLY the
+  // non-numeric stale :info keys, never a real numeric GitHub-id profile.
+  if (action === 'staleinfo') {
+    const infoKeys = await scanKeys('user:*:info');
+    const rows: any[] = [];
+    const staleUserIds: string[] = [];
+    for (const ik of infoKeys) {
+      const uid = ik.split(':')[1];
+      const isNumeric = /^\d+$/.test(uid || '');
+      let name = null, login = null;
+      const raw = await kv.get(ik);
+      if (raw) { try { const o = JSON.parse(raw as string); name = o.name; login = o.login; } catch {} }
+      rows.push({ key: ik, userId: uid, numeric: isNumeric, name, login });
+      if (!isNumeric) staleUserIds.push(uid);
+    }
+    let deleted: string[] = [];
+    if (b?.confirm && staleUserIds.length) {
+      const delKeys = staleUserIds.map((u) => `user:${u}:info`);
+      await kv.del(...delKeys);
+      deleted = staleUserIds;
+    }
+    return new Response(JSON.stringify({
+      success: true, mode: 'STALEINFO', dryRun: !b?.confirm,
+      totalInfoKeys: infoKeys.length, staleCount: staleUserIds.length,
+      staleUserIds, deleted, all: rows
+    }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
 
   if (action === 'inspect') {
     const out: any[] = [];
