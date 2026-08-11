@@ -109,16 +109,6 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ success: true, mode: 'EVENTS', date, dump }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
 
-  // Read-only: dump the temporary probe capture written by the upload endpoint
-  // for the owner account, so we can see exactly what history dates the agent
-  // sent (diagnosis of the 2026-08-10 gap). Remove with the probe.
-  if (action === 'debugread') {
-    const raw = await kv.get('user:154967851:debug:lastUpload');
-    let parsed: any = null;
-    if (raw) { try { parsed = JSON.parse(raw as string); } catch {} }
-    return new Response(JSON.stringify({ success: true, mode: 'DEBUGREAD', value: parsed }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-  }
-
   // Scope-limited: wipe polluted historical timeseries for ONE account so the
   // 7d/30d views are clean; deltas rebuild going forward. Requires an explicit
   // userId or githubId so it can never touch other site users.

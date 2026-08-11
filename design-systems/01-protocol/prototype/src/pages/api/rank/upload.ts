@@ -46,37 +46,6 @@ export const POST: APIRoute = async ({ request }) => {
     const dynamicTokens: Record<string, any> = {};
     const historyData = data.history || null;
 
-    // TEMP DEBUG PROBE (scoped to owner account only): capture exactly what the
-    // agent sends in `history` so we can see whether 2026-08-10 is present and
-    // what value it carries (real per-day vs a lifetime-cumulative dump). Remove
-    // once the 08-10 gap is diagnosed.
-    if (userId === '154967851') {
-      try {
-        const histSummary: Record<string, number> = {};
-        if (historyData) {
-          for (const [dt, obj] of Object.entries(historyData as Record<string, any>)) {
-            let day = 0;
-            for (const v of Object.values(obj as Record<string, any>)) {
-              const hv = typeof v === 'object' && v !== null ? (Number((v as any).total) || 0) : (Number(v) || 0);
-              day += hv;
-            }
-            histSummary[dt] = day;
-          }
-        }
-        await kv.set(
-          `user:154967851:debug:lastUpload`,
-          JSON.stringify({
-            at: new Date().toISOString(),
-            device_id: device_id,
-            actualDeviceId,
-            topKeys: Object.keys(data),
-            histSummary,
-            has0810: !!(historyData && historyData['2026-08-10'])
-          })
-        );
-      } catch { /* probe must never break the upload */ }
-    }
-
     for (const [key, val] of Object.entries(data)) {
       if (key !== 'total' && key !== 'history') {
         if (typeof val === 'object' && val !== null) {
