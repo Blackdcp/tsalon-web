@@ -2,6 +2,9 @@ import GitHub from '@auth/core/providers/github';
 import { defineConfig } from 'auth-astro';
 
 export default defineConfig({
+  // Vercel serves behind a proxy; Auth.js requires trustHost in this setup or
+  // it refuses to set session cookies (login appears to "not stick").
+  trustHost: true,
   providers: [
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID,

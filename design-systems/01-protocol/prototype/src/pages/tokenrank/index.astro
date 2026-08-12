@@ -8,7 +8,7 @@ import { beijingDateString } from '../../lib/date';
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
-const timeFilter = Astro.url.searchParams.get('time') || 'today';
+const timeFilter = Astro.url.searchParams.get('time') || 'all';
 const rawMode = Astro.url.searchParams.get('mode') || 'tokens';
 const modeFilter = rawMode === 'cost' ? 'cost' : 'tokens';
 
