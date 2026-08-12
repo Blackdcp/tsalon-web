@@ -76,14 +76,43 @@ if (-not (Test-Path $sqlWasmPath) -or (Get-Item $sqlWasmPath).Length -eq 0) {
     Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.wasm" -OutFile $sqlWasmPath -UseBasicParsing
 }
 
-# ---------- run once, now (output shown in this window, NOT silent) ----------
+# ---------- run once, now (output shown in this window AND appended to a shared log) ----------
+# Open the log with FileShare.ReadWrite + Append so a concurrently-running scheduled task
+# (which runs this same script) can't lock the file and crash this run with "file in use".
 Write-Host "🚀 Running agent now..." -ForegroundColor Cyan
-& $nodeExe $agentPath --token=$token --host=$host_url *> $logPath
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Agent exited with error (code $LASTEXITCODE). Last lines of ${logPath}:" -ForegroundColor Red
-    Get-Content $logPath -Tail 25 | ForEach-Object { Write-Host "   $_" }
+function Open-LogStream {
+    $attempts = 0
+    while ($true) {
+        try {
+            return [System.IO.File]::Open($logPath, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+        } catch {
+            $attempts++
+            if ($attempts -ge 3) {
+                # fallback to a timestamped log so this run can never fail on a lock
+                $fallback = Join-Path $tsalonDir "agent-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+                return [System.IO.File]::Open($fallback, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+            }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+$logStream = Open-LogStream
+$actualLogPath = $logStream.Name
+$logWriter = New-Object System.IO.StreamWriter($logStream)
+try {
+    & $nodeExe $agentPath --token=$token --host=$host_url 2>&1 | ForEach-Object {
+        $logWriter.WriteLine($_)
+        $_   # also echo live to this window
+    }
+    $exitCode = $LASTEXITCODE
+} finally {
+    $logWriter.Close()
+}
+if ($exitCode -ne 0) {
+    Write-Host "❌ Agent exited with error (code $exitCode). Last lines of ${actualLogPath}:" -ForegroundColor Red
+    Get-Content $actualLogPath -Tail 25 | ForEach-Object { Write-Host "   $_" }
 } else {
-    Write-Host "✓ Agent ran successfully. Full log: $logPath" -ForegroundColor Green
+    Write-Host "✓ Agent ran successfully. Full log: $actualLogPath" -ForegroundColor Green
 }
 
 # ---------- register scheduled task (every 30 min + at logon, self-updating) ----------
