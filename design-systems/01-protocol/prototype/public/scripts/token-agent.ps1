@@ -86,15 +86,19 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "✓ Agent ran successfully. Full log: $logPath" -ForegroundColor Green
 }
 
-# ---------- register scheduled task (every 30 min, no admin needed) ----------
+# ---------- register scheduled task (every 30 min + at logon, self-updating) ----------
 $taskName = "TSalonTokenAgent"
-$arg = "-WindowStyle Hidden -Command `"& '$($nodeExe -replace "'", "''")' '$($agentPath -replace "'", "''")' --token=$token --host=$host_url`""
-$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument $arg
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30)
+# Re-run the bootstrap on every tick so the agent ALWAYS runs the LATEST code
+# (matches token-agent.sh on Mac/Linux, which re-curls agent.mjs each run). This
+# keeps Windows users on the current agent without ever re-running the installer.
+$bootstrapCmd = "`$env:TSALON_TOKEN='$($token -replace "'", "''")'; iex (irm '$host_url/scripts/token-agent.ps1')"
+$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -WindowStyle Hidden -Command $bootstrapCmd"
+$triggerTimer = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30)
+$triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited
 try {
-    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Force -ErrorAction Stop | Out-Null
-    Write-Host "✓ Scheduled task '$taskName' registered (every 30 min, runs in background)." -ForegroundColor Green
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerTimer, $triggerLogon) -Principal $principal -Force -ErrorAction Stop | Out-Null
+    Write-Host "✓ Scheduled task '$taskName' registered (every 30 min + at logon, self-updating)." -ForegroundColor Green
 } catch {
     Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow
     Write-Host "   The one-time run above still succeeded; re-run this command later if you want auto-sync." -ForegroundColor Yellow
