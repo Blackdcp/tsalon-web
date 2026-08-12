@@ -1,7 +1,7 @@
 <#
   T Salon Token Agent — Windows bootstrap (Node.js).
   Invoked via (no .ps1 file is written to disk, so ExecutionPolicy never blocks it):
-    powershell -NoProfile -Command "$env:TSALON_TOKEN='<token>'; iex (irm 'https://www.tsalon.tech/scripts/token-agent.ps1')"
+    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm 'https://www.tsalon.tech/scripts/token-agent.ps1'))) -token '<token>'"
 #>
 param(
     [string]$token,
@@ -80,7 +80,7 @@ if (-not (Test-Path $sqlWasmPath) -or (Get-Item $sqlWasmPath).Length -eq 0) {
 Write-Host "🚀 Running agent now..." -ForegroundColor Cyan
 & $nodeExe $agentPath --token=$token --host=$host_url *> $logPath
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Agent exited with error (code $LASTEXITCODE). Last lines of $logPath:" -ForegroundColor Red
+    Write-Host "❌ Agent exited with error (code $LASTEXITCODE). Last lines of ${logPath}:" -ForegroundColor Red
     Get-Content $logPath -Tail 25 | ForEach-Object { Write-Host "   $_" }
 } else {
     Write-Host "✓ Agent ran successfully. Full log: $logPath" -ForegroundColor Green

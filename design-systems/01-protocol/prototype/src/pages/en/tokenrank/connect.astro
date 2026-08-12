@@ -71,9 +71,9 @@ const displayToken = uploadToken || '';
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
                     Advanced: run in the background (every 30 min)
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in PowerShell (as Admin). It syncs your data right away and creates a silent background task that runs every 30 minutes:</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in PowerShell (no admin needed). It syncs your data right away and creates a silent background task that runs every 30 minutes:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -Command `"Invoke-RestMethod -Uri 'https://www.tsalon.tech/scripts/token-agent.ps1' -OutFile `"$env:TEMP\agent.ps1`"; & `"$env:TEMP\agent.ps1`" -token '{displayToken}'`""; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30); $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U; Register-ScheduledTask -TaskName "TSalonTokenAgent" -Action $action -Trigger $trigger -Principal $principal -Force; Start-ScheduledTask -TaskName "TSalonTokenAgent"
+                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm 'https://www.tsalon.tech/scripts/token-agent.ps1'))) -token '{displayToken}'"
                   </code>
                 </div>
               </div>
