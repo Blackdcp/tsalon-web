@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
 import { beijingDateString as todayStr } from '../../lib/date';
+import { rejectUnauthorizedMaintenance } from '../../lib/maintenance-auth';
 
 // CRITICAL: with `output: 'static'` (astro.config.mjs) every route is
 // prerendered to a static file unless it opts out. Without this, POST hits a
@@ -28,6 +29,8 @@ const ABSOLUTE_FLOOR = 850_000_000;
 const MULTIPLE_OF_MEDIAN = 10;
 
 export const POST: APIRoute = async ({ request }) => {
+  const rejected = rejectUnauthorizedMaintenance(request);
+  if (rejected) return rejected;
   if (!kv) return new Response('No KV', { status: 500 });
 
   let action = 'inspect';

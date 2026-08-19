@@ -6,7 +6,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
@@ -20,8 +20,8 @@ const __dirname = path.dirname(__filename);
 let _SQL = null;
 async function getSQL() {
   if (_SQL) return _SQL;
-  const require = createRequire(import.meta.url);
-  const initSqlJs = require('./sql-wasm.cjs');
+  const localRequire = createRequire(import.meta.url);
+  const initSqlJs = localRequire('./sql-wasm.cjs');
   _SQL = await initSqlJs({
     locateFile: (f) => path.join(__dirname, f),
   });
@@ -131,7 +131,12 @@ function getOrCreateDeviceId(home) {
       if (did) return did;
     } catch {}
   }
-  const newId = `dev_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  // Prefer a deterministic fallback so deleting ~/.tsalon does not register the
+  // same physical computer as a brand-new device and double its lifetime total.
+  // Existing installations keep their current id for a seamless migration.
+  const stableSeed = [os.hostname(), os.platform(), os.arch()].join('|');
+  const digest = createHash('sha256').update(stableSeed).digest('hex').slice(0, 16);
+  const newId = `dev_${digest}`;
   try { fs.writeFileSync(deviceIdPath, newId); } catch {}
   return newId;
 }
@@ -161,6 +166,41 @@ function beijingDateStr(iso) {
   if (isNaN(d.getTime())) return null;
   const beijing = new Date(d.getTime() + 8 * 3600 * 1000);
   return beijing.toISOString().slice(0, 10);
+}
+
+function usageStats(raw = {}) {
+  const inp = Number.parseInt(raw.input_tokens) || 0;
+  const out = Number.parseInt(raw.output_tokens) || 0;
+  const cacheRead = Number.parseInt(raw.cached_input_tokens || raw.cache_read_input_tokens) || 0;
+  const cacheWrite = Number.parseInt(raw.cache_write_input_tokens) || 0;
+  const total = Number.parseInt(raw.total_tokens) || (inp + out);
+  return { total, in: inp, out, cache_read: cacheRead, cache_write: cacheWrite };
+}
+
+function usageDelta(current, previous) {
+  if (!previous || current.total < previous.total) return current;
+  const delta = {};
+  for (const key of ['total', 'in', 'out', 'cache_read', 'cache_write']) {
+    delta[key] = Math.max(0, current[key] - previous[key]);
+  }
+  return delta;
+}
+
+// Merge at date -> tool -> counters depth. Object.assign at the date level
+// caused Claude history to replace Codex history whenever both used the same day.
+function mergeHistory(target, source) {
+  for (const [date, tools] of Object.entries(source || {})) {
+    if (!target[date]) target[date] = {};
+    for (const [tool, raw] of Object.entries(tools || {})) {
+      if (!target[date][tool]) {
+        target[date][tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+      }
+      for (const key of ['total', 'in', 'out', 'cache_read', 'cache_write']) {
+        target[date][tool][key] += Number(raw?.[key]) || 0;
+      }
+    }
+  }
+  return target;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +274,7 @@ async function getCodexTokens(home) {
         dtStr = `${parts[idx + 1]}-${parts[idx + 2]}-${parts[idx + 3]}`;
       }
       let lastUsage = null;
+      let previousStats = null;
       try {
         const content = fs.readFileSync(sf, 'utf8');
         for (const line of content.split('\n')) {
@@ -244,21 +285,22 @@ async function getCodexTokens(home) {
               const p = d.payload || {};
               if (p.type === 'token_count') {
                 const info = p.info || {};
-                if ('total_token_usage' in info) lastUsage = info.total_token_usage;
+                if ('total_token_usage' in info) {
+                  lastUsage = info.total_token_usage;
+                  const currentStats = usageStats(lastUsage);
+                  const delta = usageDelta(currentStats, previousStats);
+                  const eventDate = beijingDateStr(d.timestamp) || dtStr;
+                  if (delta.total > 0) addHistory(eventDate, 'codex', delta);
+                  previousStats = currentStats;
+                }
               }
             } catch {}
           }
         }
       } catch {}
       if (lastUsage) {
-        const inp = parseInt(lastUsage.input_tokens) || 0;
-        const out = parseInt(lastUsage.output_tokens) || 0;
-        const cr = parseInt(lastUsage.cached_input_tokens || lastUsage.cache_read_input_tokens) || 0;
-        const cw = parseInt(lastUsage.cache_write_input_tokens) || 0;
-        const tot = parseInt(lastUsage.total_tokens) || (inp + out);
-        const s = { total: tot, in: inp, out, cache_read: cr, cache_write: cw };
+        const s = usageStats(lastUsage);
         for (const k of Object.keys(s)) tokens.codex[k] += s[k];
-        addHistory(dtStr, 'codex', s);
       }
     }
   }
@@ -319,7 +361,7 @@ async function getCodexTokens(home) {
     try {
       const rows = await queryRows(
         p,
-        'SELECT actual_source_kind, created_at, SUM(input_tokens), SUM(output_tokens), SUM(cached_input_tokens), SUM(reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2'
+        'SELECT actual_source_kind, created_at, SUM(total_tokens), SUM(input_tokens), SUM(output_tokens), SUM(cached_input_tokens), SUM(reasoning_output_tokens) FROM request_token_stats GROUP BY 1, 2'
       );
       for (const row of rows) {
         const source = row[0];
@@ -328,18 +370,18 @@ async function getCodexTokens(home) {
         if (typeof rawDt === 'number') {
           let t = rawDt;
           if (t > 1e11) t /= 1000;
-          dt = new Date(t * 1000).toISOString().slice(0, 10);
+          dt = beijingDateStr(new Date(t * 1000).toISOString());
         } else if (rawDt) {
-          dt = String(rawDt).slice(0, 10);
+          dt = beijingDateStr(String(rawDt)) || String(rawDt).slice(0, 10);
         }
-        const inp = parseInt(row[2]) || 0;
-        const out = parseInt(row[3]) || 0;
-        const reasoning = parseInt(row[5]) || 0;
-        const out2 = out + reasoning;
-        const cache = parseInt(row[4]) || 0;
-        const tot = inp + out2 + cache;
-        const s = { total: tot, in: inp, out: out2, cache_read: cache, cache_write: 0 };
-        const target = (!source || /proxy/i.test(String(source)) || source !== 'openai_account') ? 'codex_proxy' : 'codex';
+        const total = parseInt(row[2]) || 0;
+        const inp = parseInt(row[3]) || 0;
+        const out = parseInt(row[4]) || 0;
+        const cache = parseInt(row[5]) || 0;
+        // cached_input_tokens and reasoning_output_tokens are breakdowns of
+        // input/output, not extra tokens. Prefer the database's total_tokens.
+        const s = { total: total || (inp + out), in: inp, out, cache_read: cache, cache_write: 0 };
+        const target = source === 'openai_account' ? 'codex' : 'codex_proxy';
         for (const k of Object.keys(s)) tokens[target][k] += s[k];
         addHistory(dt, target, s);
       }
@@ -454,7 +496,7 @@ function getClaudeTokens(home) {
       claude: { total: m.total, in: m.in, out: m.out, cache_read: m.cache_read, cache_write: m.cache_write },
     };
   }
-  return { claude: formatTokens(total, inT, outT, crT, cwT), history };
+  return { claude: formatTokens(total, inT, outT, crT, cwT), history, historyComplete: useJsonl };
 }
 
 // ---------------------------------------------------------------------------
@@ -555,12 +597,12 @@ async function main() {
   const codexData = await getCodexTokens(home);
   results.codex = codexData.codex;
   results.codex_proxy = codexData.codex_proxy;
-  if (codexData.history) Object.assign(history, codexData.history);
+  if (codexData.history) mergeHistory(history, codexData.history);
 
   console.log('Scanning Claude Code...');
   const claudeData = getClaudeTokens(home);
   results.claude = claudeData.claude;
-  if (claudeData.history) Object.assign(history, claudeData.history);
+  if (claudeData.history) mergeHistory(history, claudeData.history);
 
   console.log('Scanning generic tools...');
   results.cherry = scanGenericApp(home, ['cherry-studio', 'CherryStudio']);
@@ -587,7 +629,14 @@ async function main() {
   console.log(`  => Grand Total: ${totalAll.toLocaleString()} tokens`);
 
   const deviceId = getOrCreateDeviceId(home);
-  const payload = { token, device_id: deviceId, data: finalTokens };
+  const historyCompleteTools = ['codex', 'codex_proxy'];
+  if (claudeData.historyComplete) historyCompleteTools.push('claude');
+  const payload = {
+    token,
+    device_id: deviceId,
+    history_complete_tools: historyCompleteTools,
+    data: finalTokens,
+  };
 
   if (dryRun) {
     console.log('🧪 DRY-RUN: not uploading. Payload:');
@@ -612,7 +661,11 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error('Fatal error:', e);
-  process.exit(1);
-});
+if (path.resolve(process.argv[1] || '') === __filename) {
+  main().catch((e) => {
+    console.error('Fatal error:', e);
+    process.exit(1);
+  });
+}
+
+export { getCodexTokens, getClaudeTokens, mergeHistory, usageDelta, usageStats };

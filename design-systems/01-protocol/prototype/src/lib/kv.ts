@@ -60,8 +60,33 @@ export async function scanKeys(pattern: string): Promise<string[]> {
   return found;
 }
 
-export async function updateTokenUsage(userId: string, name: string, image: string, tokens: Record<string, any>, deviceId: string = 'default_device', historyData: Record<string, Record<string, any>> | null = null) {
+export async function updateTokenUsage(
+  userId: string,
+  name: string,
+  image: string,
+  tokens: Record<string, any>,
+  deviceId: string = 'default_device',
+  historyData: Record<string, Record<string, any>> | null = null,
+  historyCompleteTools: string[] = [],
+) {
   if (!kv) return;
+
+  // Mac and Windows commonly upload on the same half-hour boundary. Serialize
+  // per-user rebuilds so one device cannot overwrite the other device's list
+  // rewrite. A crashed invocation self-recovers when the short TTL expires.
+  const lockKey = `user:${userId}:update-lock`;
+  const lockId = crypto.randomUUID();
+  let locked = false;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const ok = await kv.set(lockKey, lockId, 'PX', 30_000, 'NX');
+    if (ok === 'OK') { locked = true; break; }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!locked) throw new Error('Token update is busy; retry on the next agent run');
+
+  const completeHistoryTools = new Set(
+    historyCompleteTools.filter(t => /^[a-z0-9_+-]+$/i.test(t)),
+  );
   
   // Normalize incoming tokens to always be {total, in, out, cache_read, cache_write}
   const normalizedTokens: Record<string, any> = {};
@@ -109,11 +134,32 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
 
   const todayStr = beijingDateString();
 
-  // 1.4 Record a daily cumulative SNAPSHOT for this device. Cumulative snapshots
-  // are reliable (the agent's "today" delta of 275M verified accurate); per-day
-  // historyData is NOT. Daily usage is later derived from the delta between
-  // consecutive snapshots — immune to the agent reporting its lifetime total as
-  // a single day. Retain ~120 days per device.
+  // A v2 agent declares which per-day histories are complete. Remove every old
+  // event for those tool/device pairs before writing the current source of truth.
+  // This repairs stale, session-start-bucketed, capped, and duplicated history
+  // automatically on the next upload without touching another device.
+  if (completeHistoryTools.size > 0) {
+    const tsKeys = await scanKeys(`user:${userId}:timeseries:*`);
+    for (const key of tsKeys) {
+      const raw = await kv.lrange(key, 0, -1);
+      const events = raw
+        .map((s: any) => { try { return JSON.parse(s); } catch { return null; } })
+        .filter(Boolean);
+      const kept = events.filter((e: any) => !(
+        e.deviceId === deviceId && completeHistoryTools.has(String(e.tool || ''))
+      ));
+      if (kept.length === events.length) continue;
+      await kv.del(key);
+      if (kept.length) {
+        const rebuild = kv.pipeline();
+        kept.forEach((e: any) => rebuild.rpush(key, JSON.stringify(e)));
+        await rebuild.exec();
+      }
+    }
+  }
+
+  // 1.4 Keep a daily cumulative snapshot for diagnostics and as a compatibility
+  // fallback for pre-v2 agents. V2 daily history comes from timestamped events.
   {
     const snapKey = `user:${userId}:device:${deviceId}:snap:${todayStr}`;
     await kv.set(snapKey, JSON.stringify({ date: todayStr, total: deviceTotal, updatedAt: new Date().toISOString() }));
@@ -132,20 +178,12 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   let hasTimeseriesEvents = false;
   
   // ---------------------------------------------------------------------------
-  // Daily timeseries strategy (hybrid, hardened against BOTH inflation modes):
+  // Daily timeseries strategy:
   //
-  //  • PAST days  -> trust the agent's `history` (its local per-day tracking),
-  //    BUT sanitize: drop any single event above ABSOLUTE_FLOOR, and cap any day
-  //    whose total exceeds 3x the median daily total (computed from the history
-  //    itself) by dropping the largest events. This restores the 7d/30d/90d
-  //    history and neutralizes the old context-resend inflation.
-  //  • TODAY       -> use the DELTA vs the previous device snapshot (the true
-  //    daily usage, immune to the agent reporting its lifetime total as "today").
-  //    If we have no baseline for this device (oldTotal === 0, e.g. after a
-  //    snapshot reset), we must NOT record the full cumulative as "today" —
-  //    that produced the 1.3B phantom. We fall back to a *sane* history[today]
-  //    value if present, else skip and let the next upload (now baselined)
-  //    record the real delta.
+  //  • V2 complete tools -> replace their entire device history with exact
+  //    timestamp-derived daily values, including today. No statistical cap.
+  //  • Legacy/history-less tools -> retain the cumulative-delta fallback so old
+  //    clients keep working while they migrate.
   // ---------------------------------------------------------------------------
   const DAY_FLOOR = 850_000_000;
 
@@ -170,21 +208,31 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   }
   histDayTotals.sort((a, b) => a - b);
   const histMedian = histDayTotals.length ? histDayTotals[Math.floor(histDayTotals.length / 2)] : 0;
-  const DAY_CAP = histMedian > 0 ? Math.max(3 * histMedian, DAY_FLOOR) : DAY_FLOOR;
+  // Complete v2 histories are authoritative raw-token readings. Statistical
+  // caps silently discarded real cached-context usage, so caps remain only for
+  // legacy agents that cannot rebuild their own history.
+  const DAY_CAP = completeHistoryTools.size > 0
+    ? Number.POSITIVE_INFINITY
+    : (histMedian > 0 ? Math.max(3 * histMedian, DAY_FLOOR) : DAY_FLOOR);
 
-  // --- PAST days from history (write only if this device hasn't ingested them) ---
+  // --- Exact history (v2) or write-once past history (legacy) ---
   if (historyData) {
     for (const [dateStr, toolsObj] of Object.entries(historyData)) {
-      if (dateStr >= todayStr) continue; // today is handled by delta below
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+      if (completeHistoryTools.size === 0 && dateStr >= todayStr) continue;
       const rawKey = `user:${userId}:timeseries:${dateStr}`;
       const existing = await kv.lrange(rawKey, 0, -1);
       const existingEvents = existing
         .map((s: any) => { try { return JSON.parse(s); } catch { return null; } })
         .filter(Boolean);
-      if (existingEvents.some((e: any) => e.deviceId === deviceId)) continue; // already ingested
+      if (completeHistoryTools.size === 0 && existingEvents.some((e: any) => e.deviceId === deviceId)) continue;
 
-      // wipe this device's stale events, keep other devices', then re-add cleaned
-      const kept = existingEvents.filter((e: any) => e.deviceId !== deviceId);
+      const incomingTools = new Set(Object.keys(toolsObj));
+      // Replace only the incoming tools for this device; preserve other devices
+      // and unrelated tools on the same date.
+      const kept = existingEvents.filter((e: any) => !(
+        e.deviceId === deviceId && incomingTools.has(String(e.tool || ''))
+      ));
       await kv.del(rawKey);
       if (kept.length) {
         const rp = kv.pipeline();
@@ -195,6 +243,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       const outEvents: { tool: string; tokens: number }[] = [];
       for (const [tool, rawVal] of Object.entries(toolsObj as Record<string, any>)) {
         if (tool === 'total' || tool === 'history') continue;
+        if (completeHistoryTools.size > 0 && !completeHistoryTools.has(tool)) continue;
         const isObj = typeof rawVal === 'object' && rawVal !== null;
         const hVal = isObj ? (Number((rawVal as any).total) || 0) : (Number(rawVal) || 0);
         // Drop zeros only. The ONLY safe rejection for a past-day history entry is
@@ -203,7 +252,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         // exceeding a median-derived cap — that silently zeroed out busy days
         // (e.g. 2026-08-10 reported 2.33B but 3×median was only 1.34B, so the
         // whole day was discarded and the personal page showed 0).
-        const isCumulativeDump = deviceTotal > 0 && hVal > 0.5 * deviceTotal;
+        const isCumulativeDump = completeHistoryTools.size === 0 && deviceTotal > 0 && hVal > 0.5 * deviceTotal;
         if (hVal <= 0 || isCumulativeDump) continue;
         outEvents.push({ tool, tokens: hVal });
       }
@@ -213,10 +262,11 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       for (const e of outEvents) {
         const isObj = typeof (toolsObj as Record<string, any>)[e.tool] === 'object';
         const rv: any = (toolsObj as Record<string, any>)[e.tool];
-        const inT = isObj && rv.in ? Number(rv.in) || 0 : e.tokens * 0.9;
-        const outT = isObj && rv.out ? Number(rv.out) || 0 : e.tokens * 0.1;
-        const crT = isObj && rv.cache_read ? Number(rv.cache_read) || 0 : 0;
-        const cwT = isObj && rv.cache_write ? Number(rv.cache_write) || 0 : 0;
+        const has = (key: string) => isObj && Object.prototype.hasOwnProperty.call(rv, key);
+        const inT = has('in') ? Number(rv.in) || 0 : e.tokens * 0.9;
+        const outT = has('out') ? Number(rv.out) || 0 : e.tokens * 0.1;
+        const crT = has('cache_read') ? Number(rv.cache_read) || 0 : 0;
+        const cwT = has('cache_write') ? Number(rv.cache_write) || 0 : 0;
         const ev: TimeseriesEvent = {
           timestamp: new Date(dateStr).getTime(),
           tool: e.tool,
@@ -227,7 +277,8 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
           cacheReadTokens: crT,
           cacheWriteTokens: cwT,
           cacheHit: crT > 0,
-          deviceId
+          deviceId,
+          source: completeHistoryTools.size > 0 ? 'agent-history-v2' : 'agent-history-legacy',
         };
         pipe.rpush(rawKey, JSON.stringify(ev));
         hasTimeseriesEvents = true;
@@ -242,7 +293,7 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   // snapshots accumulate across days. `today` is handled by the delta loop below,
   // so it is skipped here. We only fill days that have NO timeseries yet, never
   // overwriting good data.
-  {
+  if (completeHistoryTools.size === 0) {
     const snapKeysAll = await scanKeys(`user:${userId}:device:*:snap:*`);
     const perDevice: Record<string, { date: string; total: number }[]> = {};
     for (const sk of snapKeysAll) {
@@ -301,11 +352,22 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     if (snapHasEvents) await snapPipe.exec();
   }
 
-  // --- TODAY from delta ---
+  // --- TODAY from cumulative high-water deltas for history-less tools ---
+  // A separate high-water mark prevents a local database cleanup/reset followed
+  // by a rebound from counting the same lifetime tokens a second time.
+  const watermarkKey = `user:${userId}:device:${deviceId}:watermarks`;
+  let watermarks: Record<string, any> = {};
+  try {
+    const raw = await kv.get(watermarkKey);
+    if (raw) watermarks = JSON.parse(raw);
+  } catch { watermarks = {}; }
+
   for (const [tool, valObj] of Object.entries(normalizedTokens)) {
     if (tool === 'total' || tool === 'history') continue;
+    if (completeHistoryTools.has(tool)) continue;
     const vobj = valObj as any;
-    const oldToolData = oldDeviceTokens[tool];
+    const oldToolData = watermarks[tool] || oldDeviceTokens[tool];
+    const hasBaseline = !!oldToolData;
     const oldTotal = oldToolData ? (Number(oldToolData.total) || 0) : 0;
     const valTotal = Number(vobj.total) || 0;
     const delta = valTotal - oldTotal;
@@ -315,13 +377,13 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
     // value, else skip.
     let eventTokens = 0;
     let inTokens = 0, outTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
-    if (delta > 0) {
+    if (hasBaseline && delta > 0) {
       eventTokens = delta;
       inTokens = Math.max(0, (Number(vobj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0));
       outTokens = Math.max(0, (Number(vobj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0));
       cacheReadTokens = Math.max(0, (Number(vobj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0));
       cacheWriteTokens = Math.max(0, (Number(vobj.cache_write) || 0) - (oldToolData ? Number(oldToolData.cache_write) || 0 : 0));
-    } else if (oldTotal === 0 && valTotal > 0) {
+    } else if (!hasBaseline && valTotal > 0) {
       const ht = historyData && (historyData[todayStr] as Record<string, any> | undefined)?.[tool];
       const hv = ht ? (typeof ht === 'object' ? (Number(ht.total) || 0) : (Number(ht) || 0)) : 0;
       if (hv > 0 && hv <= DAY_CAP) {
@@ -329,6 +391,15 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
         inTokens = hv * 0.9; outTokens = hv * 0.1;
       }
     }
+    const nextWatermark: Record<string, number> = {};
+    for (const counter of ['total', 'in', 'out', 'cache_read', 'cache_write']) {
+      nextWatermark[counter] = Math.max(
+        Number(oldToolData?.[counter]) || 0,
+        Number(vobj[counter]) || 0,
+      );
+    }
+    watermarks[tool] = nextWatermark;
+
     if (eventTokens <= 0 || eventTokens > DAY_CAP) continue;
 
     const event: TimeseriesEvent = {
@@ -341,11 +412,13 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
       cacheReadTokens,
       cacheWriteTokens,
       cacheHit: cacheReadTokens > 0,
-      deviceId
+      deviceId,
+      source: 'cumulative-delta-v2',
     };
     pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
     hasTimeseriesEvents = true;
   }
+  await kv.set(watermarkKey, JSON.stringify(watermarks));
   
   if (hasTimeseriesEvents) {
     await pipe.exec();
@@ -411,6 +484,13 @@ export async function updateTokenUsage(userId: string, name: string, image: stri
   
   await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
   await kv.zadd('leaderboard:total', finalTotal, userId);
+
+  await kv.eval(
+    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+    1,
+    lockKey,
+    lockId,
+  );
 }
 
 export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRankData[]> {

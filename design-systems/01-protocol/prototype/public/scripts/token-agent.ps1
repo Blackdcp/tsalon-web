@@ -5,7 +5,8 @@
 #>
 param(
     [string]$token,
-    [string]$host_url = "https://www.tsalon.tech"
+    [string]$host_url = "https://www.tsalon.tech",
+    [switch]$scheduledRun
 )
 
 # token: prefer -token, then env (so the one-liner above works)
@@ -116,21 +117,27 @@ if ($exitCode -ne 0) {
 }
 
 # ---------- register scheduled task (every 30 min + at logon, self-updating) ----------
-$taskName = "TSalonTokenAgent"
-# Re-run the bootstrap on every tick so the agent ALWAYS runs the LATEST code
-# (matches token-agent.sh on Mac/Linux, which re-curls agent.mjs each run). This
-# keeps Windows users on the current agent without ever re-running the installer.
-$bootstrapCmd = "`$env:TSALON_TOKEN='$($token -replace "'", "''")'; iex (irm '$host_url/scripts/token-agent.ps1')"
-$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -WindowStyle Hidden -Command $bootstrapCmd"
-$triggerTimer = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30)
-$triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited
-try {
-    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerTimer, $triggerLogon) -Principal $principal -Force -ErrorAction Stop | Out-Null
-    Write-Host "✓ Scheduled task '$taskName' registered (every 30 min + at logon, self-updating)." -ForegroundColor Green
-} catch {
-    Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow
-    Write-Host "   The one-time run above still succeeded; re-run this command later if you want auto-sync." -ForegroundColor Yellow
+# Scheduled invocations pass -scheduledRun, so they update/run the agent without
+# recursively replacing their own task. An older installed task omits this flag;
+# its next run therefore migrates itself to this fixed definition automatically.
+if (-not $scheduledRun) {
+    $taskName = "TSalonTokenAgent"
+    $safeToken = $token -replace "'", "''"
+    $safeHost = $host_url -replace "'", "''"
+    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1'))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrapCmd))
+    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand $encodedCommand"
+    $triggerTimer = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(30)) -RepetitionInterval (New-TimeSpan -Minutes 30)
+    $triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    try {
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerTimer, $triggerLogon) -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+        Write-Host "✓ Scheduled task '$taskName' registered (at login + every 30 minutes)." -ForegroundColor Green
+    } catch {
+        Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow
+        Write-Host "   The immediate upload succeeded; re-run this command to retry auto-start setup." -ForegroundColor Yellow
+    }
 }
 
 Write-Host "Done. Refresh the leaderboard in a moment to see your data." -ForegroundColor Cyan

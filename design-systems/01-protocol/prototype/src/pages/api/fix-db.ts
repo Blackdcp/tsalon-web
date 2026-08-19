@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
+import { rejectUnauthorizedMaintenance } from '../../lib/maintenance-auth';
 
 // CRITICAL: with `output: 'static'` (astro.config.mjs) every route is
 // prerendered to a static file unless it opts out. Without this, the GET
@@ -35,6 +36,8 @@ const ABSOLUTE_FLOOR = 1_000_000_000;   // 1B: only pollution historically excee
 const MULTIPLE_OF_MEDIAN = 10;          // a day >10x the user's own median is suspect
 
 export const GET: APIRoute = async ({ request }) => {
+  const rejected = rejectUnauthorizedMaintenance(request);
+  if (rejected) return rejected;
   if (!kv) return new Response('No KV', { status: 500 });
 
   const url = new URL(request.url);

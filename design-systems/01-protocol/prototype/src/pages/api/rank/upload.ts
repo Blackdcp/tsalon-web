@@ -1,12 +1,12 @@
 import type { APIRoute } from 'astro';
-import { getUserIdByToken, updateTokenUsage, kv, scanKeys } from '../../../lib/kv';
+import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { token, data, device_id, reset } = body;
+    const { token, data, device_id, reset, history_complete_tools } = body;
 
     if (!token) {
       return new Response(JSON.stringify({ success: false, message: 'Missing token' }), { status: 400 });
@@ -25,11 +25,9 @@ export const POST: APIRoute = async ({ request }) => {
     }
     
     if (reset) {
-      const tsKeys = await scanKeys(`user:${userId}:timeseries:*`);
-      if (tsKeys.length > 0) await kv.del(...tsKeys);
-      const devKeys = await scanKeys(`user:${userId}:device:*`);
-      if (devKeys.length > 0) await kv.del(...devKeys);
-      return new Response(JSON.stringify({ success: true, message: 'User data reset' }), { status: 200 });
+      // An upload token is stored on each device and is not an administrative
+      // credential. Never allow it to erase server data if copied or leaked.
+      return new Response(JSON.stringify({ success: false, message: 'Reset requires the maintenance API' }), { status: 403 });
     }
 
     // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.
@@ -56,7 +54,19 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    await updateTokenUsage(userId, name, image, dynamicTokens, actualDeviceId, historyData);
+    const historyCompleteTools = Array.isArray(history_complete_tools)
+      ? history_complete_tools.filter((t: unknown): t is string => typeof t === 'string')
+      : [];
+
+    await updateTokenUsage(
+      userId,
+      name,
+      image,
+      dynamicTokens,
+      actualDeviceId,
+      historyData,
+      historyCompleteTools,
+    );
 
     return new Response(JSON.stringify({ success: true, message: 'Tokens updated' }), {
       status: 200,

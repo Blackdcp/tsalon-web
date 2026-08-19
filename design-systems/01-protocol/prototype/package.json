@@ -16,7 +16,8 @@
     "site:locale": "node scripts/site-locale-check.mjs",
     "site:headings": "node scripts/site-heading-check.mjs",
     "site:links": "node scripts/site-link-check.mjs",
-    "events:sync": "node scripts/sync-huodongxing-events.mjs"
+    "events:sync": "node scripts/sync-huodongxing-events.mjs",
+    "test:token-agent": "node --test scripts/token-agent.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",

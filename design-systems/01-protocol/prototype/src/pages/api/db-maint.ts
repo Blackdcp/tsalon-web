@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { kv, scanKeys } from '../../lib/kv';
+import { rejectUnauthorizedMaintenance } from '../../lib/maintenance-auth';
 
 export const prerender = false;
 
@@ -69,6 +70,8 @@ function groupByGithub(profiles: any[]) {
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  const rejected = rejectUnauthorizedMaintenance(request);
+  if (rejected) return rejected;
   if (!kv) return new Response('No KV', { status: 500 });
 
   let action = 'dryrun';

@@ -3,10 +3,16 @@ import { getLeaderboard, getGlobalStats } from '../../../lib/kv';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
-    const leaderboard = await getLeaderboard(100);
-    const stats = await getGlobalStats();
+    const requestedTime = new URL(request.url).searchParams.get('time') || 'all';
+    const time = ['today', 'yesterday', '3d', '7d', '30d', '90d', 'all'].includes(requestedTime)
+      ? requestedTime
+      : 'all';
+    const leaderboard = await getLeaderboard(100, time);
+    const stats = time === 'all'
+      ? await getGlobalStats()
+      : await getGlobalStats(leaderboard);
 
     return new Response(JSON.stringify({
       success: true,
