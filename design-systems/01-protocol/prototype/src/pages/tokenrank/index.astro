@@ -8,7 +8,7 @@ import { beijingDateString } from '../../lib/date';
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
-const timeFilter = Astro.url.searchParams.get('time') || 'all';
+const timeFilter = Astro.url.searchParams.get('time') || 'today';
 const rawMode = Astro.url.searchParams.get('mode') || 'tokens';
 const modeFilter = rawMode === 'cost' ? 'cost' : 'tokens';
 
@@ -130,6 +130,8 @@ const formatAmountStr = (num: any) => {
 
 // --- Calculate Dynamic Global Metrics for Dashboard ---
 let globalTokens = 0;
+let globalRawTokens = 0;
+let globalEffectiveTokens = 0;
 let globalCost = 0;
 let globalNoCacheCost = 0;
 let globalCacheHitTokens = 0;
@@ -155,11 +157,17 @@ leaderboard.forEach(user => {
       else if (model === 'claude-3-5-sonnet') cacheRate = 0.8;
       else if (model === 'gemini-2.5-pro') cacheRate = 0.1;
       globalCacheHitTokens += amount * cacheRate;
+      globalRawTokens += amount;
+      globalEffectiveTokens += Math.max(0, amount - amount * cacheRate);
       const millions = amount / 1_000_000;
       globalNoCacheCost += millions * (0.9 * p.in + 0.1 * p.out);
       globalOutputTokens += (amount * (1 - cacheRate)) * 0.1;
     } else if (amount) {
-      globalCacheHitTokens += amount.cache_read || 0;
+      const cacheRead = Number(amount.cache_read) || 0;
+      const rawTotal = Number(amount.raw_total ?? amount.total) || 0;
+      globalCacheHitTokens += cacheRead;
+      globalRawTokens += rawTotal;
+      globalEffectiveTokens += Math.max(0, rawTotal - cacheRead);
       globalNoCacheCost += ((amount.in || 0) / 1_000_000 * p.in) + ((amount.out || 0) / 1_000_000 * p.out);
       globalOutputTokens += amount.out || 0;
     }
@@ -168,10 +176,10 @@ leaderboard.forEach(user => {
 });
 
 const cacheSavings = globalNoCacheCost - globalCost;
-const globalCacheHitRate = globalTokens > 0 ? ((globalCacheHitTokens / globalTokens) * 100).toFixed(1) : '0.0';
+const globalCacheHitRate = globalRawTokens > 0 ? ((globalCacheHitTokens / globalRawTokens) * 100).toFixed(1) : '0.0';
 const activeToolsCount = Object.keys(toolCounts).length;
 const conversations = Math.floor(globalTokens / 200_000);
-const effectiveTokens = globalTokens - globalCacheHitTokens;
+const effectiveTokens = globalEffectiveTokens;
 let topTool = 'codex';
 let maxCount = 0;
 Object.entries(toolCounts).forEach(([tool, count]) => {
@@ -230,7 +238,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
         <div class="bc-value">
           {(effectiveTokens / 100_000_000).toFixed(2)} <span class="bc-unit">亿</span>
         </div>
-        <div class="bc-subtext">占 {(globalTokens > 0 ? (effectiveTokens / globalTokens) * 100 : 0).toFixed(1)}%</div>
+        <div class="bc-subtext">占原始 token 的 {(globalRawTokens > 0 ? (effectiveTokens / globalRawTokens) * 100 : 0).toFixed(1)}%</div>
       </div>
 
       <!-- Card 4 -->

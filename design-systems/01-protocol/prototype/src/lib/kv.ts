@@ -19,6 +19,7 @@ export interface TimeseriesEvent {
   tool: string;
   model: string;
   tokens: number;
+  rawTokens?: number;
   inTokens?: number;
   outTokens?: number;
   cacheReadTokens?: number;
@@ -93,7 +94,7 @@ export async function updateTokenUsage(
   for (const [k, v] of Object.entries(tokens)) {
     if (k === 'total' || k === 'history') continue;
     if (typeof v === 'number') {
-      normalizedTokens[k] = { total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
+      normalizedTokens[k] = { total: v, raw_total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
     } else if (v && typeof v === 'object') {
       normalizedTokens[k] = v;
     }
@@ -109,7 +110,7 @@ export async function updateTokenUsage(
         for (const [k, v] of Object.entries(parsed.tokens)) {
           if (k === 'total' || k === 'history') continue;
           if (typeof v === 'number') {
-            oldDeviceTokens[k] = { total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
+            oldDeviceTokens[k] = { total: v, raw_total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
           } else if (v && typeof v === 'object') {
             oldDeviceTokens[k] = v;
           }
@@ -272,6 +273,7 @@ export async function updateTokenUsage(
           tool: e.tool,
           model: modelFor(e.tool),
           tokens: e.tokens,
+          rawTokens: has('raw_total') ? Number(rv.raw_total) || 0 : e.tokens,
           inTokens: inT,
           outTokens: outT,
           cacheReadTokens: crT,
@@ -337,6 +339,7 @@ export async function updateTokenUsage(
           tool: 'codex',
           model: 'gpt-5.6-sol',
           tokens: delta,
+          rawTokens: delta,
           inTokens: delta * 0.9,
           outTokens: delta * 0.1,
           cacheReadTokens: 0,
@@ -375,10 +378,11 @@ export async function updateTokenUsage(
     // No baseline for this device: never record the full cumulative as "today"
     // (that created the 1.3B phantom). Fall back to a *sane* history[today]
     // value, else skip.
-    let eventTokens = 0;
+    let eventTokens = 0, rawTokens = 0;
     let inTokens = 0, outTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
     if (hasBaseline && delta > 0) {
       eventTokens = delta;
+      rawTokens = Math.max(0, (Number(vobj.raw_total) || valTotal) - (oldToolData ? Number(oldToolData.raw_total) || oldTotal : 0));
       inTokens = Math.max(0, (Number(vobj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0));
       outTokens = Math.max(0, (Number(vobj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0));
       cacheReadTokens = Math.max(0, (Number(vobj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0));
@@ -388,11 +392,12 @@ export async function updateTokenUsage(
       const hv = ht ? (typeof ht === 'object' ? (Number(ht.total) || 0) : (Number(ht) || 0)) : 0;
       if (hv > 0 && hv <= DAY_CAP) {
         eventTokens = hv;
+        rawTokens = ht && typeof ht === 'object' ? (Number(ht.raw_total) || hv) : hv;
         inTokens = hv * 0.9; outTokens = hv * 0.1;
       }
     }
     const nextWatermark: Record<string, number> = {};
-    for (const counter of ['total', 'in', 'out', 'cache_read', 'cache_write']) {
+    for (const counter of ['total', 'raw_total', 'in', 'out', 'cache_read', 'cache_write']) {
       nextWatermark[counter] = Math.max(
         Number(oldToolData?.[counter]) || 0,
         Number(vobj[counter]) || 0,
@@ -407,6 +412,7 @@ export async function updateTokenUsage(
       tool,
       model: modelFor(tool),
       tokens: eventTokens,
+      rawTokens: rawTokens || eventTokens,
       inTokens,
       outTokens,
       cacheReadTokens,
@@ -439,14 +445,16 @@ export async function updateTokenUsage(
             for (const [t, v] of Object.entries(parsed.tokens)) {
               if (t === 'total' || t === 'history') continue;
               if (typeof v === 'number') {
-                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
                 aggregatedTokens[t].total += v;
+                aggregatedTokens[t].raw_total += v;
                 aggregatedTokens[t].in += v * 0.9;
                 aggregatedTokens[t].out += v * 0.1;
               } else if (v && typeof v === 'object') {
-                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
                 const objV = v as any;
                 aggregatedTokens[t].total += objV.total || 0;
+                aggregatedTokens[t].raw_total += objV.raw_total ?? objV.total ?? 0;
                 aggregatedTokens[t].in += objV.in || 0;
                 aggregatedTokens[t].out += objV.out || 0;
                 aggregatedTokens[t].cache_read += objV.cache_read || 0;
@@ -566,8 +574,9 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
       for (const evStr of events) {
         try {
           const ev = JSON.parse(evStr);
-          if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+          if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
           tokens[ev.tool].total += ev.tokens;
+          tokens[ev.tool].raw_total += ev.rawTokens ?? ev.tokens;
 
           if (ev.cacheReadTokens !== undefined) {
             tokens[ev.tool].in += ev.inTokens || 0;

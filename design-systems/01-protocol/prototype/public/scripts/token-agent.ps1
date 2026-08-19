@@ -77,6 +77,29 @@ if (-not (Test-Path $sqlWasmPath) -or (Get-Item $sqlWasmPath).Length -eq 0) {
     Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.wasm" -OutFile $sqlWasmPath -UseBasicParsing
 }
 
+# ---------- register scheduled task before the first historical scan ----------
+# A large first scan may take a while. Install auto-start first so closing this
+# window cannot leave the machine unregistered.
+if (-not $scheduledRun) {
+    $taskName = "TSalonTokenAgent"
+    $safeToken = $token -replace "'", "''"
+    $safeHost = $host_url -replace "'", "''"
+    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1'))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrapCmd))
+    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand $encodedCommand"
+    $triggerTimer = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(30)) -RepetitionInterval (New-TimeSpan -Minutes 30)
+    $triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    try {
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerTimer, $triggerLogon) -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+        Write-Host "✓ Scheduled task '$taskName' registered (at login + every 30 minutes)." -ForegroundColor Green
+    } catch {
+        Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow
+        Write-Host "   The scan will continue; re-run this command to retry auto-start setup." -ForegroundColor Yellow
+    }
+}
+
 # ---------- run once, now (output shown in this window AND appended to a shared log) ----------
 # Open the log with FileShare.ReadWrite + Append so a concurrently-running scheduled task
 # (which runs this same script) can't lock the file and crash this run with "file in use".
@@ -114,30 +137,6 @@ if ($exitCode -ne 0) {
     Get-Content $actualLogPath -Tail 25 | ForEach-Object { Write-Host "   $_" }
 } else {
     Write-Host "✓ Agent ran successfully. Full log: $actualLogPath" -ForegroundColor Green
-}
-
-# ---------- register scheduled task (every 30 min + at logon, self-updating) ----------
-# Scheduled invocations pass -scheduledRun, so they update/run the agent without
-# recursively replacing their own task. An older installed task omits this flag;
-# its next run therefore migrates itself to this fixed definition automatically.
-if (-not $scheduledRun) {
-    $taskName = "TSalonTokenAgent"
-    $safeToken = $token -replace "'", "''"
-    $safeHost = $host_url -replace "'", "''"
-    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1'))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
-    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrapCmd))
-    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand $encodedCommand"
-    $triggerTimer = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(30)) -RepetitionInterval (New-TimeSpan -Minutes 30)
-    $triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    try {
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerTimer, $triggerLogon) -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
-        Write-Host "✓ Scheduled task '$taskName' registered (at login + every 30 minutes)." -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow
-        Write-Host "   The immediate upload succeeded; re-run this command to retry auto-start setup." -ForegroundColor Yellow
-    }
 }
 
 Write-Host "Done. Refresh the leaderboard in a moment to see your data." -ForegroundColor Cyan

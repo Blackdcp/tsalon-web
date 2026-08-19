@@ -83,6 +83,7 @@ if (timeFilter === 'yesterday') {
 
 // Basic aggregations
 let periodTokens = events.reduce((acc, e) => acc + (e.tokens || 0), 0);
+let periodRawTokens = events.reduce((acc, e) => acc + (e.rawTokens ?? e.tokens ?? 0), 0);
 
 // For 'all' (lifetime) view, the headline total must be the persistent lifetime
 // total from the profile — not just the sum of the days we happen to have daily
@@ -90,6 +91,11 @@ let periodTokens = events.reduce((acc, e) => acc + (e.tokens || 0), 0);
 // the homepage 'all' leaderboard, which reads the same profile total.
 if (timeFilter === 'all' && userData && userData.tokens) {
   periodTokens = typeof userData.tokens.total === 'number' ? userData.tokens.total : periodTokens;
+  periodRawTokens = Object.entries(userData.tokens).reduce((acc, [tool, raw]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return acc;
+    if (typeof raw === 'number') return acc + raw;
+    return acc + (Number(raw?.raw_total ?? raw?.total) || 0);
+  }, 0);
 }
 
 const PRICING: Record<string, { in: number, out: number, cache: number }> = {
@@ -163,20 +169,28 @@ const cacheReadTokensTotal = events.reduce((acc, e) => acc + (e.cacheReadTokens 
 // Real hit-rate from events; when the window has expired ('all' with no
 // timeseries), derive it from the persistent user breakdown instead of a
 // hardcoded 93%.
-let cacheHitRate = periodTokens > 0
-  ? (cacheReadTokensTotal > 0 ? (cacheReadTokensTotal / periodTokens * 100).toFixed(1) : '0.0')
+let cacheHitRate = periodRawTokens > 0
+  ? (cacheReadTokensTotal > 0 ? (cacheReadTokensTotal / periodRawTokens * 100).toFixed(1) : '0.0')
   : '0.0';
-if (cacheReadTokensTotal === 0 && userData && userData.tokens) {
+if (cacheReadTokensTotal === 0 && timeFilter === 'all' && userData && userData.tokens) {
   let cRead = 0, cTotal = 0;
   Object.entries(userData.tokens).forEach(([tool, raw]: [string, any]) => {
     if (tool === 'total' || tool === 'history') return;
     const o = (typeof raw === 'object' && raw !== null) ? raw : null;
     cRead += o?.cache_read || 0;
-    cTotal += o?.total || 0;
+    cTotal += o?.raw_total ?? o?.total ?? 0;
   });
   if (cTotal > 0) cacheHitRate = (cRead / cTotal * 100).toFixed(1);
 }
-const freshTokens = Math.max(0, periodTokens - cacheReadTokensTotal);
+let freshTokens = events.reduce((acc, e) => acc + Math.max(0, (e.rawTokens ?? e.tokens ?? 0) - (e.cacheReadTokens || 0)), 0);
+if (timeFilter === 'all' && userData?.tokens) {
+  freshTokens = Object.entries(userData.tokens).reduce((acc, [tool, raw]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return acc;
+    if (typeof raw === 'number') return acc + raw;
+    const rawTotal = Number(raw?.raw_total ?? raw?.total) || 0;
+    return acc + Math.max(0, rawTotal - (Number(raw?.cache_read) || 0));
+  }, 0);
+}
 
 const toolsUsed = (timeFilter === 'all' && userData?.tokens)
   ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length
@@ -401,7 +415,7 @@ const chartData = {
           <span class="label">有效 token ❔</span>
         </div>
         <div class="value">{freshTokensObj.val}<span class="unit">{freshTokensObj.unit}</span></div>
-        <div class="subtext">占 {periodTokens > 0 ? (freshTokens / periodTokens * 100).toFixed(1) : 0}%</div>
+        <div class="subtext">占原始 token 的 {periodRawTokens > 0 ? (freshTokens / periodRawTokens * 100).toFixed(1) : 0}%</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">

@@ -6,6 +6,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import readline from 'readline';
 import { createHash } from 'crypto';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
@@ -173,14 +174,21 @@ function usageStats(raw = {}) {
   const out = Number.parseInt(raw.output_tokens) || 0;
   const cacheRead = Number.parseInt(raw.cached_input_tokens || raw.cache_read_input_tokens) || 0;
   const cacheWrite = Number.parseInt(raw.cache_write_input_tokens) || 0;
-  const total = Number.parseInt(raw.total_tokens) || (inp + out);
-  return { total, in: inp, out, cache_read: cacheRead, cache_write: cacheWrite };
+  const rawTotal = Number.parseInt(raw.total_tokens) || (inp + out);
+  // Codex's local total_tokens includes cached context re-read on every turn.
+  // The official Codex dashboard reports usage without those cache reads, so
+  // use that effective figure for rankings while retaining raw_total for cost
+  // and cache-hit-rate calculations.
+  const total = Math.max(0, rawTotal - cacheRead);
+  return { total, raw_total: rawTotal, in: inp, out, cache_read: cacheRead, cache_write: cacheWrite };
 }
 
+const TOKEN_COUNTER_KEYS = ['total', 'raw_total', 'in', 'out', 'cache_read', 'cache_write'];
+
 function usageDelta(current, previous) {
-  if (!previous || current.total < previous.total) return current;
+  if (!previous || current.raw_total < previous.raw_total) return current;
   const delta = {};
-  for (const key of ['total', 'in', 'out', 'cache_read', 'cache_write']) {
+  for (const key of TOKEN_COUNTER_KEYS) {
     delta[key] = Math.max(0, current[key] - previous[key]);
   }
   return delta;
@@ -193,9 +201,9 @@ function mergeHistory(target, source) {
     if (!target[date]) target[date] = {};
     for (const [tool, raw] of Object.entries(tools || {})) {
       if (!target[date][tool]) {
-        target[date][tool] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+        target[date][tool] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
       }
-      for (const key of ['total', 'in', 'out', 'cache_read', 'cache_write']) {
+      for (const key of TOKEN_COUNTER_KEYS) {
         target[date][tool][key] += Number(raw?.[key]) || 0;
       }
     }
@@ -203,19 +211,93 @@ function mergeHistory(target, source) {
   return target;
 }
 
+function addCounters(target, stats) {
+  for (const key of TOKEN_COUNTER_KEYS) {
+    target[key] += Number(stats?.[key]) || 0;
+  }
+}
+
+async function readCodexSessionFile(filePath, fallbackDate, onProgress = null) {
+  let previousStats = null;
+  const history = {};
+  try {
+    const input = fs.createReadStream(filePath, { encoding: 'utf8' });
+    const lines = readline.createInterface({ input, crlfDelay: Infinity });
+    let lastProgressAt = Date.now();
+    for await (const line of lines) {
+      if (onProgress && Date.now() - lastProgressAt >= 3_000) {
+        onProgress(input.bytesRead || 0);
+        lastProgressAt = Date.now();
+      }
+      if (!line.includes('token_count')) continue;
+      try {
+        const event = JSON.parse(line);
+        const payload = event.payload || {};
+        const rawUsage = payload.type === 'token_count'
+          ? payload.info?.total_token_usage
+          : null;
+        if (!rawUsage) continue;
+        const currentStats = usageStats(rawUsage);
+        const delta = usageDelta(currentStats, previousStats);
+        const date = beijingDateStr(event.timestamp) || fallbackDate;
+        if (date && delta.raw_total > 0) {
+          if (!history[date]) {
+            history[date] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+          }
+          addCounters(history[date], delta);
+        }
+        previousStats = currentStats;
+      } catch {}
+    }
+  } catch {}
+
+  // Summing timestamped deltas also handles a rare cumulative-counter reset and
+  // guarantees that lifetime and daily history reconcile exactly.
+  const lifetime = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+  for (const stats of Object.values(history)) addCounters(lifetime, stats);
+  return { lifetime, history };
+}
+
 // ---------------------------------------------------------------------------
 // directory-size estimate (cherry / kimi / generic extensions / agent logs)
 // ---------------------------------------------------------------------------
 function estimateTokensFromDirs(dirs, exts) {
   let totalBytes = 0;
+  const startedAt = Date.now();
+  const maxFiles = 50_000;
+  const maxMillis = 8_000;
+  let visitedFiles = 0;
+  let truncated = false;
+  const skipDirs = new Set(['node_modules', '.git', 'cache', 'cacheddata', 'gpucache', 'code cache']);
+
   for (const d of dirs) {
     if (!dirExists(d)) continue;
-    walk(d, (f) => {
-      if (exts.some((ext) => f.toLowerCase().endsWith(ext))) {
-        try { totalBytes += fs.statSync(f).size; } catch {}
+    const pending = [d];
+    while (pending.length) {
+      if (visitedFiles >= maxFiles || Date.now() - startedAt >= maxMillis) {
+        truncated = true;
+        break;
       }
-    });
+      const current = pending.pop();
+      let entries = [];
+      try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { continue; }
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          if (!skipDirs.has(entry.name.toLowerCase())) pending.push(path.join(current, entry.name));
+          continue;
+        }
+        if (!entry.isFile()) continue;
+        visitedFiles++;
+        const file = path.join(current, entry.name);
+        if (exts.some((ext) => file.toLowerCase().endsWith(ext))) {
+          try { totalBytes += fs.statSync(file).size; } catch {}
+        }
+        if (visitedFiles >= maxFiles || Date.now() - startedAt >= maxMillis) break;
+      }
+    }
+    if (truncated) break;
   }
+  if (truncated) console.log(`  Generic scan bounded after ${visitedFiles.toLocaleString()} files.`);
   return Math.floor(totalBytes / 3);
 }
 
@@ -246,8 +328,8 @@ async function getCursorTokens(home) {
 // ---------------------------------------------------------------------------
 async function getCodexTokens(home) {
   const tokens = {
-    codex: { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 },
-    codex_proxy: { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 },
+    codex: { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 },
+    codex_proxy: { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 },
     history: {},
   };
 
@@ -255,7 +337,7 @@ async function getCodexTokens(home) {
     if (!dateStr) return;
     if (!tokens.history[dateStr]) tokens.history[dateStr] = {};
     if (!tokens.history[dateStr][toolKey]) {
-      tokens.history[dateStr][toolKey] = { total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+      tokens.history[dateStr][toolKey] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
     }
     const t = tokens.history[dateStr][toolKey];
     for (const k of Object.keys(stats)) t[k] += stats[k];
@@ -266,43 +348,68 @@ async function getCodexTokens(home) {
   if (dirExists(sessionsDir)) {
     const files = [];
     walk(sessionsDir, (f) => { if (f.endsWith('.jsonl')) files.push(f); });
-    for (const sf of files) {
+    files.sort();
+
+    const cacheDir = path.join(home, '.tsalon');
+    const cachePath = path.join(cacheDir, 'codex-session-cache-v4.json');
+    let cachedFiles = {};
+    try {
+      const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (parsed?.version === 4 && parsed.files) cachedFiles = parsed.files;
+    } catch {}
+    const nextCacheFiles = {};
+    let cacheHits = 0;
+    let parsedFiles = 0;
+    let lastFileProgressAt = Date.now();
+    if (files.length) console.log(`  Codex sessions: ${files.length.toLocaleString()} files.`);
+
+    for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+      const sf = files[fileIndex];
       const parts = sf.split(path.sep);
       let dtStr = null;
       const idx = parts.indexOf('sessions');
       if (idx >= 0 && parts.length >= idx + 4) {
         dtStr = `${parts[idx + 1]}-${parts[idx + 2]}-${parts[idx + 3]}`;
       }
-      let lastUsage = null;
-      let previousStats = null;
-      try {
-        const content = fs.readFileSync(sf, 'utf8');
-        for (const line of content.split('\n')) {
-          if (!line.trim()) continue;
-          if (line.includes('token_count')) {
-            try {
-              const d = JSON.parse(line);
-              const p = d.payload || {};
-              if (p.type === 'token_count') {
-                const info = p.info || {};
-                if ('total_token_usage' in info) {
-                  lastUsage = info.total_token_usage;
-                  const currentStats = usageStats(lastUsage);
-                  const delta = usageDelta(currentStats, previousStats);
-                  const eventDate = beijingDateStr(d.timestamp) || dtStr;
-                  if (delta.total > 0) addHistory(eventDate, 'codex', delta);
-                  previousStats = currentStats;
-                }
-              }
-            } catch {}
-          }
-        }
-      } catch {}
-      if (lastUsage) {
-        const s = usageStats(lastUsage);
-        for (const k of Object.keys(s)) tokens.codex[k] += s[k];
+
+      const relativePath = path.relative(sessionsDir, sf);
+      let stat = null;
+      try { stat = fs.statSync(sf); } catch { continue; }
+      const cached = cachedFiles[relativePath];
+      let summary = null;
+      if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) {
+        summary = cached;
+        cacheHits++;
+      } else {
+        parsedFiles++;
+        summary = await readCodexSessionFile(sf, dtStr, (bytesRead) => {
+          console.log(`  Codex file ${fileIndex + 1}/${files.length}: ${(bytesRead / 1_048_576).toFixed(1)} MB read...`);
+        });
+        summary.size = stat.size;
+        summary.mtimeMs = stat.mtimeMs;
       }
+
+      nextCacheFiles[relativePath] = summary;
+      addCounters(tokens.codex, summary.lifetime);
+      for (const [date, stats] of Object.entries(summary.history || {})) {
+        addHistory(date, 'codex', stats);
+      }
+
+      if (Date.now() - lastFileProgressAt >= 3_000 || fileIndex === files.length - 1) {
+        console.log(`  Codex progress: ${fileIndex + 1}/${files.length} (${cacheHits} cached, ${parsedFiles} parsed).`);
+        lastFileProgressAt = Date.now();
+      }
+      // Yield between files so Windows can flush console output and the process
+      // remains visibly alive even on a very large history.
+      if (fileIndex % 25 === 24) await new Promise(resolve => setImmediate(resolve));
     }
+
+    try {
+      fs.mkdirSync(cacheDir, { recursive: true });
+      const tmp = `${cachePath}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify({ version: 4, files: nextCacheFiles }));
+      fs.renameSync(tmp, cachePath);
+    } catch {}
   }
 
   // 2. ~/.opencodex/usage.jsonl
@@ -330,9 +437,9 @@ async function getCodexTokens(home) {
           const out = parseInt((u.outputTokens || 0) + (u.reasoningOutputTokens || 0)) || 0;
           const cr = parseInt(u.cachedInputTokens || u.cacheReadInputTokens) || 0;
           const cw = parseInt(u.cacheCreationInputTokens) || 0;
-          const tot = parseInt(u.totalTokens) || (inp + out);
-          if (tot > 0) {
-            const s = { total: tot, in: inp, out, cache_read: cr, cache_write: cw };
+          const rawTotal = parseInt(u.totalTokens) || (inp + out);
+          if (rawTotal > 0) {
+            const s = { total: Math.max(0, rawTotal - cr), raw_total: rawTotal, in: inp, out, cache_read: cr, cache_write: cw };
             for (const k of Object.keys(s)) tokens.codex_proxy[k] += s[k];
             addHistory(dtStr, 'codex_proxy', s);
           }
@@ -374,13 +481,14 @@ async function getCodexTokens(home) {
         } else if (rawDt) {
           dt = beijingDateStr(String(rawDt)) || String(rawDt).slice(0, 10);
         }
-        const total = parseInt(row[2]) || 0;
+        const rawTotal = parseInt(row[2]) || 0;
         const inp = parseInt(row[3]) || 0;
         const out = parseInt(row[4]) || 0;
         const cache = parseInt(row[5]) || 0;
         // cached_input_tokens and reasoning_output_tokens are breakdowns of
         // input/output, not extra tokens. Prefer the database's total_tokens.
-        const s = { total: total || (inp + out), in: inp, out, cache_read: cache, cache_write: 0 };
+        const resolvedRawTotal = rawTotal || (inp + out);
+        const s = { total: Math.max(0, resolvedRawTotal - cache), raw_total: resolvedRawTotal, in: inp, out, cache_read: cache, cache_write: 0 };
         const target = source === 'openai_account' ? 'codex' : 'codex_proxy';
         for (const k of Object.keys(s)) tokens[target][k] += s[k];
         addHistory(dt, target, s);
@@ -563,6 +671,14 @@ async function scanWorkbuddy(home) {
   return formatTokens(total);
 }
 
+async function scanStep(label, fn) {
+  const startedAt = Date.now();
+  console.log(`Scanning ${label}...`);
+  const result = await fn();
+  console.log(`  ✓ ${label} finished in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`);
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
@@ -590,28 +706,24 @@ async function main() {
   const results = {};
   const history = {};
 
-  console.log('Scanning Cursor...');
-  results.cursor = await getCursorTokens(home);
+  results.cursor = await scanStep('Cursor', () => getCursorTokens(home));
 
-  console.log('Scanning CodexManager...');
-  const codexData = await getCodexTokens(home);
+  const codexData = await scanStep('Codex / CodexManager', () => getCodexTokens(home));
   results.codex = codexData.codex;
   results.codex_proxy = codexData.codex_proxy;
   if (codexData.history) mergeHistory(history, codexData.history);
 
-  console.log('Scanning Claude Code...');
-  const claudeData = getClaudeTokens(home);
+  const claudeData = await scanStep('Claude Code', () => getClaudeTokens(home));
   results.claude = claudeData.claude;
   if (claudeData.history) mergeHistory(history, claudeData.history);
 
-  console.log('Scanning generic tools...');
-  results.cherry = scanGenericApp(home, ['cherry-studio', 'CherryStudio']);
-  results.kimi = scanGenericExtension(home, ['kimi', 'moonshot']);
-  results.antigravity = scanAgentLogs(home, '.gemini/antigravity');
-  results.openclaw = scanAgentLogs(home, '.openclaw');
-  results.hermes = scanAgentLogs(home, '.hermes');
-  results.qorder = scanGenericExtension(home, ['qorder', 'lingma', 'tongyi']);
-  results.workbuddy = await scanWorkbuddy(home);
+  results.cherry = await scanStep('Cherry Studio', () => scanGenericApp(home, ['cherry-studio', 'CherryStudio']));
+  results.kimi = await scanStep('Kimi', () => scanGenericExtension(home, ['kimi', 'moonshot']));
+  results.antigravity = await scanStep('Antigravity', () => scanAgentLogs(home, '.gemini/antigravity'));
+  results.openclaw = await scanStep('OpenClaw', () => scanAgentLogs(home, '.openclaw'));
+  results.hermes = await scanStep('Hermes', () => scanAgentLogs(home, '.hermes'));
+  results.qorder = await scanStep('Qoder', () => scanGenericExtension(home, ['qorder', 'lingma', 'tongyi']));
+  results.workbuddy = await scanStep('WorkBuddy', () => scanWorkbuddy(home));
 
   const finalTokens = {};
   for (const [k, v] of Object.entries(results)) {
@@ -624,9 +736,10 @@ async function main() {
   console.log('📊 Extracted Data:');
   for (const [k, v] of Object.entries(finalTokens)) {
     if (k === 'history' || k === 'total') continue;
-    console.log(`  - ${k.charAt(0).toUpperCase() + k.slice(1)}: ${v.total.toLocaleString()} tokens (In: ${v.in.toLocaleString()}, Out: ${v.out.toLocaleString()}, Cache: ${v.cache_read.toLocaleString()})`);
+    const rawLabel = Number.isFinite(v.raw_total) ? `, Raw: ${v.raw_total.toLocaleString()}` : '';
+    console.log(`  - ${k.charAt(0).toUpperCase() + k.slice(1)}: ${v.total.toLocaleString()} effective tokens (In: ${v.in.toLocaleString()}, Out: ${v.out.toLocaleString()}, Cache: ${v.cache_read.toLocaleString()}${rawLabel})`);
   }
-  console.log(`  => Grand Total: ${totalAll.toLocaleString()} tokens`);
+  console.log(`  => Grand Total: ${totalAll.toLocaleString()} effective tokens`);
 
   const deviceId = getOrCreateDeviceId(home);
   const historyCompleteTools = ['codex', 'codex_proxy'];

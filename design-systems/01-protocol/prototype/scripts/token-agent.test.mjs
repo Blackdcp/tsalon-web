@@ -34,13 +34,16 @@ test('Codex history attributes cumulative deltas to each event day', async (t) =
   fs.writeFileSync(path.join(dir, 'rollout.jsonl'), rows.map(JSON.stringify).join('\n'));
 
   const result = await getCodexTokens(home);
-  assert.equal(result.codex.total, 250);
+  assert.equal(result.codex.total, 70);
+  assert.equal(result.codex.raw_total, 250);
   assert.deepEqual(result.history['2026-08-18'].codex, {
-    total: 100, in: 90, out: 10, cache_read: 60, cache_write: 0,
+    total: 40, raw_total: 100, in: 90, out: 10, cache_read: 60, cache_write: 0,
   });
   assert.deepEqual(result.history['2026-08-19'].codex, {
-    total: 150, in: 135, out: 15, cache_read: 120, cache_write: 0,
+    total: 30, raw_total: 150, in: 135, out: 15, cache_read: 120, cache_write: 0,
   });
+  assert.ok(fs.existsSync(path.join(home, '.tsalon', 'codex-session-cache-v4.json')));
+  assert.deepEqual(await getCodexTokens(home), result);
 });
 
 test('CodexManager trusts total_tokens and does not add detail fields twice', async (t) => {
@@ -74,7 +77,7 @@ test('CodexManager trusts total_tokens and does not add detail fields twice', as
 
   const result = await getCodexTokens(home);
   assert.deepEqual(result.codex, {
-    total: 100, in: 80, out: 20, cache_read: 60, cache_write: 0,
+    total: 40, raw_total: 100, in: 80, out: 20, cache_read: 60, cache_write: 0,
   });
 });
 
