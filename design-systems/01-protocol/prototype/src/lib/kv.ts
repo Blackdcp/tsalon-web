@@ -96,7 +96,16 @@ export async function updateTokenUsage(
     if (typeof v === 'number') {
       normalizedTokens[k] = { total: v, raw_total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
     } else if (v && typeof v === 'object') {
-      normalizedTokens[k] = v;
+      const obj = { ...(v as Record<string, any>) };
+      // Agent v2 originally sent Codex total as the raw counter (including
+      // cached input). Upgrade those payloads at the server boundary so an old
+      // scheduled client cannot reintroduce the inflated ranking value.
+      if ((k === 'codex' || k === 'codex_proxy') && !Object.prototype.hasOwnProperty.call(obj, 'raw_total')) {
+        const rawTotal = Number(obj.total) || 0;
+        obj.raw_total = rawTotal;
+        obj.total = Math.max(0, rawTotal - (Number(obj.cache_read) || 0));
+      }
+      normalizedTokens[k] = obj;
     }
   }
 
@@ -112,7 +121,13 @@ export async function updateTokenUsage(
           if (typeof v === 'number') {
             oldDeviceTokens[k] = { total: v, raw_total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
           } else if (v && typeof v === 'object') {
-            oldDeviceTokens[k] = v;
+            const obj = { ...(v as Record<string, any>) };
+            if ((k === 'codex' || k === 'codex_proxy') && !Object.prototype.hasOwnProperty.call(obj, 'raw_total')) {
+              const rawTotal = Number(obj.total) || 0;
+              obj.raw_total = rawTotal;
+              obj.total = Math.max(0, rawTotal - (Number(obj.cache_read) || 0));
+            }
+            oldDeviceTokens[k] = obj;
           }
         }
       }
@@ -241,12 +256,19 @@ export async function updateTokenUsage(
         await rp.exec();
       }
 
-      const outEvents: { tool: string; tokens: number }[] = [];
+      const outEvents: { tool: string; tokens: number; rawTokens: number }[] = [];
       for (const [tool, rawVal] of Object.entries(toolsObj as Record<string, any>)) {
         if (tool === 'total' || tool === 'history') continue;
         if (completeHistoryTools.size > 0 && !completeHistoryTools.has(tool)) continue;
         const isObj = typeof rawVal === 'object' && rawVal !== null;
-        const hVal = isObj ? (Number((rawVal as any).total) || 0) : (Number(rawVal) || 0);
+        const rv = rawVal as any;
+        const reportedTotal = isObj ? (Number(rv.total) || 0) : (Number(rawVal) || 0);
+        const hasRawTotal = isObj && Object.prototype.hasOwnProperty.call(rv, 'raw_total');
+        const isLegacyRawCodex = (tool === 'codex' || tool === 'codex_proxy') && isObj && !hasRawTotal;
+        const hVal = isLegacyRawCodex
+          ? Math.max(0, reportedTotal - (Number(rv.cache_read) || 0))
+          : reportedTotal;
+        const rawTokens = hasRawTotal ? (Number(rv.raw_total) || 0) : reportedTotal;
         // Drop zeros only. The ONLY safe rejection for a past-day history entry is
         // a CUMULATIVE-DUMP misreport (agent sent its lifetime total as a day:
         // hVal ≈ deviceTotal). We must NOT drop legitimately large days just for
@@ -255,7 +277,7 @@ export async function updateTokenUsage(
         // whole day was discarded and the personal page showed 0).
         const isCumulativeDump = completeHistoryTools.size === 0 && deviceTotal > 0 && hVal > 0.5 * deviceTotal;
         if (hVal <= 0 || isCumulativeDump) continue;
-        outEvents.push({ tool, tokens: hVal });
+        outEvents.push({ tool, tokens: hVal, rawTokens });
       }
       // Write every event for the day. No DAY_CAP truncation: a real busy day can
       // legitimately exceed any statistical cap, and the cumulative-dump guard
@@ -273,7 +295,7 @@ export async function updateTokenUsage(
           tool: e.tool,
           model: modelFor(e.tool),
           tokens: e.tokens,
-          rawTokens: has('raw_total') ? Number(rv.raw_total) || 0 : e.tokens,
+          rawTokens: e.rawTokens,
           inTokens: inT,
           outTokens: outT,
           cacheReadTokens: crT,
@@ -453,8 +475,13 @@ export async function updateTokenUsage(
               } else if (v && typeof v === 'object') {
                 if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
                 const objV = v as any;
-                aggregatedTokens[t].total += objV.total || 0;
-                aggregatedTokens[t].raw_total += objV.raw_total ?? objV.total ?? 0;
+                const reportedTotal = Number(objV.total) || 0;
+                const hasRawTotal = Object.prototype.hasOwnProperty.call(objV, 'raw_total');
+                const effectiveTotal = (t === 'codex' || t === 'codex_proxy') && !hasRawTotal
+                  ? Math.max(0, reportedTotal - (Number(objV.cache_read) || 0))
+                  : reportedTotal;
+                aggregatedTokens[t].total += effectiveTotal;
+                aggregatedTokens[t].raw_total += hasRawTotal ? (Number(objV.raw_total) || 0) : reportedTotal;
                 aggregatedTokens[t].in += objV.in || 0;
                 aggregatedTokens[t].out += objV.out || 0;
                 aggregatedTokens[t].cache_read += objV.cache_read || 0;
@@ -574,8 +601,15 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
       for (const evStr of events) {
         try {
           const ev = JSON.parse(evStr);
+          const isLegacyRawCodex = (ev.tool === 'codex' || ev.tool === 'codex_proxy')
+            && ev.rawTokens === undefined
+            && ev.source === 'agent-history-v2'
+            && ev.cacheReadTokens !== undefined;
+          const effectiveEventTokens = isLegacyRawCodex
+            ? Math.max(0, (Number(ev.tokens) || 0) - (Number(ev.cacheReadTokens) || 0))
+            : (Number(ev.tokens) || 0);
           if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
-          tokens[ev.tool].total += ev.tokens;
+          tokens[ev.tool].total += effectiveEventTokens;
           tokens[ev.tool].raw_total += ev.rawTokens ?? ev.tokens;
 
           if (ev.cacheReadTokens !== undefined) {
@@ -596,7 +630,7 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
             tokens[ev.tool].out += freshTokens * 0.1;
             tokens[ev.tool].cache_read += fallbackCache;
           }
-          userTotal += ev.tokens;
+          userTotal += effectiveEventTokens;
         } catch (e) {}
       }
     }
@@ -676,7 +710,15 @@ export async function getUserAnalytics(userId: string, days: number = 30) {
       if (!err && Array.isArray(res)) {
         res.forEach(item => {
           try {
-            allEvents.push(JSON.parse(item));
+            const event = JSON.parse(item);
+            if ((event.tool === 'codex' || event.tool === 'codex_proxy')
+              && event.rawTokens === undefined
+              && event.source === 'agent-history-v2'
+              && event.cacheReadTokens !== undefined) {
+              event.rawTokens = Number(event.tokens) || 0;
+              event.tokens = Math.max(0, event.rawTokens - (Number(event.cacheReadTokens) || 0));
+            }
+            allEvents.push(event);
           } catch(e) {}
         });
       }
