@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { PRICING_SNAPSHOT_DATE, normalizeModelId, priceUsage } from './token-pricing.mjs';
 import { aggregateCanonicalTurns, reconcileDeviceTurns, validateTurnRecord } from './tokenrank-domain.mjs';
@@ -18,18 +18,7 @@ export interface CodexLedgerSummary {
 
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
 const MAX_RECORDS = 50_000;
-const REPLACE_HASH_SCRIPT = `-- tokenrank:replace-hash-v1
-redis.call('DEL', KEYS[1])
-for index = 1, #ARGV, 2 do
-  redis.call('HSET', KEYS[1], ARGV[index], ARGV[index + 1])
-end
-return #ARGV / 2`;
-const REPLACE_LIST_SCRIPT = `-- tokenrank:replace-list-v1
-redis.call('DEL', KEYS[1])
-for index = 1, #ARGV do
-  redis.call('RPUSH', KEYS[1], ARGV[index])
-end
-return #ARGV`;
+const REDIS_CHUNK_SIZE = 500;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
@@ -62,13 +51,53 @@ function canonicalDailyModels(canonical: CanonicalTurns): Record<string, Record<
 }
 
 async function replaceHash(redis: RedisLike, key: string, canonical: CanonicalTurns) {
-  const entries = Object.entries(canonical)
-    .flatMap(([field, envelope]) => [field, JSON.stringify(envelope)]);
-  await redis.eval(REPLACE_HASH_SCRIPT, 1, key, ...entries);
+  const entries = Object.entries(canonical);
+  if (!entries.length) {
+    await redis.del(key);
+    return;
+  }
+  const tempKey = `${key}:tmp:${randomUUID()}`;
+  try {
+    await redis.del(tempKey);
+    for (let start = 0; start < entries.length; start += REDIS_CHUNK_SIZE) {
+      const pipeline = redis.pipeline();
+      for (const [field, envelope] of entries.slice(start, start + REDIS_CHUNK_SIZE)) {
+        pipeline.hset(tempKey, field, JSON.stringify(envelope));
+      }
+      await executePipeline(pipeline);
+    }
+    await redis.rename(tempKey, key);
+  } catch (error) {
+    try { await redis.del(tempKey); } catch { /* best effort */ }
+    throw error;
+  }
 }
 
 export async function replaceRedisList(redis: RedisLike, key: string, values: string[]) {
-  await redis.eval(REPLACE_LIST_SCRIPT, 1, key, ...values);
+  if (!values.length) {
+    await redis.del(key);
+    return;
+  }
+  const tempKey = `${key}:tmp:${randomUUID()}`;
+  try {
+    await redis.del(tempKey);
+    for (let start = 0; start < values.length; start += REDIS_CHUNK_SIZE) {
+      const pipeline = redis.pipeline();
+      pipeline.rpush(tempKey, ...values.slice(start, start + REDIS_CHUNK_SIZE));
+      await executePipeline(pipeline);
+    }
+    await redis.rename(tempKey, key);
+  } catch (error) {
+    try { await redis.del(tempKey); } catch { /* best effort */ }
+    throw error;
+  }
+}
+
+async function executePipeline(pipeline: any) {
+  const replies = await pipeline.exec();
+  if (!Array.isArray(replies)) throw new Error('Redis pipeline returned no replies');
+  const failed = replies.find(([error]) => error);
+  if (failed) throw failed[0];
 }
 
 function parseEvent(raw: string) {

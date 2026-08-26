@@ -12,11 +12,17 @@ export class FakeRedis {
     this.hashes = new Map();
     this.lists = new Map();
     this.sortedSets = new Map();
-    this.evalFailures = new Set();
+    this.pipelineFailures = new Map();
+    this.pipelineChunks = new Map();
   }
 
-  failNextEval(operation) {
-    this.evalFailures.add(operation);
+  failPipelineAfter(operation, successfulChunks = 1) {
+    this.pipelineFailures.set(operation, successfulChunks);
+    this.pipelineChunks.set(operation, 0);
+  }
+
+  seedHash(key, entries) {
+    this.hashes.set(key, new Map(entries));
   }
 
   hasKey(key) {
@@ -94,6 +100,23 @@ export class FakeRedis {
     return added;
   }
 
+  async rename(source, destination) {
+    let value;
+    let store;
+    for (const candidate of [this.strings, this.hashes, this.lists, this.sortedSets]) {
+      if (candidate.has(source)) {
+        value = candidate.get(source);
+        store = candidate;
+        break;
+      }
+    }
+    if (!store) throw new Error('ERR no such key');
+    await this.del(destination);
+    store.delete(source);
+    store.set(destination, value);
+    return 'OK';
+  }
+
   async scan(_cursor, ...args) {
     const matchIndex = args.indexOf('MATCH');
     const pattern = matchIndex >= 0 ? args[matchIndex + 1] : '*';
@@ -104,35 +127,8 @@ export class FakeRedis {
 
   async eval(script, numberOfKeys, ...args) {
     const key = args[0];
-    let operation;
-    if (script.includes('tokenrank:replace-list-v1')) operation = 'replace-list';
-    else if (script.includes('tokenrank:replace-hash-v1')) operation = 'replace-hash';
-    else if (script.includes("redis.call('get', KEYS[1])")) operation = 'release-lock';
-    else throw new Error('Unsupported FakeRedis EVAL script');
-
-    if (this.evalFailures.delete(operation)) throw new Error(`Injected ${operation} failure`);
+    if (!script.includes("redis.call('get', KEYS[1])")) throw new Error('Unsupported FakeRedis EVAL script');
     if (numberOfKeys !== 1) throw new Error('FakeRedis expected one EVAL key');
-
-    if (operation === 'replace-list') {
-      const values = args.slice(1).map(String);
-      if (values.length) this.lists.set(key, values);
-      else this.lists.delete(key);
-      return values.length;
-    }
-    if (operation === 'replace-hash') {
-      const entries = args.slice(1);
-      if (entries.length % 2 !== 0) throw new Error('FakeRedis expected hash field/value pairs');
-      if (entries.length) {
-        const hash = new Map();
-        for (let index = 0; index < entries.length; index += 2) {
-          hash.set(String(entries[index]), String(entries[index + 1]));
-        }
-        this.hashes.set(key, hash);
-      } else {
-        this.hashes.delete(key);
-      }
-      return entries.length / 2;
-    }
     if (await this.get(key) !== String(args[1])) return 0;
     return this.del(key);
   }
@@ -147,12 +143,33 @@ export class FakeRedis {
       };
     }
     pipeline.exec = async () => Promise.all(commands.map(async ([method, args]) => {
+      const key = args[0];
+      const operation = String(key).includes(':tmp:')
+        ? (method === 'hset' ? 'replace-hash' : method === 'rpush' ? 'replace-list' : null)
+        : null;
+      if (operation && this.pipelineFailures.has(operation)) {
+        const completed = this.pipelineChunks.get(operation) ?? 0;
+        if (completed >= this.pipelineFailures.get(operation)) {
+          this.pipelineFailures.delete(operation);
+          throw new Error(`Injected ${operation} pipeline failure`);
+        }
+      }
       try {
         return [null, await this[method](...args)];
       } catch (error) {
         return [error, null];
       }
-    }));
+    })).then((replies) => {
+      const first = commands[0];
+      const key = first?.[1]?.[0];
+      const operation = String(key).includes(':tmp:')
+        ? (first[0] === 'hset' ? 'replace-hash' : first[0] === 'rpush' ? 'replace-list' : null)
+        : null;
+      if (operation && this.pipelineFailures.has(operation)) {
+        this.pipelineChunks.set(operation, (this.pipelineChunks.get(operation) ?? 0) + 1);
+      }
+      return replies;
+    }).catch((error) => commands.map(() => [error, null]));
     return pipeline;
   }
 }

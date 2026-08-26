@@ -98,36 +98,39 @@ test('sync rejects payloads outside the full v5 protocol before changing Redis',
   assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
 });
 
-test('a failed atomic list replacement leaves the prior list intact and v5 incomplete', async () => {
+test('a failed second temp-list chunk leaves the live list intact and cleans the temp key', async () => {
   const redis = new FakeRedis();
   const key = 'user:u1:timeseries:2026-08-18';
-  const original = [
-    JSON.stringify({ tool: 'claude', tokens: 7, source: 'manual' }),
-    JSON.stringify({ tool: 'codex', tokens: 9, source: 'codex-ledger-v5' }),
-  ];
+  const original = Array.from({ length: 501 }, (_, index) => JSON.stringify({
+    tool: 'claude', tokens: index + 1, source: 'manual',
+  }));
+  original.push(JSON.stringify({ tool: 'codex', tokens: 9, source: 'codex-ledger-v5' }));
   await redis.rpush(key, ...original);
-  redis.failNextEval('replace-list');
+  redis.failPipelineAfter('replace-list', 1);
 
   await assert.rejects(
     syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('same', 110)])),
-    /Injected replace-list failure/,
+    /Injected replace-list pipeline failure/,
   );
   assert.deepEqual(await redis.lrange(key, 0, -1), original);
+  assert.deepEqual((await redis.scan('0', 'MATCH', `${key}:tmp:*`))[1], []);
   assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
 });
 
-test('a failed atomic hash replacement writes no manifest summary or version marker', async () => {
+test('a failed second temp-hash chunk leaves the live hash intact and cleans the temp key', async () => {
   const redis = new FakeRedis();
-  redis.failNextEval('replace-hash');
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('original', 7)]));
+  const key = 'user:u1:codex:turns';
+  const original = await redis.hgetall(key);
+  const records = Array.from({ length: 501 }, (_, index) => turnRecord(`replacement-${index}`, 1));
+  redis.failPipelineAfter('replace-hash', 1);
 
   await assert.rejects(
-    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('same', 110)])),
-    /Injected replace-hash failure/,
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(records)),
+    /Injected replace-hash pipeline failure/,
   );
-  assert.deepEqual(await redis.hgetall('user:u1:codex:turns'), {});
-  assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), null);
-  assert.equal(await redis.get('user:u1:codex:summary'), null);
-  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+  assert.deepEqual(await redis.hgetall(key), original);
+  assert.deepEqual((await redis.scan('0', 'MATCH', `${key}:tmp:*`))[1], []);
 });
 
 test('a 50,001-record payload is rejected before any Redis mutation', async () => {
@@ -138,6 +141,29 @@ test('a 50,001-record payload is rejected before any Redis mutation', async () =
   assert.deepEqual(await redis.hgetall('user:u1:codex:turns'), {});
   assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), null);
   assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+});
+
+test('a 70,001-turn reconciled ledger rebuilds without spread limits', async () => {
+  const redis = new FakeRedis();
+  const key = 'user:u1:codex:turns';
+  function* existingTurns() {
+    for (let index = 0; index < 50_001; index += 1) {
+      const record = turnRecord(`existing-${index}`, 1);
+      yield [record.turn_key, JSON.stringify({
+        record,
+        device_versions: { windows: record },
+        source_devices: ['windows'],
+      })];
+    }
+  }
+  redis.seedHash(key, existingTurns());
+  const incoming = Array.from({ length: 20_000 }, (_, index) => turnRecord(`incoming-${index}`, 1));
+
+  const summary = await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(incoming));
+
+  assert.equal(summary.lifetime.total, 70_001);
+  assert.equal(Object.keys(await redis.hgetall(key)).length, 70_001);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), '5');
 });
 
 test('ledger update writes one canonical Codex event and continues non-Codex history', async () => {
