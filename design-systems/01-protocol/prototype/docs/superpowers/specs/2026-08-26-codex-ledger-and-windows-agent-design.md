@@ -86,7 +86,7 @@ norm              net_new_input + output
 ### 数据源优先级
 
 1. 原生 `~/.codex/sessions/**/*.jsonl` 是 Codex 官方账号用量的主数据源。
-2. 每个 session 内优先使用完成轮次的 `last_token_usage`；缺失时使用相邻 `total_token_usage` 的非负增量。
+2. 每个 session 以相邻 `total_token_usage` 的非负增量为主，将同一 `turn_id` 下的多次模型调用汇总为一个轮次；`last_token_usage` 仅在累计计数缺失或异常时补全。
 3. CodexManager 的 `openai_account` 记录在原生 session 可用时不得再加入 Codex 总量。
 4. 只有原生 session 完全不可用时，CodexManager 才作为明确标记的 fallback。
 5. 代理/第三方 provider 使用独立工具键，不能混入官方 Codex，也不能与其镜像重复。
@@ -106,7 +106,6 @@ turn_key = SHA-256(session_id + "|" + turn_id)
 ```text
 turn_key
 session_key        session_id 的哈希，仅用于诊断和合并
-date               Asia/Shanghai 日期
 model              日志中的实际模型；缺失时使用可追踪的 family fallback
 input_total
 net_new_input
@@ -115,7 +114,11 @@ cache_read
 cache_write
 total
 norm
+pricing_tiers      按单次模型调用是否越过长上下文门槛汇总的 base/long 计费桶
+daily              按 Asia/Shanghai 日期保存同样计数与计费桶
 ```
+
+轮次跨越北京时间零点时，`daily` 保留各次模型调用实际发生日期的拆分，因此日榜不因整轮归入开始日或结束日而偏移；顶层计数必须等于所有 `daily` 桶之和。
 
 同一设备切换账号不会清空历史 session，因此所有仍在本机的账号用量自然进入轮次账本，不需要上传账号身份。
 
@@ -152,7 +155,7 @@ account_audit_key = HMAC-SHA256(T Salon upload token, lowercase(trim(account ema
 ```text
 user:{userId}:codex:turns
   field = turn_key
-  value = normalized turn record + source device + updatedAt
+  value = 各 source device 的匿名 record version + 当前选中的 normalized record + updatedAt
 ```
 
 另存设备 manifest/version，用于迁移、删除损坏快照和诊断。
@@ -160,10 +163,11 @@ user:{userId}:codex:turns
 ### 合并规则
 
 1. 同一 `turn_key` 重复上报只更新记录，不增加总量。
-2. 同一轮次在多个设备出现时，选择字段完整度更高且 `total` 更大的合法版本；相同版本只保留一份。
+2. 同一轮次在多个设备出现时，保留各设备的匿名 record version，并选择字段完整度更高且 `total` 更大的合法版本作为当前值；相同版本在聚合中只计一份。
 3. 不同 `turn_key` 无论来自哪个设备或账号均累加。
 4. 同一设备重新安装并保留相同会话日志不会重复累计。
-5. 每次账本变化后，从 canonical turn ledger 重建 Codex 的 daily/lifetime/model/cost 汇总。
+5. 某设备 manifest 删除轮次时只删除该设备版本；若仍有其他设备版本则重新选择最佳值，所有版本都消失时才删除该 `turn_key`。
+6. 每次账本变化后，从 canonical turn ledger 重建 Codex 的 daily/lifetime/model/cost 汇总。
 
 因此：
 
@@ -256,11 +260,12 @@ cost    等效 API 费用 USD
 ### 采集器单元测试
 
 1. Codex `input=100, cache_read=60, output=10`：`total=110`、`norm=50`，缓存不重复加也不从主值扣除。
-2. 同一 session 的累计 token_count 多次出现，只计完成轮次一次。
+2. 同一轮次内多次增长的累计 `token_count` 先做相邻差分再汇总；完全重复的累计事件增量为零。
 3. 两个不同账号遗留的 session 文件均计入。
 4. 原生 session 与 CodexManager 镜像相同时只计原生数据。
 5. 模型切换后分别按模型定价。
 6. 第二次扫描全部命中 cache，结果与首次一致。
+7. 同一轮次跨越北京时间零点时，顶层总量不变且两个 daily 桶分别正确。
 
 ### 服务端测试
 
