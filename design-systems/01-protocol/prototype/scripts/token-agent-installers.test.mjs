@@ -10,9 +10,27 @@ test('Windows scheduled task launches wscript and never PowerShell directly', ()
   assert.match(source, /\.Run\([^,]+,\s*0,\s*True\)/i);
 });
 
+function assertLedgerDownloadBeforeAgent(source, downloadPattern) {
+  const ledgerIndex = source.indexOf('codex-ledger.mjs');
+  const agentIndex = source.lastIndexOf('agent.mjs');
+  assert.notEqual(ledgerIndex, -1, 'installer must mention codex-ledger.mjs');
+  assert.notEqual(agentIndex, -1, 'installer must mention agent.mjs');
+  assert.match(source, downloadPattern);
+  assert.ok(ledgerIndex < agentIndex, 'installer must download the ledger before agent.mjs');
+}
+
 test('both installers download codex-ledger.mjs before agent execution', () => {
-  for (const file of ['public/scripts/token-agent.ps1', 'public/scripts/token-agent.sh']) {
-    const source = fs.readFileSync(file, 'utf8');
-    assert.ok(source.indexOf('codex-ledger.mjs') < source.lastIndexOf('agent.mjs'));
+  const installers = [
+    {
+      file: 'public/scripts/token-agent.ps1',
+      downloadPattern: /Invoke-WebRequest\s+-Uri\s+"\$host_url\/scripts\/codex-ledger\.mjs"\s+-OutFile\s+\$ledgerPath\b/i,
+    },
+    {
+      file: 'public/scripts/token-agent.sh',
+      downloadPattern: /"\$CURL_BIN"\s+-fsSL\s+"\$HOST\/scripts\/codex-ledger\.mjs"\s+-o\s+"\$TSALON_DIR\/codex-ledger\.mjs"/,
+    },
+  ];
+  for (const { file, downloadPattern } of installers) {
+    assertLedgerDownloadBeforeAgent(fs.readFileSync(file, 'utf8'), downloadPattern);
   }
 });
