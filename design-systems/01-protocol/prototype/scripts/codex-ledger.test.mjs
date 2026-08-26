@@ -4,7 +4,9 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { readOfficialCodexAudit, scanCodexLedger } from '../public/scripts/codex-ledger.mjs';
-import { sessionMeta, tempHome, tokenCount, turnContext, writeSession, writeTurn } from './helpers/codex-fixtures.mjs';
+import { readCodexLedgerView, syncCodexLedger } from '../src/lib/codex-ledger.ts';
+import { ledgerPayload, sessionMeta, tempHome, tokenCount, turnContext, writeSession, writeTurn } from './helpers/codex-fixtures.mjs';
+import { FakeRedis } from './helpers/fake-redis.mjs';
 
 test('official audit hashes email locally and never returns it', async () => {
   const audit = await readOfficialCodexAudit({
@@ -89,6 +91,111 @@ test('different historical accounts add while replayed turns dedupe', async (t) 
   const scan = await scanCodexLedger(home);
   assert.equal(scan.records.length, 2);
   assert.equal(scan.summary.total, 330);
+});
+
+test('a corrupt file uses its last-known-good records while healthy files continue updating', async (t) => {
+  const home = tempHome(t);
+  const redis = new FakeRedis();
+  const brokenName = 'private-project-broken.jsonl';
+  const brokenPath = path.join(home, '.codex', 'sessions', '2026', '08', '18', brokenName);
+  writeSession(home, brokenName, [
+    { ...sessionMeta('cached-session'), payload: { id: 'cached-session', file_path: '/private/project' } },
+    { ...turnContext('cached-turn', 'customer-secret-project'), payload: { turn_id: 'cached-turn', model: 'customer-secret-project', prompt: 'private prompt' } },
+    tokenCount('2026-08-18T02:00:00Z', { input_tokens: 10, output_tokens: 0 }),
+  ]);
+
+  const initial = await scanCodexLedger(home);
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(initial.records));
+  fs.appendFileSync(brokenPath, '\n{"type":"event_msg","payload":');
+  writeTurn(home, 'healthy-new.jsonl', 'healthy-session', 'healthy-turn', 20);
+
+  const partial = await scanCodexLedger(home);
+  assert.equal(partial.authoritative, true);
+  assert.equal(partial.files.skipped, 1);
+  assert.equal(partial.files.stale, 1);
+  assert.deepEqual(partial.records.map((record) => record.total).sort((a, b) => a - b), [10, 20]);
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(partial.records));
+  assert.equal((await readCodexLedgerView(redis, 'u1')).summary.lifetime.total, 30);
+
+  const serializedCache = fs.readFileSync(path.join(home, '.tsalon', 'codex-session-cache-v5.json'), 'utf8');
+  for (const secret of [brokenName, 'healthy-new.jsonl', '/private/project', 'private prompt', 'customer-secret-project']) {
+    assert.equal(serializedCache.includes(secret), false);
+  }
+
+  fs.rmSync(brokenPath);
+  const afterDelete = await scanCodexLedger(home);
+  assert.equal(afterDelete.authoritative, true);
+  assert.equal(afterDelete.files.skipped, 0);
+  assert.deepEqual(afterDelete.records.map((record) => record.total), [20]);
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(afterDelete.records));
+  assert.equal((await readCodexLedgerView(redis, 'u1')).summary.lifetime.total, 20);
+});
+
+test('a cached file deleted between stat and read is removed from the authoritative manifest', async (t) => {
+  const home = tempHome(t);
+  const redis = new FakeRedis();
+  const fileName = 'deleted-during-read.jsonl';
+  const filePath = path.join(home, '.codex', 'sessions', '2026', '08', '18', fileName);
+  writeTurn(home, fileName, 'deleted-session', 'deleted-turn', 10);
+  const initial = await scanCodexLedger(home);
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(initial.records));
+  fs.appendFileSync(filePath, '\n');
+
+  const originalReadFileSync = fs.readFileSync;
+  fs.readFileSync = function readAfterDelete(target, ...args) {
+    if (String(target) === filePath) fs.rmSync(filePath);
+    return originalReadFileSync.call(this, target, ...args);
+  };
+  let deleted;
+  try {
+    deleted = await scanCodexLedger(home);
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+  }
+
+  assert.equal(deleted.authoritative, true);
+  assert.equal(deleted.files.deleted, 1);
+  assert.deepEqual(deleted.records, []);
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(deleted.records));
+  assert.equal((await readCodexLedgerView(redis, 'u1')).summary.lifetime.total, 0);
+  const cache = JSON.parse(fs.readFileSync(path.join(home, '.tsalon', 'codex-session-cache-v5.json'), 'utf8'));
+  assert.deepEqual(cache.files, {});
+});
+
+test('a first-seen corrupt file is diagnosed without blocking healthy authoritative records', async (t) => {
+  const home = tempHome(t);
+  writeTurn(home, 'healthy.jsonl', 'healthy-first-session', 'healthy-first-turn', 20);
+  writeSession(home, 'first-seen-private.jsonl', [
+    sessionMeta('broken-first-session'),
+    { type: 'event_msg', payload: { prompt: 'secret first-seen prompt' } },
+  ]);
+  fs.appendFileSync(
+    path.join(home, '.codex', 'sessions', '2026', '08', '18', 'first-seen-private.jsonl'),
+    '\n{"truncated":',
+  );
+
+  const scan = await scanCodexLedger(home);
+  assert.equal(scan.authoritative, true);
+  assert.equal(scan.files.skipped, 1);
+  assert.equal(scan.files.stale, 0);
+  assert.deepEqual(scan.records.map((record) => record.total), [20]);
+});
+
+test('inherited model property names normalize to unknown in client records and cache', async (t) => {
+  const home = tempHome(t);
+  for (const [index, model] of ['constructor', '__proto__'].entries()) {
+    writeSession(home, `inherited-model-${index}.jsonl`, [
+      sessionMeta(`inherited-session-${index}`),
+      turnContext(`inherited-turn-${index}`, model),
+      tokenCount('2026-08-18T02:00:00Z', { input_tokens: 10, output_tokens: 0 }),
+    ]);
+  }
+
+  const scan = await scanCodexLedger(home);
+  assert.deepEqual(scan.records.map((record) => record.model), ['unknown', 'unknown']);
+  const cache = fs.readFileSync(path.join(home, '.tsalon', 'codex-session-cache-v5.json'), 'utf8');
+  assert.equal(cache.includes('constructor'), false);
+  assert.equal(cache.includes('__proto__'), false);
 });
 
 test('legacy sessions without turn ids use stable content-free fallback turn keys', async (t) => {

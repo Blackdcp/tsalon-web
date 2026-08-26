@@ -4,6 +4,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
+const TIER_COUNTERS = ['net_new_input', 'cache_read', 'cache_write', 'output'];
+const CANONICAL_MODELS = new Set([
+  'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+  'claude-fable-5', 'claude-3-5-sonnet', 'gemini-2.5-pro',
+]);
+const MODEL_ALIASES = Object.freeze({
+  antigravity: 'gemini-2.5-pro',
+  claude: 'claude-3-5-sonnet',
+  codex: 'gpt-5.6-sol',
+  codex_proxy: 'gpt-5.6-sol',
+  cursor: 'gpt-5.6-sol',
+});
 
 function positiveInt(value) {
   const parsed = Number.parseInt(value, 10);
@@ -200,6 +212,54 @@ function hash(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function normalizeCachedModelId(raw) {
+  const id = String(raw || '').trim().toLowerCase().split('/').at(-1) || '';
+  if (id === 'gpt-5.6') return 'gpt-5.6-sol';
+  if (CANONICAL_MODELS.has(id)) return id;
+  if (id.startsWith('claude-3-5-sonnet')) return 'claude-3-5-sonnet';
+  if (id.startsWith('gpt-5.6-sol')) return 'gpt-5.6-sol';
+  return Object.hasOwn(MODEL_ALIASES, id) ? MODEL_ALIASES[id] : 'unknown';
+}
+
+function sanitizedCachedCounters(raw) {
+  return Object.fromEntries(COUNTERS.map((key) => [key, Number(raw?.[key]) || 0]));
+}
+
+function sanitizedCachedTiers(raw) {
+  return {
+    base: Object.fromEntries(TIER_COUNTERS.map((key) => [key, Number(raw?.base?.[key]) || 0])),
+    long: Object.fromEntries(TIER_COUNTERS.map((key) => [key, Number(raw?.long?.[key]) || 0])),
+  };
+}
+
+function sanitizedCachedRecord(raw) {
+  if (!raw || typeof raw !== 'object'
+    || typeof raw.turn_key !== 'string' || typeof raw.session_key !== 'string') return null;
+  const daily = {};
+  if (raw.daily && typeof raw.daily === 'object' && !Array.isArray(raw.daily)) {
+    for (const [date, usage] of Object.entries(raw.daily)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !usage || typeof usage !== 'object') continue;
+      daily[date] = {
+        ...sanitizedCachedCounters(usage),
+        pricing_tiers: sanitizedCachedTiers(usage.pricing_tiers),
+      };
+    }
+  }
+  return {
+    turn_key: raw.turn_key,
+    session_key: raw.session_key,
+    model: normalizeCachedModelId(raw.model),
+    ...sanitizedCachedCounters(raw),
+    pricing_tiers: sanitizedCachedTiers(raw.pricing_tiers),
+    daily,
+  };
+}
+
+function sanitizedCachedRecords(raw) {
+  if (!Array.isArray(raw)) return null;
+  return raw.map(sanitizedCachedRecord).filter(Boolean);
+}
+
 function emptyCounters() {
   return Object.fromEntries(COUNTERS.map((key) => [key, 0]));
 }
@@ -260,7 +320,7 @@ function makeRecord(sessionId, turnId, model) {
   return {
     turn_key: hash(`${sessionId}|${turnId}`),
     session_key: hash(sessionId),
-    model: model || 'unknown',
+    model: normalizeCachedModelId(model),
     ...emptyCounters(),
     pricing_tiers: { base: emptyTier(), long: emptyTier() },
     daily: {},
@@ -276,13 +336,15 @@ function parseSessionFile(filePath, relativePath) {
   let tokenEventSequence = 0;
   const seenLastUsage = new Set();
   let content = '';
-  try { content = fs.readFileSync(filePath, 'utf8'); } catch { return null; }
+  try { content = fs.readFileSync(filePath, 'utf8'); } catch (error) {
+    return { status: error?.code === 'ENOENT' ? 'deleted' : 'unreadable', records: [] };
+  }
   for (const line of content.split('\n')) {
     if (!line.trim()) continue;
     let event;
     try { event = JSON.parse(line); } catch (error) {
       console.warn(`Codex session ${hash(relativePath).slice(0, 16)}: ${error.name}`);
-      return null;
+      return { status: 'invalid', records: [] };
     }
     if (event.type === 'session_meta') {
       sessionId = event.payload?.id || null;
@@ -326,7 +388,7 @@ function parseSessionFile(filePath, relativePath) {
     }
     addTier(record.pricing_tiers[tierName], delta);
   }
-  return [...records.values()];
+  return { status: 'ok', records: [...records.values()] };
 }
 
 function preferRecord(current, candidate) {
@@ -344,32 +406,73 @@ export async function scanCodexLedger(home, options = {}) {
   const cacheDir = path.join(home, '.tsalon');
   const cachePath = path.join(cacheDir, 'codex-session-cache-v5.json');
   let cachedFiles = {};
+  let cacheVersion = 0;
   try {
     const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-    if (cache?.version === 6 && cache.files && typeof cache.files === 'object') cachedFiles = cache.files;
+    if ([6, 7].includes(cache?.version) && cache.files && typeof cache.files === 'object') {
+      cacheVersion = cache.version;
+      cachedFiles = cache.files;
+    }
   } catch {}
   const nextCachedFiles = {};
   const recordsByKey = new Map();
   let cachedCount = 0;
   let parsedCount = 0;
+  let skippedCount = 0;
+  let staleCount = 0;
+  let deletedCount = 0;
+  let usableFileCount = 0;
   for (let index = 0; index < files.length; index++) {
     const filePath = files[index];
     const relativePath = path.relative(sessionsDir, filePath);
+    const sourceKey = hash(`codex-session-cache-v7|${relativePath}`);
+    const rawCached = cacheVersion === 7 ? cachedFiles[sourceKey] : cachedFiles[relativePath];
+    const cachedRecords = sanitizedCachedRecords(rawCached?.records);
+    const cached = cachedRecords ? {
+      size: Number(rawCached?.size) || 0,
+      mtimeMs: Number(rawCached?.mtimeMs) || 0,
+      records: cachedRecords,
+    } : null;
     let stat;
-    try { stat = fs.statSync(filePath); } catch {
-      authoritative = false;
+    try { stat = fs.statSync(filePath); } catch (error) {
+      skippedCount++;
+      if (error?.code === 'ENOENT') {
+        deletedCount++;
+      } else if (cached) {
+        staleCount++;
+        usableFileCount++;
+        nextCachedFiles[sourceKey] = cached;
+        for (const record of cached.records) {
+          recordsByKey.set(record.turn_key, preferRecord(recordsByKey.get(record.turn_key), record));
+        }
+      }
+      options.onProgress?.({ current: index + 1, total: files.length });
       continue;
     }
-    const cached = cachedFiles[relativePath];
-    const cacheHit = cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs && Array.isArray(cached.records);
-    const records = cacheHit ? cached.records : parseSessionFile(filePath, relativePath);
-    if (!records) {
-      authoritative = false;
-      continue;
+    const cacheHit = cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs;
+    const parsed = cacheHit ? null : parseSessionFile(filePath, relativePath);
+    let records = cacheHit ? cached.records : parsed.records;
+    if (cacheHit) {
+      cachedCount++;
+      nextCachedFiles[sourceKey] = cached;
+    } else if (parsed.status === 'ok') {
+      parsedCount++;
+      nextCachedFiles[sourceKey] = { size: stat.size, mtimeMs: stat.mtimeMs, records };
+    } else if (parsed.status === 'deleted') {
+      skippedCount++;
+      deletedCount++;
+      records = [];
+    } else {
+      skippedCount++;
+      if (cached) {
+        records = cached.records;
+        staleCount++;
+        nextCachedFiles[sourceKey] = cached;
+      } else {
+        records = [];
+      }
     }
-    if (cacheHit) cachedCount++;
-    else parsedCount++;
-    nextCachedFiles[relativePath] = { size: stat.size, mtimeMs: stat.mtimeMs, records };
+    if (cacheHit || records.length > 0 || nextCachedFiles[sourceKey]) usableFileCount++;
     for (const record of records) {
       recordsByKey.set(record.turn_key, preferRecord(recordsByKey.get(record.turn_key), record));
     }
@@ -378,9 +481,11 @@ export async function scanCodexLedger(home, options = {}) {
   try {
     fs.mkdirSync(cacheDir, { recursive: true });
     const temporary = `${cachePath}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify({ version: 6, files: nextCachedFiles }));
+    fs.writeFileSync(temporary, JSON.stringify({ version: 7, files: nextCachedFiles }));
     fs.renameSync(temporary, cachePath);
   } catch {}
+  const existingFileCount = Math.max(0, files.length - deletedCount);
+  authoritative &&= existingFileCount === 0 || usableFileCount > 0;
   const records = (authoritative ? [...recordsByKey.values()] : [])
     .filter((record) => Number.isFinite(record.total) && record.total > 0)
     .sort((a, b) => a.turn_key.localeCompare(b.turn_key));
@@ -392,6 +497,13 @@ export async function scanCodexLedger(home, options = {}) {
     authoritative,
     available: authoritative,
     hasNativeSessions: authoritative,
-    files: { total: files.length, cached: cachedCount, parsed: parsedCount },
+    files: {
+      total: files.length,
+      cached: cachedCount,
+      parsed: parsedCount,
+      skipped: skippedCount,
+      stale: staleCount,
+      deleted: deletedCount,
+    },
   };
 }
