@@ -329,3 +329,34 @@ test('failed stale-event cleanup retains marked snapshots for retry', async () =
   assert.notEqual(await redis.get(snapshotKey), null);
   assert.equal(await redis.get('user:u1:update-lock'), null);
 });
+
+test('snapshot migration preserves device ids containing the snap delimiter', async () => {
+  const redis = new FakeRedis();
+  const migratedDeviceId = 'device:snap:legacy';
+  const markerKey = `user:u1:device:${migratedDeviceId}:codex-ledger-version`;
+  await redis.set(markerKey, '5');
+  await redis.set(`user:u1:device:${migratedDeviceId}:snap:2026-08-16`, JSON.stringify({
+    date: '2026-08-16', total: 100,
+  }));
+  await redis.set(`user:u1:device:${migratedDeviceId}:snap:2026-08-17`, JSON.stringify({
+    date: '2026-08-17', total: 150,
+  }));
+  await redis.rpush('user:u1:timeseries:2026-08-18', JSON.stringify({
+    tool: 'codex', deviceId: migratedDeviceId, tokens: 50, source: 'snapshot-delta',
+  }));
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    cursor: { total: 20, raw_total: 20 },
+  }, 'device-b');
+
+  const deviceKeys = (await redis.scan('0', 'MATCH', 'user:u1:device:*'))[1];
+  const genuineSnapshotKeys = deviceKeys.filter((key) => /:snap:\d{4}-\d{2}-\d{2}$/.test(key));
+  const timeseriesKeys = (await redis.scan('0', 'MATCH', 'user:u1:timeseries:*'))[1];
+  const events = (await Promise.all(timeseriesKeys.map((key) => redis.lrange(key, 0, -1))))
+    .flat().map(JSON.parse);
+
+  assert.deepEqual(genuineSnapshotKeys.filter((key) => key.includes(migratedDeviceId)), []);
+  assert.equal(await redis.get(markerKey), '5');
+  assert.equal(events.filter((event) => event.source === 'snapshot-delta').length, 0);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
+});

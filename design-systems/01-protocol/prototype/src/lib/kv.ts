@@ -219,25 +219,34 @@ export async function updateTokenUsageWithRedis(
   if (!excludesLegacyCodex) {
     const snapKey = `user:${userId}:device:${deviceId}:snap:${todayStr}`;
     await kv.set(snapKey, JSON.stringify({ date: todayStr, total: deviceTotal, updatedAt: new Date().toISOString() }));
-    const snaps = await scanKeys(`user:${userId}:device:${deviceId}:snap:*`);
-    if (snaps.length > 120) {
-      snaps.sort();
-      const toDel = snaps.slice(0, snaps.length - 120);
-      if (toDel.length) await kv.del(...toDel);
-    }
   }
 
   // A snapshot belongs to its source device, so migration filtering must also
   // be per-device. Resolve all source markers in one batch, permanently remove
   // marked-device compatibility snapshots, and clean only the snapshot-derived
   // Codex events that those snapshots could have reintroduced.
-  const snapKeysAll = await scanKeys(`user:${userId}:device:*:snap:*`);
   const snapshotPrefix = `user:${userId}:device:`;
-  const snapshotDeviceId = (key: string) => {
+  const snapshotKeyParts = (key: string): { deviceId: string; date: string } | null => {
+    if (!key.startsWith(snapshotPrefix)) return null;
     const remainder = key.slice(snapshotPrefix.length);
-    const separator = remainder.indexOf(':snap:');
-    return separator < 0 ? '' : remainder.slice(0, separator);
+    const separator = remainder.lastIndexOf(':snap:');
+    if (separator <= 0) return null;
+    const date = remainder.slice(separator + ':snap:'.length);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    return { deviceId: remainder.slice(0, separator), date };
   };
+  const snapKeysAll = (await scanKeys(`user:${userId}:device:*:snap:????-??-??`))
+    .filter((key) => snapshotKeyParts(key) !== null);
+  const snapshotDeviceId = (key: string) => snapshotKeyParts(key)?.deviceId || '';
+
+  if (!excludesLegacyCodex) {
+    const currentDeviceSnaps = snapKeysAll
+      .filter((key) => snapshotDeviceId(key) === deviceId)
+      .sort();
+    const toDel = currentDeviceSnaps.slice(0, Math.max(0, currentDeviceSnaps.length - 120));
+    if (toDel.length) await kv.del(...toDel);
+  }
+
   const snapshotDeviceIds = [...new Set(snapKeysAll.map(snapshotDeviceId).filter(Boolean))];
   const snapshotLedgerVersions = snapshotDeviceIds.length
     ? await kv.mget(snapshotDeviceIds.map((id) => `user:${userId}:device:${id}:codex-ledger-version`))
@@ -399,8 +408,9 @@ export async function updateTokenUsageWithRedis(
       if (!raw) continue;
       try {
         const o = JSON.parse(raw);
-        const did = snapshotDeviceId(sk);
-        (perDevice[did] ||= []).push({ date: o.date, total: o.total });
+        const parts = snapshotKeyParts(sk);
+        if (!parts) continue;
+        (perDevice[parts.deviceId] ||= []).push({ date: parts.date, total: o.total });
       } catch { /* ignore */ }
     }
     // Derive a sane cap from the distribution of snapshot deltas so a context-
