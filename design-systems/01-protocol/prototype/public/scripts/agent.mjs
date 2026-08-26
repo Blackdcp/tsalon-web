@@ -718,13 +718,15 @@ async function main() {
     device_id: deviceId,
     history_complete_tools: historyCompleteTools,
     data: finalTokens,
-    codex_ledger: {
+  };
+  if (codexData.ledger.records.length > 0) {
+    payload.codex_ledger = {
       version: 5,
       full_sync: true,
       manifest_hash: createHash('sha256').update(codexData.ledger.records.map((record) => record.turn_key).sort().join('\n')).digest('hex'),
       records: codexData.ledger.records,
-    },
-  };
+    };
+  }
   if (accountAudit) payload.account_audit = accountAudit;
 
   if (dryRun) {

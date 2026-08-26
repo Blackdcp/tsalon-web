@@ -4,6 +4,8 @@ const COUNTERS = Object.freeze(['input_total', 'net_new_input', 'output', 'cache
 const TIER_COUNTERS = Object.freeze(['net_new_input', 'cache_read', 'cache_write', 'output']);
 const MAX_RECORDS = 50_000;
 const MAX_TOKENS_PER_TURN = 1e12;
+const MAX_MODEL_LENGTH = 128;
+const MAX_DAILY_DAYS = 3_660;
 const HEX_64 = /^[a-f0-9]{64}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -116,21 +118,66 @@ function validTiers(raw, record) {
   return true;
 }
 
+function sanitizedCounters(raw) {
+  return Object.fromEntries(COUNTERS.map((key) => [key, raw[key]]));
+}
+
+function sanitizedTiers(raw) {
+  return {
+    base: Object.fromEntries(TIER_COUNTERS.map((key) => [key, raw.base[key]])),
+    long: Object.fromEntries(TIER_COUNTERS.map((key) => [key, raw.long[key]])),
+  };
+}
+
 function validDaily(raw, record) {
-  if (!isObject(raw)) return false;
+  if (!isObject(raw) || Object.keys(raw).length > MAX_DAILY_DAYS) return false;
   const total = emptyCounters();
   for (const [day, usage] of Object.entries(raw)) {
     if (!isCalendarDate(day) || !validCounters(usage)) return false;
+    if (Object.hasOwn(usage, 'pricing_tiers') && !validTiers(usage.pricing_tiers, usage)) return false;
     addCounters(total, usage);
   }
   return COUNTERS.every((key) => total[key] === record[key]);
 }
 
+function dailyPricingTiers(record, usage) {
+  if (validTiers(usage?.pricing_tiers, usage)) return usage.pricing_tiers;
+  const tiers = {
+    base: Object.fromEntries(TIER_COUNTERS.map((key) => [key, 0])),
+    long: Object.fromEntries(TIER_COUNTERS.map((key) => [key, 0])),
+  };
+  for (const key of TIER_COUNTERS) {
+    const recordAmount = Number(record[key]) || 0;
+    const dailyAmount = Number(usage?.[key]) || 0;
+    const baseRatio = recordAmount > 0 ? (Number(record.pricing_tiers?.base?.[key]) || 0) / recordAmount : 0;
+    tiers.base[key] = dailyAmount * baseRatio;
+    tiers.long[key] = dailyAmount - tiers.base[key];
+  }
+  return tiers;
+}
+
 export function validateTurnRecord(raw) {
   if (!isObject(raw) || !HEX_64.test(raw.turn_key) || !HEX_64.test(raw.session_key)) return null;
-  if (typeof raw.model !== 'string' || !raw.model.trim() || !validCounters(raw)) return null;
+  if (typeof raw.model !== 'string' || !raw.model.trim() || raw.model.length > MAX_MODEL_LENGTH || !validCounters(raw)) return null;
   if (!validTiers(raw.pricing_tiers, raw) || !validDaily(raw.daily, raw)) return null;
-  return structuredClone(raw);
+  const counters = sanitizedCounters(raw);
+  const pricing_tiers = sanitizedTiers(raw.pricing_tiers);
+  const daily = emptyMap();
+  const recordForTierMigration = { ...counters, pricing_tiers };
+  for (const [day, usage] of Object.entries(raw.daily)) {
+    daily[day] = {
+      ...sanitizedCounters(usage),
+      pricing_tiers: sanitizedTiers(dailyPricingTiers(recordForTierMigration, usage)),
+    };
+  }
+  return {
+    turn_key: raw.turn_key.toLowerCase(),
+    session_key: raw.session_key.toLowerCase(),
+    model: raw.model.trim(),
+    ...counters,
+    pricing_tiers,
+    daily,
+  };
 }
 
 function completeness(record) {
@@ -215,8 +262,8 @@ export function aggregateCanonicalTurns(turns = {}) {
     addUsage(models[normalized.id], record, price.usd, price.estimated);
     for (const [day, usage] of Object.entries(record.daily)) {
       if (!daily[day]) daily[day] = emptyAggregate();
-      const dayCost = record.total ? price.usd * (usage.total / record.total) : 0;
-      addUsage(daily[day], usage, dayCost, price.estimated);
+      const dayPrice = priceUsage(record.model, dailyPricingTiers(record, usage));
+      addUsage(daily[day], usage, dayPrice.usd, dayPrice.estimated);
     }
   }
   const lifetime = emptyAggregate();

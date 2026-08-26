@@ -104,6 +104,17 @@ test('record validation rejects forged keys, inconsistent counters, and invalid 
   assert.equal(validateTurnRecord({ ...turnRecord('bad-key', 10), turn_key: 'bad' }), null);
   assert.equal(validateTurnRecord({ ...turnRecord('bad-total', 10), total: 11 }), null);
   assert.equal(validateTurnRecord({ ...turnRecord('bad-day', 10), daily: { invalid: turnRecord('day', 10) } }), null);
+  assert.equal(validateTurnRecord({ ...turnRecord('long-model', 10), model: 'm'.repeat(129) }), null);
+
+  const zeroUsage = {
+    input_total: 0, net_new_input: 0, output: 0, cache_read: 0,
+    cache_write: 0, total: 0, norm: 0,
+  };
+  const tooManyDays = Object.fromEntries(Array.from({ length: 3_661 }, (_, index) => {
+    const date = new Date(Date.UTC(2000, 0, 1 + index)).toISOString().slice(0, 10);
+    return [date, zeroUsage];
+  }));
+  assert.equal(validateTurnRecord({ ...turnRecord('too-many-days', 0), daily: tooManyDays }), null);
 });
 
 test('aggregate lifetime equals daily totals and bills only via pricing tiers', () => {

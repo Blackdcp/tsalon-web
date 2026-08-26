@@ -16,6 +16,18 @@ export interface CodexLedgerSummary {
   models: Record<string, Record<string, number | boolean>>;
 }
 
+export interface RedisCommitOperations {
+  renames?: Array<[string, string]>;
+  deletes?: string[];
+  sets?: Array<[string, string]>;
+  zadds?: Array<[string, number, string]>;
+  rpushes?: Array<[string, string[]]>;
+}
+
+export interface SyncCodexLedgerOptions {
+  commit?: (operations: RedisCommitOperations) => Promise<void>;
+}
+
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
 const MAX_RECORDS = 50_000;
 const REDIS_CHUNK_SIZE = 500;
@@ -158,23 +170,24 @@ function canonicalDailyModels(canonical: CanonicalTurns): Record<string, Record<
     const record = validateTurnRecord(envelope?.record) as Record<string, any> | null;
     if (!record) continue;
     const model = normalizeModelId(record.model);
-    const price = priceUsage(record.model, record.pricing_tiers);
     for (const [date, usage] of Object.entries(record.daily as Record<string, Record<string, any>>)) {
       days[date] ||= Object.create(null);
       days[date][model.id] ||= emptyAggregate();
-      const cost = record.total ? price.usd * (usage.total / record.total) : 0;
-      addAggregate(days[date][model.id], usage, cost, price.estimated);
+      const price = priceUsage(record.model, usage.pricing_tiers);
+      addAggregate(days[date][model.id], usage, price.usd, price.estimated);
     }
   }
   return days;
 }
 
-async function replaceHash(redis: RedisLike, key: string, canonical: CanonicalTurns) {
+interface StagedRedisValue {
+  liveKey: string;
+  tempKey: string | null;
+}
+
+async function stageHash(redis: RedisLike, key: string, canonical: CanonicalTurns): Promise<StagedRedisValue> {
   const entries = Object.entries(canonical);
-  if (!entries.length) {
-    await redis.del(key);
-    return;
-  }
+  if (!entries.length) return { liveKey: key, tempKey: null };
   const tempKey = `${key}:tmp:${randomUUID()}`;
   try {
     await redis.del(tempKey);
@@ -185,16 +198,39 @@ async function replaceHash(redis: RedisLike, key: string, canonical: CanonicalTu
       }
       await executePipeline(pipeline);
     }
-    await redis.rename(tempKey, key);
+    return { liveKey: key, tempKey };
   } catch (error) {
     try { await redis.del(tempKey); } catch { /* best effort */ }
     throw error;
   }
 }
 
-export async function replaceRedisList(redis: RedisLike, key: string, values: string[]) {
+async function stageRedisList(redis: RedisLike, key: string, values: string[]): Promise<StagedRedisValue> {
+  if (!values.length) return { liveKey: key, tempKey: null };
+  const tempKey = `${key}:tmp:${randomUUID()}`;
+  try {
+    await redis.del(tempKey);
+    for (let start = 0; start < values.length; start += REDIS_CHUNK_SIZE) {
+      const pipeline = redis.pipeline();
+      pipeline.rpush(tempKey, ...values.slice(start, start + REDIS_CHUNK_SIZE));
+      await executePipeline(pipeline);
+    }
+    return { liveKey: key, tempKey };
+  } catch (error) {
+    try { await redis.del(tempKey); } catch { /* best effort */ }
+    throw error;
+  }
+}
+
+export async function replaceRedisList(
+  redis: RedisLike,
+  key: string,
+  values: string[],
+  commit?: (operations: RedisCommitOperations) => Promise<void>,
+) {
   if (!values.length) {
-    await redis.del(key);
+    if (commit) await commit({ deletes: [key] });
+    else await redis.del(key);
     return;
   }
   const tempKey = `${key}:tmp:${randomUUID()}`;
@@ -205,7 +241,8 @@ export async function replaceRedisList(redis: RedisLike, key: string, values: st
       pipeline.rpush(tempKey, ...values.slice(start, start + REDIS_CHUNK_SIZE));
       await executePipeline(pipeline);
     }
-    await redis.rename(tempKey, key);
+    if (commit) await commit({ renames: [[tempKey, key]] });
+    else await redis.rename(tempKey, key);
   } catch (error) {
     try { await redis.del(tempKey); } catch { /* best effort */ }
     throw error;
@@ -232,7 +269,7 @@ async function rebuildCodexLedgerTimeseries(
   userId: string,
   canonical: CanonicalTurns,
   removeLegacyDeviceId: string | null,
-) {
+): Promise<Map<string, string[]>> {
   const keyPrefix = `user:${userId}:timeseries:`;
   const existingKeys = await scanKeys(redis, `${keyPrefix}*`);
   const byKey = new Map<string, string[]>();
@@ -275,9 +312,7 @@ async function rebuildCodexLedgerTimeseries(
     byKey.set(key, events);
   }
 
-  for (const [key, events] of byKey) {
-    await replaceRedisList(redis, key, events);
-  }
+  return byKey;
 }
 
 async function scanKeys(redis: RedisLike, pattern: string): Promise<string[]> {
@@ -296,14 +331,20 @@ export async function syncCodexLedger(
   userId: string,
   deviceId: string,
   payload: CodexLedgerPayload,
+  options: SyncCodexLedgerOptions = {},
 ): Promise<CodexLedgerSummary> {
   if (!payload || payload.version !== 5 || payload.full_sync !== true
     || !Array.isArray(payload.records) || payload.records.length > MAX_RECORDS
-    || !/^[a-f0-9]{64}$/i.test(payload.manifest_hash)) {
+    || !/^[a-f0-9]{64}$/.test(payload.manifest_hash)) {
+    throw new Error('Invalid Codex ledger payload');
+  }
+  const rawTurnKeys = payload.records.map((record) => record?.turn_key);
+  if (rawTurnKeys.some((turnKey) => typeof turnKey !== 'string' || !/^[a-f0-9]{64}$/.test(turnKey))
+    || new Set(rawTurnKeys).size !== rawTurnKeys.length) {
     throw new Error('Invalid Codex ledger payload');
   }
   const expectedManifestHash = createHash('sha256')
-    .update(payload.records.map((record) => record?.turn_key).sort().join('\n'))
+    .update([...rawTurnKeys].sort().join('\n'))
     .digest('hex');
   if (payload.manifest_hash !== expectedManifestHash) throw new Error('Invalid Codex ledger payload');
 
@@ -312,20 +353,52 @@ export async function syncCodexLedger(
   const existing = Object.fromEntries(Object.entries(raw).map(([field, value]) => [field, JSON.parse(value as string)]));
   const incoming = payload.records.map(validateTurnRecord);
   if (incoming.some((record) => !record)) throw new Error('Invalid Codex ledger record');
+  const validIncoming = incoming as Record<string, any>[];
 
-  const canonical = reconcileDeviceTurns(existing, deviceId, incoming);
+  const canonical = reconcileDeviceTurns(existing, deviceId, validIncoming);
   const versionKey = `user:${userId}:device:${deviceId}:codex-ledger-version`;
   const firstV5Sync = await redis.get(versionKey) !== '5';
 
-  await replaceHash(redis, key, canonical);
-  await redis.set(`user:${userId}:device:${deviceId}:codex-manifest`, JSON.stringify({
+  const manifestKey = `user:${userId}:device:${deviceId}:codex-manifest`;
+  const manifest = JSON.stringify({
     manifest_hash: payload.manifest_hash,
-    turn_keys: incoming.map((record) => record.turn_key).sort(),
-  }));
+    turn_keys: validIncoming.map((record) => record.turn_key).sort(),
+  });
 
   const summary = aggregateCanonicalTurns(canonical);
-  await rebuildCodexLedgerTimeseries(redis, userId, canonical, firstV5Sync ? deviceId : null);
-  await redis.set(`user:${userId}:codex:summary`, JSON.stringify(summary));
-  await redis.set(versionKey, '5');
+  const timeseries = await rebuildCodexLedgerTimeseries(redis, userId, canonical, firstV5Sync ? deviceId : null);
+  const staged: StagedRedisValue[] = [];
+  try {
+    staged.push(await stageHash(redis, key, canonical));
+    for (const [timeseriesKey, events] of timeseries) {
+      staged.push(await stageRedisList(redis, timeseriesKey, events));
+    }
+
+    const operations: RedisCommitOperations = { renames: [], deletes: [], sets: [] };
+    for (const value of staged) {
+      if (value.tempKey) operations.renames!.push([value.tempKey, value.liveKey]);
+      else operations.deletes!.push(value.liveKey);
+    }
+    operations.sets!.push(
+      [manifestKey, manifest],
+      [`user:${userId}:codex:summary`, JSON.stringify(summary)],
+      [versionKey, '5'],
+    );
+    if (options.commit) {
+      await options.commit(operations);
+    } else {
+      const transaction = redis.multi();
+      for (const [source, destination] of operations.renames!) transaction.rename(source, destination);
+      for (const deleteKey of operations.deletes!) transaction.del(deleteKey);
+      for (const [setKey, value] of operations.sets!) transaction.set(setKey, value);
+      await executePipeline(transaction);
+    }
+  } catch (error) {
+    for (const value of staged) {
+      if (!value.tempKey) continue;
+      try { await redis.del(value.tempKey); } catch { /* best effort */ }
+    }
+    throw error;
+  }
   return summary;
 }

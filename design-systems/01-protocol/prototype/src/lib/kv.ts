@@ -1,5 +1,10 @@
 import Redis from 'ioredis';
-import { replaceRedisList, syncCodexLedger, type CodexLedgerPayload } from './codex-ledger.ts';
+import {
+  replaceRedisList,
+  syncCodexLedger,
+  type CodexLedgerPayload,
+  type RedisCommitOperations,
+} from './codex-ledger.ts';
 import { beijingDateString, beijingDateNDaysAgo } from './date.ts';
 import { PRICING_SNAPSHOT_DATE } from './token-pricing.mjs';
 import {
@@ -95,6 +100,100 @@ async function scanRedisKeys(redis: any, pattern: string): Promise<string[]> {
   return found;
 }
 
+const RENEW_UPDATE_LOCK_SCRIPT = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end";
+const RELEASE_UPDATE_LOCK_SCRIPT = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+const COMMIT_UPDATE_SCRIPT = `
+if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end
+local operations = cjson.decode(ARGV[2])
+for _, pair in ipairs(operations.renames or {}) do redis.call('rename', pair[1], pair[2]) end
+for _, key in ipairs(operations.deletes or {}) do redis.call('del', key) end
+for _, pair in ipairs(operations.sets or {}) do redis.call('set', pair[1], pair[2]) end
+for _, item in ipairs(operations.zadds or {}) do redis.call('zadd', item[1], item[2], item[3]) end
+for _, item in ipairs(operations.rpushes or {}) do
+  for _, value in ipairs(item[2]) do redis.call('rpush', item[1], value) end
+end
+return 1
+`;
+
+export interface UserUpdateLeaseOptions {
+  leaseMs?: number;
+  attempts?: number;
+  retryMs?: number;
+}
+
+export async function acquireUserUpdateLease(
+  redis: any,
+  userId: string,
+  { leaseMs = 30_000, attempts = 40, retryMs = 100 }: UserUpdateLeaseOptions = {},
+) {
+  if (!Number.isSafeInteger(leaseMs) || leaseMs < 15
+    || !Number.isSafeInteger(attempts) || attempts < 1
+    || !Number.isSafeInteger(retryMs) || retryMs < 0) {
+    throw new Error('Invalid token update lease options');
+  }
+  const lockKey = `user:${userId}:update-lock`;
+  const ownerId = crypto.randomUUID();
+  let locked = false;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const ok = await redis.set(lockKey, ownerId, 'PX', leaseMs, 'NX');
+    if (ok === 'OK') { locked = true; break; }
+    if (attempt + 1 < attempts && retryMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, retryMs));
+    }
+  }
+  if (!locked) throw new Error('Token update is busy; retry on the next agent run');
+
+  let stopped = false;
+  let lost = false;
+  let released = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let inFlight: Promise<any> = Promise.resolve();
+  const intervalMs = Math.max(5, Math.floor(leaseMs / 3));
+  const schedule = () => {
+    if (stopped) return;
+    timer = setTimeout(() => {
+      if (stopped) return;
+      inFlight = Promise.resolve(redis.eval(RENEW_UPDATE_LOCK_SCRIPT, 1, lockKey, ownerId, leaseMs));
+      void inFlight.then((renewed) => {
+        if (renewed !== 1) { lost = true; stopped = true; }
+      }).catch(() => {
+        lost = true;
+        stopped = true;
+      }).finally(schedule);
+    }, intervalMs);
+  };
+  schedule();
+
+  return {
+    lockKey,
+    ownerId,
+    async commit(operations: RedisCommitOperations) {
+      if (lost) throw new Error('Token update lease lost');
+      const committed = await redis.eval(
+        COMMIT_UPDATE_SCRIPT,
+        1,
+        lockKey,
+        ownerId,
+        JSON.stringify(operations),
+      );
+      if (committed !== 1) {
+        lost = true;
+        stopped = true;
+        if (timer) clearTimeout(timer);
+        throw new Error('Token update lease lost');
+      }
+    },
+    async release() {
+      if (released) return;
+      released = true;
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      try { await inFlight; } catch { /* release still checks the owner */ }
+      await redis.eval(RELEASE_UPDATE_LOCK_SCRIPT, 1, lockKey, ownerId);
+    },
+  };
+}
+
 export async function updateTokenUsage(
   userId: string,
   name: string,
@@ -136,20 +235,14 @@ export async function updateTokenUsageWithRedis(
   // Mac and Windows commonly upload on the same half-hour boundary. Serialize
   // per-user rebuilds so one device cannot overwrite the other device's list
   // rewrite. A crashed invocation self-recovers when the short TTL expires.
-  const lockKey = `user:${userId}:update-lock`;
-  const lockId = crypto.randomUUID();
-  let locked = false;
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const ok = await kv.set(lockKey, lockId, 'PX', 30_000, 'NX');
-    if (ok === 'OK') { locked = true; break; }
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  if (!locked) throw new Error('Token update is busy; retry on the next agent run');
+  const updateLease = await acquireUserUpdateLease(kv, userId);
 
   try {
     let codexSummary: Record<string, any> | null = null;
     if (options.codexLedger) {
-      codexSummary = await syncCodexLedger(kv, userId, deviceId, options.codexLedger);
+      codexSummary = await syncCodexLedger(kv, userId, deviceId, options.codexLedger, {
+        commit: updateLease.commit,
+      });
     } else {
       const storedSummary = await kv.get(`user:${userId}:codex:summary`);
       if (storedSummary) {
@@ -197,7 +290,9 @@ export async function updateTokenUsageWithRedis(
     updatedAt: new Date().toISOString()
   };
   
-  await kv.set(`user:${userId}:device:${deviceId}:data`, JSON.stringify(deviceData));
+  await updateLease.commit({
+    sets: [[`user:${userId}:device:${deviceId}:data`, JSON.stringify(deviceData)]],
+  });
 
   const todayStr = beijingDateString();
 
@@ -219,7 +314,7 @@ export async function updateTokenUsageWithRedis(
         ));
       });
       if (kept.length === events.length) continue;
-      await replaceRedisList(kv, key, kept.map((event: any) => JSON.stringify(event)));
+      await replaceRedisList(kv, key, kept.map((event: any) => JSON.stringify(event)), updateLease.commit);
     }
   }
 
@@ -227,7 +322,9 @@ export async function updateTokenUsageWithRedis(
   // fallback for pre-v2 agents. V2 daily history comes from timestamped events.
   if (!excludesLegacyCodex) {
     const snapKey = `user:${userId}:device:${deviceId}:snap:${todayStr}`;
-    await kv.set(snapKey, JSON.stringify({ date: todayStr, total: deviceTotal, updatedAt: new Date().toISOString() }));
+    await updateLease.commit({
+      sets: [[snapKey, JSON.stringify({ date: todayStr, total: deviceTotal, updatedAt: new Date().toISOString() })]],
+    });
   }
 
   // A snapshot belongs to its source device, so migration filtering must also
@@ -253,7 +350,9 @@ export async function updateTokenUsageWithRedis(
       .filter((key) => snapshotDeviceId(key) === deviceId)
       .sort();
     const toDel = currentDeviceSnaps.slice(0, Math.max(0, currentDeviceSnaps.length - 120));
-    if (toDel.length) await kv.del(...toDel);
+    if (toDel.length) {
+      await updateLease.commit({ deletes: toDel });
+    }
   }
 
   const snapshotDeviceIds = [...new Set(snapKeysAll.map(snapshotDeviceId).filter(Boolean))];
@@ -276,19 +375,20 @@ export async function updateTokenUsageWithRedis(
         && event.source === 'snapshot-delta'
       ));
       if (kept.length === events.length) continue;
-      await replaceRedisList(kv, key, kept.map((event: any) => JSON.stringify(event)));
+      await replaceRedisList(kv, key, kept.map((event: any) => JSON.stringify(event)), updateLease.commit);
     }
   }
   // Delete snapshots only after event cleanup succeeds. If either operation
   // fails, remaining snapshots retain the device IDs needed for a safe retry.
-  if (migratedSnapshotKeys.length) await kv.del(...migratedSnapshotKeys);
+  if (migratedSnapshotKeys.length) {
+    await updateLease.commit({ deletes: migratedSnapshotKeys });
+  }
   const legacySnapshotKeys = snapKeysAll.filter((key) => !migratedSnapshotDevices.has(snapshotDeviceId(key)));
 
   // 1.5 Generate Timeseries Deltas
   const now = Date.now();
 
-  const pipe = kv.pipeline();
-  let hasTimeseriesEvents = false;
+  const pendingRpushes: Array<[string, string[]]> = [];
   
   // ---------------------------------------------------------------------------
   // Daily timeseries strategy:
@@ -348,7 +448,7 @@ export async function updateTokenUsageWithRedis(
       const kept = existingEvents.filter((e: any) => !(
         e.deviceId === deviceId && incomingTools.has(String(e.tool || ''))
       ));
-      await replaceRedisList(kv, rawKey, kept.map((event: any) => JSON.stringify(event)));
+      const replacementValues = kept.map((event: any) => JSON.stringify(event));
 
       const outEvents: Array<{
         tool: string; tokens: number; rawTokens: number; normTokens: number;
@@ -409,9 +509,9 @@ export async function updateTokenUsageWithRedis(
           deviceId,
           source: completeHistoryTools.size > 0 ? 'agent-history-v2' : 'agent-history-legacy',
         };
-        pipe.rpush(rawKey, JSON.stringify(ev));
-        hasTimeseriesEvents = true;
+        replacementValues.push(JSON.stringify(ev));
       }
+      await replaceRedisList(kv, rawKey, replacementValues, updateLease.commit);
     }
   }
 
@@ -448,8 +548,6 @@ export async function updateTokenUsageWithRedis(
     const snapMedian = allDeltas.length ? allDeltas[Math.floor(allDeltas.length / 2)] : 0;
     const SNAP_DAY_CAP = snapMedian > 0 ? Math.max(10 * snapMedian, 2_000_000_000) : 2_000_000_000;
 
-    const snapPipe = kv.pipeline();
-    let snapHasEvents = false;
     for (const did of Object.keys(perDevice)) {
       const arr = perDevice[did].sort((a, b) => (a.date < b.date ? -1 : 1));
       for (let i = 1; i < arr.length; i++) {
@@ -481,11 +579,9 @@ export async function updateTokenUsageWithRedis(
           deviceId: did,
           source: 'snapshot-delta'
         };
-        snapPipe.rpush(dayKey, JSON.stringify(ev));
-        snapHasEvents = true;
+        pendingRpushes.push([dayKey, [JSON.stringify(ev)]]);
       }
     }
-    if (snapHasEvents) await snapPipe.exec();
   }
 
   // --- TODAY from cumulative high-water deltas for history-less tools ---
@@ -573,14 +669,12 @@ export async function updateTokenUsageWithRedis(
       deviceId,
       source: 'cumulative-delta-v2',
     };
-    pipe.rpush(`user:${userId}:timeseries:${todayStr}`, JSON.stringify(event));
-    hasTimeseriesEvents = true;
+    pendingRpushes.push([`user:${userId}:timeseries:${todayStr}`, [JSON.stringify(event)]]);
   }
-  await kv.set(watermarkKey, JSON.stringify(watermarks));
-  
-  if (hasTimeseriesEvents) {
-    await pipe.exec();
-  }
+  await updateLease.commit({
+    sets: [[watermarkKey, JSON.stringify(watermarks)]],
+    rpushes: pendingRpushes,
+  });
   
   // 2. Fetch all devices for this user
   const deviceKeys = await scanKeys(`user:${userId}:device:*:data`);
@@ -674,12 +768,14 @@ export async function updateTokenUsageWithRedis(
     createdAt
   };
   
-  await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
-  await Promise.all([
-    kv.zadd('leaderboard:total', metrics.total, userId),
-    kv.zadd('leaderboard:norm', metrics.norm, userId),
-    kv.zadd('leaderboard:cost', metrics.cost, userId),
-  ]);
+  await updateLease.commit({
+    sets: [[`user:${userId}:data`, JSON.stringify(aggregatedData)]],
+    zadds: [
+      ['leaderboard:total', metrics.total, userId],
+      ['leaderboard:norm', metrics.norm, userId],
+      ['leaderboard:cost', metrics.cost, userId],
+    ],
+  });
 
   return {
     codex: codexSummary?.lifetime ? {
@@ -692,12 +788,7 @@ export async function updateTokenUsageWithRedis(
   } satisfies TokenUpdateResult;
 
   } finally {
-    await kv.eval(
-      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-      1,
-      lockKey,
-      lockId,
-    );
+    await updateLease.release();
   }
 }
 

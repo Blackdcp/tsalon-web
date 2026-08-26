@@ -12,8 +12,17 @@ export class FakeRedis {
     this.hashes = new Map();
     this.lists = new Map();
     this.sortedSets = new Map();
+    this.expirations = new Map();
     this.pipelineFailures = new Map();
     this.pipelineChunks = new Map();
+  }
+
+  expireIfNeeded(key) {
+    const deadline = this.expirations.get(key);
+    if (deadline !== undefined && deadline <= Date.now()) {
+      this.expirations.delete(key);
+      this.strings.delete(key);
+    }
   }
 
   failPipelineAfter(operation, successfulChunks = 1) {
@@ -26,22 +35,36 @@ export class FakeRedis {
   }
 
   hasKey(key) {
+    this.expireIfNeeded(key);
     return this.strings.has(key) || this.hashes.has(key) || this.lists.has(key) || this.sortedSets.has(key);
   }
 
   async get(key) {
+    this.expireIfNeeded(key);
     return this.strings.get(key) ?? null;
   }
 
   async set(key, value, ...args) {
     if (args.includes('NX') && this.hasKey(key)) return null;
     this.strings.set(key, String(value));
+    const pxIndex = args.indexOf('PX');
+    const exIndex = args.indexOf('EX');
+    if (pxIndex >= 0) this.expirations.set(key, Date.now() + Number(args[pxIndex + 1]));
+    else if (exIndex >= 0) this.expirations.set(key, Date.now() + Number(args[exIndex + 1]) * 1000);
+    else this.expirations.delete(key);
     return 'OK';
+  }
+
+  async pexpire(key, milliseconds) {
+    if (!this.hasKey(key)) return 0;
+    this.expirations.set(key, Date.now() + Number(milliseconds));
+    return 1;
   }
 
   async del(...keys) {
     let removed = 0;
     for (const key of keys) {
+      this.expirations.delete(key);
       if (this.strings.delete(key)) removed += 1;
       if (this.hashes.delete(key)) removed += 1;
       if (this.lists.delete(key)) removed += 1;
@@ -130,6 +153,16 @@ export class FakeRedis {
     if (!script.includes("redis.call('get', KEYS[1])")) throw new Error('Unsupported FakeRedis EVAL script');
     if (numberOfKeys !== 1) throw new Error('FakeRedis expected one EVAL key');
     if (await this.get(key) !== String(args[1])) return 0;
+    if (script.includes('cjson.decode')) {
+      const operations = JSON.parse(args[2]);
+      for (const [source, destination] of operations.renames || []) await this.rename(source, destination);
+      if (operations.deletes?.length) await this.del(...operations.deletes);
+      for (const [setKey, value] of operations.sets || []) await this.set(setKey, value);
+      for (const [setKey, score, member] of operations.zadds || []) await this.zadd(setKey, score, member);
+      for (const [listKey, values] of operations.rpushes || []) await this.rpush(listKey, ...values);
+      return 1;
+    }
+    if (script.includes("redis.call('pexpire'")) return this.pexpire(key, args[2]);
     return this.del(key);
   }
 
@@ -171,5 +204,36 @@ export class FakeRedis {
       return replies;
     }).catch((error) => commands.map(() => [error, null]));
     return pipeline;
+  }
+
+  multi() {
+    const commands = [];
+    const transaction = {};
+    for (const method of ['del', 'rename', 'set']) {
+      transaction[method] = (...args) => {
+        commands.push([method, args]);
+        return transaction;
+      };
+    }
+    transaction.exec = async () => {
+      const before = {
+        strings: structuredClone(this.strings),
+        hashes: structuredClone(this.hashes),
+        lists: structuredClone(this.lists),
+        sortedSets: structuredClone(this.sortedSets),
+      };
+      const replies = [];
+      try {
+        for (const [method, args] of commands) replies.push([null, await this[method](...args)]);
+        return replies;
+      } catch (error) {
+        this.strings = before.strings;
+        this.hashes = before.hashes;
+        this.lists = before.lists;
+        this.sortedSets = before.sortedSets;
+        return commands.map(() => [error, null]);
+      }
+    };
+    return transaction;
   }
 }

@@ -110,6 +110,34 @@ test('native Codex sessions suppress CodexManager openai_account mirrors', async
   assert.equal(result.codex_proxy.total, 0);
 });
 
+test('empty native ledger keeps CodexManager fallback on the legacy upload protocol', (t) => {
+  const home = tempHome();
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const sessionDir = path.join(home, '.codex', 'sessions', '2026', '08', '18');
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionDir, 'zero-only.jsonl'), [
+    JSON.stringify({ type: 'session_meta', timestamp: '2026-08-18T00:00:00Z', payload: { id: 'zero-session' } }),
+    JSON.stringify({ type: 'turn_context', timestamp: '2026-08-18T00:00:01Z', payload: { turn_id: 'zero-turn', model: 'gpt-5.6-sol' } }),
+    JSON.stringify({ type: 'event_msg', timestamp: '2026-08-18T00:00:02Z', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: 0, output_tokens: 0 } } } }),
+  ].join('\n'));
+  const managerDir = path.join(home, 'Library', 'Application Support', 'com.codexmanager.desktop');
+  fs.mkdirSync(managerDir, { recursive: true });
+  const db = new DatabaseSync(path.join(managerDir, 'codexmanager.db'));
+  db.exec('CREATE TABLE request_token_stats (actual_source_kind TEXT, created_at INTEGER, total_tokens INTEGER, input_tokens INTEGER, output_tokens INTEGER, cached_input_tokens INTEGER, reasoning_output_tokens INTEGER)');
+  db.prepare('INSERT INTO request_token_stats VALUES (?, ?, ?, ?, ?, ?, ?)').run('openai_account', 0, 100, 80, 20, 60, 0);
+  db.close();
+
+  const result = spawnSync(process.execPath, ['public/scripts/agent.mjs', '--token', 'test-token', '--dry-run'], {
+    cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+    env: { ...process.env, HOME: home, CODEX_BINARY: path.join(home, 'missing-codex') },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
+  assert.equal(payload.data.codex.total, 100);
+  assert.equal(payload.codex_ledger, undefined);
+});
+
 test('dry-run sends the v5 ledger at top level without session paths or text', (t) => {
   const home = tempHome();
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));

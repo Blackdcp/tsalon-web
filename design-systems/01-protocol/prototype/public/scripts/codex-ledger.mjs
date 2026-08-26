@@ -208,6 +208,13 @@ function emptyTier() {
   return { net_new_input: 0, cache_read: 0, cache_write: 0, output: 0 };
 }
 
+function emptyDailyUsage() {
+  return {
+    ...emptyCounters(),
+    pricing_tiers: { base: emptyTier(), long: emptyTier() },
+  };
+}
+
 function addCounters(target, source) {
   for (const key of COUNTERS) target[key] += Number(source?.[key]) || 0;
 }
@@ -262,6 +269,7 @@ function parseSessionFile(filePath, relativePath) {
   let turnId = null;
   let model = null;
   let previous = null;
+  let tokenEventSequence = 0;
   const seenLastUsage = new Set();
   let content = '';
   try { content = fs.readFileSync(filePath, 'utf8'); } catch { return []; }
@@ -277,6 +285,7 @@ function parseSessionFile(filePath, relativePath) {
       turnId = null;
       model = null;
       previous = null;
+      tokenEventSequence = 0;
       continue;
     }
     if (event.type === 'turn_context') {
@@ -288,25 +297,30 @@ function parseSessionFile(filePath, relativePath) {
     const cumulativeUsage = info?.total_token_usage;
     const lastUsage = info?.last_token_usage;
     const rawUsage = cumulativeUsage || lastUsage;
-    if (!sessionId || !turnId || !rawUsage) continue;
+    if (!sessionId || !rawUsage) continue;
+    tokenEventSequence += 1;
+    const fallbackTurnId = `fallback:${tokenEventSequence}:${typeof event.timestamp === 'string' ? event.timestamp : ''}`;
+    const recordTurnId = turnId || fallbackTurnId;
     const current = normalizeCodexUsage(rawUsage);
     const isLastUsage = !cumulativeUsage && Boolean(lastUsage);
-    const fingerprint = hash(`${sessionId}|${turnId}|${stableJson(rawUsage)}`);
+    const fingerprintTurnId = turnId || `fallback:${typeof event.timestamp === 'string' ? event.timestamp : ''}`;
+    const fingerprint = hash(`${sessionId}|${fingerprintTurnId}|${stableJson(rawUsage)}`);
     if (isLastUsage && seenLastUsage.has(fingerprint)) continue;
     if (isLastUsage) seenLastUsage.add(fingerprint);
     const delta = isLastUsage ? current : usageDelta(current, previous);
     if (!isLastUsage) previous = current;
-    const key = hash(`${sessionId}|${turnId}`);
-    if (!records.has(key)) records.set(key, makeRecord(sessionId, turnId, model));
+    const key = hash(`${sessionId}|${recordTurnId}`);
+    if (!records.has(key)) records.set(key, makeRecord(sessionId, recordTurnId, model));
     const record = records.get(key);
     addCounters(record, delta);
     const day = beijingDate(event.timestamp);
+    const tierName = delta.input_total > 272_000 ? 'long' : 'base';
     if (day) {
-      if (!record.daily[day]) record.daily[day] = emptyCounters();
+      if (!record.daily[day]) record.daily[day] = emptyDailyUsage();
       addCounters(record.daily[day], delta);
+      addTier(record.daily[day].pricing_tiers[tierName], delta);
     }
-    const tier = delta.input_total > 272_000 ? record.pricing_tiers.long : record.pricing_tiers.base;
-    addTier(tier, delta);
+    addTier(record.pricing_tiers[tierName], delta);
   }
   return [...records.values()];
 }
@@ -326,7 +340,7 @@ export async function scanCodexLedger(home, options = {}) {
   let cachedFiles = {};
   try {
     const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-    if (cache?.version === 5 && cache.files && typeof cache.files === 'object') cachedFiles = cache.files;
+    if (cache?.version === 6 && cache.files && typeof cache.files === 'object') cachedFiles = cache.files;
   } catch {}
   const nextCachedFiles = {};
   const recordsByKey = new Map();
@@ -351,16 +365,18 @@ export async function scanCodexLedger(home, options = {}) {
   try {
     fs.mkdirSync(cacheDir, { recursive: true });
     const temporary = `${cachePath}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify({ version: 5, files: nextCachedFiles }));
+    fs.writeFileSync(temporary, JSON.stringify({ version: 6, files: nextCachedFiles }));
     fs.renameSync(temporary, cachePath);
   } catch {}
-  const records = [...recordsByKey.values()].sort((a, b) => a.turn_key.localeCompare(b.turn_key));
+  const records = [...recordsByKey.values()]
+    .filter((record) => Number.isFinite(record.total) && record.total > 0)
+    .sort((a, b) => a.turn_key.localeCompare(b.turn_key));
   const summary = emptyCounters();
   for (const record of records) addCounters(summary, record);
   return {
     records,
     summary,
-    hasNativeSessions: files.length > 0,
+    hasNativeSessions: records.length > 0,
     files: { total: files.length, cached: cachedCount, parsed: parsedCount },
   };
 }

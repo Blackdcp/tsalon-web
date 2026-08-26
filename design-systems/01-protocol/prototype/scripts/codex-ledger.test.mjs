@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 import { readOfficialCodexAudit, scanCodexLedger } from '../public/scripts/codex-ledger.mjs';
@@ -89,6 +91,47 @@ test('different historical accounts add while replayed turns dedupe', async (t) 
   assert.equal(scan.summary.total, 330);
 });
 
+test('legacy sessions without turn ids use stable content-free fallback turn keys', async (t) => {
+  const home = tempHome(t);
+  writeSession(home, 'legacy-private-path.jsonl', [
+    { ...sessionMeta('legacy-session'), payload: { id: 'legacy-session', file_path: '/secret/project' } },
+    { type: 'turn_context', timestamp: '2026-08-18T00:00:01Z', payload: { model: 'gpt-5.6-sol', prompt: 'private prompt' } },
+    tokenCount('2026-08-18T02:00:00Z', { input_tokens: 90, output_tokens: 10, cached_input_tokens: 60 }),
+    tokenCount('2026-08-18T02:00:01Z', { input_tokens: 225, output_tokens: 25, cached_input_tokens: 180 }),
+  ]);
+
+  const first = await scanCodexLedger(home);
+  fs.rmSync(path.join(home, '.tsalon', 'codex-session-cache-v5.json'));
+  const second = await scanCodexLedger(home);
+
+  assert.equal(first.records.length, 2);
+  assert.equal(first.summary.total, 250);
+  assert.deepEqual(second.records.map((record) => record.turn_key), first.records.map((record) => record.turn_key));
+  const serialized = JSON.stringify(first.records);
+  assert.equal(serialized.includes('private prompt'), false);
+  assert.equal(serialized.includes('/secret/project'), false);
+  assert.equal(serialized.includes('legacy-private-path.jsonl'), false);
+});
+
+test('legacy fallback dedupes replayed last usage without using sequence in its fingerprint', async (t) => {
+  const home = tempHome(t);
+  const replay = {
+    type: 'event_msg',
+    timestamp: '2026-08-18T02:00:00Z',
+    payload: { type: 'token_count', info: { last_token_usage: { input_tokens: 90, output_tokens: 10, cached_input_tokens: 60 } } },
+  };
+  writeSession(home, 'legacy-last-usage.jsonl', [
+    sessionMeta('legacy-last-session'),
+    { type: 'turn_context', timestamp: '2026-08-18T00:00:01Z', payload: { model: 'gpt-5.6-sol' } },
+    replay,
+    structuredClone(replay),
+  ]);
+
+  const scan = await scanCodexLedger(home);
+  assert.equal(scan.records.length, 1);
+  assert.equal(scan.summary.total, 100);
+});
+
 test('one turn crossing Beijing midnight keeps two exact daily buckets', async (t) => {
   const home = tempHome(t);
   writeSession(home, 'cross-midnight.jsonl', [
@@ -145,6 +188,7 @@ test('pricing tiers classify the delta instead of cumulative session input', asy
     base: { net_new_input: 100, cache_read: 0, cache_write: 0, output: 5 },
     long: { net_new_input: 0, cache_read: 0, cache_write: 0, output: 0 },
   });
+  assert.deepEqual(smallTurn.daily['2026-08-18'].pricing_tiers, smallTurn.pricing_tiers);
 });
 
 test('embedded session replays reset the baseline and last usage is fingerprint-deduped', async (t) => {
