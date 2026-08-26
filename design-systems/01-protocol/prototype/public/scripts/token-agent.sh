@@ -146,12 +146,25 @@ if [ -z "$NODE_CMD" ]; then
 fi
 
 echo "⬇️ Downloading the latest Token Agent..."
-"$CURL_BIN" -fsSL "$HOST/scripts/agent.mjs" -o "$TSALON_DIR/agent.mjs"
+if ! "$CURL_BIN" -fsSL "$HOST/scripts/codex-ledger.mjs" -o "$TSALON_DIR/codex-ledger.mjs"; then
+  echo "❌ Error: could not download codex-ledger.mjs."
+  exit 1
+fi
+if ! "$CURL_BIN" -fsSL "$HOST/scripts/agent.mjs" -o "$TSALON_DIR/agent.mjs"; then
+  echo "❌ Error: could not download agent.mjs."
+  exit 1
+fi
 if [ ! -s "$TSALON_DIR/sql-wasm.cjs" ]; then
-  "$CURL_BIN" -fsSL "$HOST/scripts/sql-wasm.cjs" -o "$TSALON_DIR/sql-wasm.cjs"
+  if ! "$CURL_BIN" -fsSL "$HOST/scripts/sql-wasm.cjs" -o "$TSALON_DIR/sql-wasm.cjs"; then
+    echo "❌ Error: could not download sql-wasm.cjs."
+    exit 1
+  fi
 fi
 if [ ! -s "$TSALON_DIR/sql-wasm.wasm" ]; then
-  "$CURL_BIN" -fsSL "$HOST/scripts/sql-wasm.wasm" -o "$TSALON_DIR/sql-wasm.wasm"
+  if ! "$CURL_BIN" -fsSL "$HOST/scripts/sql-wasm.wasm" -o "$TSALON_DIR/sql-wasm.wasm"; then
+    echo "❌ Error: could not download sql-wasm.wasm."
+    exit 1
+  fi
 fi
 
 "$NODE_CMD" "$TSALON_DIR/agent.mjs" --token="$TOKEN" --host="$HOST"

@@ -62,19 +62,28 @@ Write-Host "✓ Node found: $nodeExe" -ForegroundColor Green
 # ---------- prepare dir ----------
 $tsalonDir = Join-Path $env:USERPROFILE ".tsalon"
 if (-not (Test-Path $tsalonDir)) { New-Item -ItemType Directory -Path $tsalonDir -Force | Out-Null }
+$ledgerPath  = Join-Path $tsalonDir "codex-ledger.mjs"
 $agentPath   = Join-Path $tsalonDir "agent.mjs"
 $sqlJsPath   = Join-Path $tsalonDir "sql-wasm.cjs"
 $sqlWasmPath = Join-Path $tsalonDir "sql-wasm.wasm"
 $logPath     = Join-Path $tsalonDir "agent.log"
 
-# ---------- download agent + sqlite assets ----------
+# ---------- download agent + ledger + sqlite assets ----------
 Write-Host "⬇️  Downloading Token Agent (Node.js)..." -ForegroundColor Cyan
-Invoke-WebRequest -Uri "$host_url/scripts/agent.mjs" -OutFile $agentPath -UseBasicParsing
-if (-not (Test-Path $sqlJsPath) -or (Get-Item $sqlJsPath).Length -eq 0) {
-    Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.cjs" -OutFile $sqlJsPath -UseBasicParsing
-}
-if (-not (Test-Path $sqlWasmPath) -or (Get-Item $sqlWasmPath).Length -eq 0) {
-    Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.wasm" -OutFile $sqlWasmPath -UseBasicParsing
+try {
+    # agent.mjs imports this sibling module, so download it first and never run
+    # the agent if any required fetch fails.
+    Invoke-WebRequest -Uri "$host_url/scripts/codex-ledger.mjs" -OutFile $ledgerPath -UseBasicParsing -ErrorAction Stop
+    Invoke-WebRequest -Uri "$host_url/scripts/agent.mjs" -OutFile $agentPath -UseBasicParsing -ErrorAction Stop
+    if (-not (Test-Path $sqlJsPath) -or (Get-Item $sqlJsPath).Length -eq 0) {
+        Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.cjs" -OutFile $sqlJsPath -UseBasicParsing -ErrorAction Stop
+    }
+    if (-not (Test-Path $sqlWasmPath) -or (Get-Item $sqlWasmPath).Length -eq 0) {
+        Invoke-WebRequest -Uri "$host_url/scripts/sql-wasm.wasm" -OutFile $sqlWasmPath -UseBasicParsing -ErrorAction Stop
+    }
+} catch {
+    Write-Host "❌ Could not download required Token Agent files: $_" -ForegroundColor Red
+    exit 1
 }
 
 # ---------- register scheduled task before the first historical scan ----------
@@ -86,7 +95,16 @@ if (-not $scheduledRun) {
     $safeHost = $host_url -replace "'", "''"
     $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1'))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrapCmd))
-    $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand $encodedCommand"
+    $runnerPath = Join-Path $tsalonDir 'run-agent-hidden.vbs'
+    $vbsCommand = 'powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + $encodedCommand
+    $escapedVbsCommand = $vbsCommand.Replace('"', '""')
+    $vbs = @"
+Set shell = CreateObject("WScript.Shell")
+exitCode = shell.Run("$escapedVbsCommand", 0, True)
+WScript.Quit exitCode
+"@
+    [System.IO.File]::WriteAllText($runnerPath, $vbs, [Text.Encoding]::ASCII)
+    $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument ('"' + $runnerPath + '"')
     $triggerTimer = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(30)) -RepetitionInterval (New-TimeSpan -Minutes 30)
     $triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited

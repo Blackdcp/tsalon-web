@@ -17,7 +17,7 @@
     "site:headings": "node scripts/site-heading-check.mjs",
     "site:links": "node scripts/site-link-check.mjs",
     "events:sync": "node scripts/sync-huodongxing-events.mjs",
-    "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs"
+    "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs scripts/token-agent-installers.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
