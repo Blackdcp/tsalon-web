@@ -20,6 +20,9 @@ const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache
 const MAX_RECORDS = 50_000;
 const REDIS_CHUNK_SIZE = 500;
 const ACCOUNT_AUDIT_TTL_SECONDS = 120 * 24 * 60 * 60;
+const ACCOUNT_AUDIT_WRITE_TIMEOUT_MS = 250;
+const MAX_ACCOUNT_AUDIT_BYTES = 192 * 1024;
+const MAX_ACCOUNT_AUDIT_USER_ID_LENGTH = 128;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
@@ -41,17 +44,33 @@ function validAuditInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+function validObservedAt(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
+  const observed = new Date(value);
+  return !Number.isNaN(observed.getTime()) && observed.toISOString() === value;
+}
+
+function accountAuditSerializedBytes(audit: unknown): number {
+  try {
+    const serialized = JSON.stringify(audit);
+    return typeof serialized === 'string' ? new TextEncoder().encode(serialized).byteLength : Number.POSITIVE_INFINITY;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
 function sanitizeAccountAudit(audit: unknown): CodexAccountAudit {
-  if (!audit || typeof audit !== 'object' || Array.isArray(audit)) throw new Error('Invalid Codex account audit');
+  if (!audit || typeof audit !== 'object' || Array.isArray(audit)
+    || accountAuditSerializedBytes(audit) > MAX_ACCOUNT_AUDIT_BYTES) throw new Error('Invalid Codex account audit');
   const value = audit as Record<string, unknown>;
   const permitted = new Set(['account_audit_key', 'lifetime_tokens', 'daily_buckets', 'observed_at']);
   if (Object.keys(value).some((key) => !permitted.has(key))
-    || !/^[a-f0-9]{64}$/i.test(String(value.account_audit_key || ''))
+    || typeof value.account_audit_key !== 'string'
+    || !/^[a-f0-9]{64}$/i.test(value.account_audit_key)
     || !validAuditInteger(value.lifetime_tokens)
     || !Array.isArray(value.daily_buckets)
     || value.daily_buckets.length > 3_660
-    || typeof value.observed_at !== 'string'
-    || Number.isNaN(new Date(value.observed_at).getTime())) {
+    || !validObservedAt(value.observed_at)) {
     throw new Error('Invalid Codex account audit');
   }
   const seenDates = new Set<string>();
@@ -72,9 +91,13 @@ function sanitizeAccountAudit(audit: unknown): CodexAccountAudit {
   };
 }
 
-export async function storeAccountAudit(redis: RedisLike, userId: string, audit: unknown): Promise<CodexAccountAudit> {
-  if (!/^[a-z0-9_-]+$/i.test(userId)) throw new Error('Invalid Codex account audit');
-  const sanitized = sanitizeAccountAudit(audit);
+function validateAuditUserId(userId: unknown): asserts userId is string {
+  if (typeof userId !== 'string' || userId.length > MAX_ACCOUNT_AUDIT_USER_ID_LENGTH || !/^[a-z0-9_-]+$/i.test(userId)) {
+    throw new Error('Invalid Codex account audit');
+  }
+}
+
+async function persistAccountAudit(redis: RedisLike, userId: string, sanitized: CodexAccountAudit): Promise<CodexAccountAudit> {
   await redis.set(
     `user:${userId}:codex:audit:${sanitized.account_audit_key}`,
     JSON.stringify(sanitized),
@@ -82,6 +105,41 @@ export async function storeAccountAudit(redis: RedisLike, userId: string, audit:
     ACCOUNT_AUDIT_TTL_SECONDS,
   );
   return sanitized;
+}
+
+export async function storeAccountAudit(redis: RedisLike, userId: string, audit: unknown): Promise<CodexAccountAudit> {
+  validateAuditUserId(userId);
+  return persistAccountAudit(redis, userId, sanitizeAccountAudit(audit));
+}
+
+export async function storeAccountAuditWithTimeout(
+  redis: RedisLike,
+  userId: string,
+  audit: unknown,
+  timeoutMs = ACCOUNT_AUDIT_WRITE_TIMEOUT_MS,
+): Promise<CodexAccountAudit | null> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) return null;
+  let sanitized: CodexAccountAudit;
+  try {
+    validateAuditUserId(userId);
+    sanitized = sanitizeAccountAudit(audit);
+  } catch {
+    return null;
+  }
+  const write = persistAccountAudit(redis, userId, sanitized);
+  // The response may win the timeout race; consume a late Redis rejection.
+  void write.catch(() => {});
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      write,
+      new Promise<null>((resolve) => { timeout = setTimeout(() => resolve(null), timeoutMs); }),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function emptyAggregate(): UsageAggregate {

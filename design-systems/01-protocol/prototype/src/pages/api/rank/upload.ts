@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
-import { storeAccountAudit } from '../../../lib/codex-ledger.ts';
+import { storeAccountAuditWithTimeout } from '../../../lib/codex-ledger.ts';
 
 export const prerender = false;
 
@@ -75,8 +75,8 @@ export const POST: APIRoute = async ({ request }) => {
 
     let officialDelta = null;
     if (body.account_audit !== undefined && body.account_audit !== null) {
-      try {
-        const audit = await storeAccountAudit(kv, userId, body.account_audit);
+      const audit = await storeAccountAuditWithTimeout(kv, userId, body.account_audit);
+      if (audit) {
         const ledgerLifetimeTokens = Number(result?.codex?.total) || 0;
         officialDelta = {
           account_audit_key: audit.account_audit_key,
@@ -84,9 +84,6 @@ export const POST: APIRoute = async ({ request }) => {
           ledger_lifetime_tokens: ledgerLifetimeTokens,
           difference_tokens: ledgerLifetimeTokens - audit.lifetime_tokens,
         };
-      } catch {
-        // Audit data is optional diagnostics. Reject it without blocking the
-        // normal ledger upload or changing ranking-related state.
       }
     }
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { storeAccountAudit, syncCodexLedger } from '../src/lib/codex-ledger.ts';
+import { storeAccountAudit, storeAccountAuditWithTimeout, syncCodexLedger } from '../src/lib/codex-ledger.ts';
 import * as kvModule from '../src/lib/kv.ts';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
@@ -47,6 +47,32 @@ test('account audit storage rejects email, malformed keys, and invalid daily buc
     ...valid,
     daily_buckets: [{ date: 'not-a-date', tokens: -1 }],
   }), /Invalid Codex account audit/);
+  await assert.rejects(storeAccountAudit(redis, { user: 'u1' }, valid), /Invalid Codex account audit/);
+  await assert.rejects(storeAccountAudit(redis, 'u1', { ...valid, account_audit_key: new String('a'.repeat(64)) }), /Invalid Codex account audit/);
+  await assert.rejects(storeAccountAudit(redis, 'u1', { ...valid, observed_at: '0' }), /Invalid Codex account audit/);
+  await assert.rejects(storeAccountAudit(redis, 'u1', { ...valid, observed_at: '2026-08-26' }), /Invalid Codex account audit/);
+});
+
+test('account audit timeout does not delay the normal upload path or leak a later Redis rejection', async () => {
+  let rejectWrite;
+  const redis = {
+    set: () => new Promise((_resolve, reject) => { rejectWrite = reject; }),
+  };
+  const valid = {
+    account_audit_key: 'a'.repeat(64),
+    lifetime_tokens: 7,
+    daily_buckets: [],
+    observed_at: '2026-08-26T00:00:00.000Z',
+  };
+  let unhandled = null;
+  const onUnhandled = (error) => { unhandled = error; };
+  process.once('unhandledRejection', onUnhandled);
+
+  assert.equal(await storeAccountAuditWithTimeout(redis, 'u1', valid, 1), null);
+  rejectWrite(new Error('late Redis write failure'));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  process.removeListener('unhandledRejection', onUnhandled);
+  assert.equal(unhandled, null);
 });
 
 test('full sync is idempotent and rebuilds one canonical daily event', async () => {
