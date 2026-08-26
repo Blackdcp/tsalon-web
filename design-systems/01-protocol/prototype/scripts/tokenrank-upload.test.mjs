@@ -215,3 +215,117 @@ test('persisted marker read errors release the update lock before mutation', asy
   assert.equal(await redis.get('user:u1:data'), null);
   assert.equal(await redis.get('user:u1:update-lock'), null);
 });
+
+test('legacy device snapshot healing excludes and cleans every marked v5 device', async () => {
+  const redis = new FakeRedis();
+  const payload = ledgerPayload([turnRecord('cross-device-snapshot-healing', 110)]);
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    claude: { total: 10, raw_total: 10 },
+  }, 'device-a', { codexLedger: payload });
+
+  await redis.set('user:u1:device:device-a:snap:2026-08-16', JSON.stringify({
+    date: '2026-08-16', total: 100,
+  }));
+  await redis.set('user:u1:device:device-a:snap:2026-08-17', JSON.stringify({
+    date: '2026-08-17', total: 150,
+  }));
+  await redis.rpush('user:u1:timeseries:2026-08-18',
+    JSON.stringify({ tool: 'codex', deviceId: 'device-a', tokens: 50, source: 'snapshot-delta' }),
+    JSON.stringify({ tool: 'codex', deviceId: 'device-b', tokens: 7, source: 'snapshot-delta' }),
+    JSON.stringify({ tool: 'claude', deviceId: 'device-a', tokens: 3, source: 'manual' }),
+    JSON.stringify({ tool: 'codex', deviceId: 'device-a', tokens: 9, source: 'manual' }),
+  );
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    cursor: { total: 20, raw_total: 20 },
+  }, 'device-b');
+
+  const snapshotKeys = (await redis.scan('0', 'MATCH', 'user:u1:device:*:snap:*'))[1];
+  const timeseriesKeys = (await redis.scan('0', 'MATCH', 'user:u1:timeseries:*'))[1];
+  const events = (await Promise.all(timeseriesKeys.map((key) => redis.lrange(key, 0, -1))))
+    .flat().map(JSON.parse);
+  const profile = JSON.parse(await redis.get('user:u1:data'));
+
+  assert.deepEqual(snapshotKeys.filter((key) => key.includes(':device-a:')), []);
+  assert.equal(snapshotKeys.some((key) => key.includes(':device-b:')), true);
+  assert.equal(events.filter((event) => event.deviceId === 'device-a'
+    && event.tool === 'codex' && event.source === 'snapshot-delta').length, 0);
+  assert.equal(events.filter((event) => event.deviceId === 'device-b'
+    && event.tool === 'codex' && event.source === 'snapshot-delta').length, 1);
+  assert.equal(events.filter((event) => event.deviceId === 'device-a'
+    && event.tool === 'claude' && event.source === 'manual').length, 1);
+  assert.equal(events.filter((event) => event.deviceId === 'device-a'
+    && event.tool === 'codex' && event.source === 'manual').length, 1);
+  assert.equal(profile.tokens.codex.total, 110);
+  assert.equal(profile.tokens.claude.total, 10);
+  assert.equal(profile.tokens.cursor.total, 20);
+  assert.equal(profile.tokens.total, 140);
+  assert.equal(redis.sortedSets.get('leaderboard:total').get('u1'), 140);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
+});
+
+test('marked snapshot cleanup failures preserve the profile and release the update lock', async () => {
+  class SnapshotCleanupFailureRedis extends FakeRedis {
+    failSnapshotCleanup = false;
+
+    async del(...keys) {
+      if (this.failSnapshotCleanup && keys.some((key) => key.includes(':device-a:snap:'))) {
+        throw new Error('Injected snapshot cleanup failure');
+      }
+      return super.del(...keys);
+    }
+  }
+  const redis = new SnapshotCleanupFailureRedis();
+  const originalProfile = JSON.stringify({ userId: 'u1', tokens: { total: 999 } });
+  await redis.set('user:u1:data', originalProfile);
+  await redis.set('user:u1:device:device-a:codex-ledger-version', '5');
+  await redis.set('user:u1:device:device-a:snap:2026-08-16', JSON.stringify({
+    date: '2026-08-16', total: 100,
+  }));
+  redis.failSnapshotCleanup = true;
+
+  await assert.rejects(
+    kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+      cursor: { total: 20, raw_total: 20 },
+    }, 'device-b'),
+    /Injected snapshot cleanup failure/,
+  );
+
+  assert.equal(await redis.get('user:u1:data'), originalProfile);
+  assert.notEqual(await redis.get('user:u1:device:device-a:snap:2026-08-16'), null);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
+});
+
+test('failed stale-event cleanup retains marked snapshots for retry', async () => {
+  class TimeseriesCleanupFailureRedis extends FakeRedis {
+    failTimeseriesCleanup = false;
+
+    async del(...keys) {
+      if (this.failTimeseriesCleanup && keys.some((key) => key.startsWith('user:u1:timeseries:'))) {
+        throw new Error('Injected timeseries cleanup failure');
+      }
+      return super.del(...keys);
+    }
+  }
+  const redis = new TimeseriesCleanupFailureRedis();
+  const originalProfile = JSON.stringify({ userId: 'u1', tokens: { total: 999 } });
+  const snapshotKey = 'user:u1:device:device-a:snap:2026-08-16';
+  await redis.set('user:u1:data', originalProfile);
+  await redis.set('user:u1:device:device-a:codex-ledger-version', '5');
+  await redis.set(snapshotKey, JSON.stringify({ date: '2026-08-16', total: 100 }));
+  await redis.rpush('user:u1:timeseries:2026-08-18', JSON.stringify({
+    tool: 'codex', deviceId: 'device-a', tokens: 50, source: 'snapshot-delta',
+  }));
+  redis.failTimeseriesCleanup = true;
+
+  await assert.rejects(
+    kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+      cursor: { total: 20, raw_total: 20 },
+    }, 'device-b'),
+    /Injected timeseries cleanup failure/,
+  );
+
+  assert.equal(await redis.get('user:u1:data'), originalProfile);
+  assert.notEqual(await redis.get(snapshotKey), null);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
+});

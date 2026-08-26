@@ -216,7 +216,7 @@ export async function updateTokenUsageWithRedis(
 
   // 1.4 Keep a daily cumulative snapshot for diagnostics and as a compatibility
   // fallback for pre-v2 agents. V2 daily history comes from timestamped events.
-  {
+  if (!excludesLegacyCodex) {
     const snapKey = `user:${userId}:device:${deviceId}:snap:${todayStr}`;
     await kv.set(snapKey, JSON.stringify({ date: todayStr, total: deviceTotal, updatedAt: new Date().toISOString() }));
     const snaps = await scanKeys(`user:${userId}:device:${deviceId}:snap:*`);
@@ -226,6 +226,45 @@ export async function updateTokenUsageWithRedis(
       if (toDel.length) await kv.del(...toDel);
     }
   }
+
+  // A snapshot belongs to its source device, so migration filtering must also
+  // be per-device. Resolve all source markers in one batch, permanently remove
+  // marked-device compatibility snapshots, and clean only the snapshot-derived
+  // Codex events that those snapshots could have reintroduced.
+  const snapKeysAll = await scanKeys(`user:${userId}:device:*:snap:*`);
+  const snapshotPrefix = `user:${userId}:device:`;
+  const snapshotDeviceId = (key: string) => {
+    const remainder = key.slice(snapshotPrefix.length);
+    const separator = remainder.indexOf(':snap:');
+    return separator < 0 ? '' : remainder.slice(0, separator);
+  };
+  const snapshotDeviceIds = [...new Set(snapKeysAll.map(snapshotDeviceId).filter(Boolean))];
+  const snapshotLedgerVersions = snapshotDeviceIds.length
+    ? await kv.mget(snapshotDeviceIds.map((id) => `user:${userId}:device:${id}:codex-ledger-version`))
+    : [];
+  const migratedSnapshotDevices = new Set(snapshotDeviceIds.filter((_, index) => snapshotLedgerVersions[index] === '5'));
+  const migratedSnapshotKeys = snapKeysAll.filter((key) => migratedSnapshotDevices.has(snapshotDeviceId(key)));
+
+  if (migratedSnapshotDevices.size) {
+    const tsKeys = await scanKeys(`user:${userId}:timeseries:*`);
+    for (const key of tsKeys) {
+      const raw = await kv.lrange(key, 0, -1);
+      const events = raw
+        .map((value: any) => { try { return JSON.parse(value); } catch { return null; } })
+        .filter(Boolean);
+      const kept = events.filter((event: any) => !(
+        migratedSnapshotDevices.has(String(event.deviceId || ''))
+        && isLegacyCodexTool(String(event.tool || ''))
+        && event.source === 'snapshot-delta'
+      ));
+      if (kept.length === events.length) continue;
+      await replaceRedisList(kv, key, kept.map((event: any) => JSON.stringify(event)));
+    }
+  }
+  // Delete snapshots only after event cleanup succeeds. If either operation
+  // fails, remaining snapshots retain the device IDs needed for a safe retry.
+  if (migratedSnapshotKeys.length) await kv.del(...migratedSnapshotKeys);
+  const legacySnapshotKeys = snapKeysAll.filter((key) => !migratedSnapshotDevices.has(snapshotDeviceId(key)));
 
   // 1.5 Generate Timeseries Deltas
   const now = Date.now();
@@ -354,14 +393,13 @@ export async function updateTokenUsageWithRedis(
   // so it is skipped here. We only fill days that have NO timeseries yet, never
   // overwriting good data.
   if (completeHistoryTools.size === 0 && !excludesLegacyCodex) {
-    const snapKeysAll = await scanKeys(`user:${userId}:device:*:snap:*`);
     const perDevice: Record<string, { date: string; total: number }[]> = {};
-    for (const sk of snapKeysAll) {
+    for (const sk of legacySnapshotKeys) {
       const raw = await kv.get(sk);
       if (!raw) continue;
       try {
         const o = JSON.parse(raw);
-        const did = sk.split(':')[3];
+        const did = snapshotDeviceId(sk);
         (perDevice[did] ||= []).push({ date: o.date, total: o.total });
       } catch { /* ignore */ }
     }
