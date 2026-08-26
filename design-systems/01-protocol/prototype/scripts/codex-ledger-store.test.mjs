@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { syncCodexLedger } from '../src/lib/codex-ledger.ts';
+import * as kvModule from '../src/lib/kv.ts';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
 
@@ -30,9 +31,8 @@ test('canonical hashes retain device versions and a sorted device manifest', asy
   assert.deepEqual(Object.keys(JSON.parse(turns[alpha.turn_key]).device_versions), ['mac', 'windows']);
   assert.deepEqual(JSON.parse(turns[beta.turn_key]).source_devices, ['windows']);
   assert.deepEqual(JSON.parse(await redis.get('user:u1:device:windows:codex-manifest')), {
-    version: 5,
     manifest_hash: ledgerPayload([beta, alpha]).manifest_hash,
-    turn_hashes: [alpha.turn_key, beta.turn_key].sort(),
+    turn_keys: [alpha.turn_key, beta.turn_key].sort(),
   });
   assert.equal(await redis.get('user:u1:device:windows:codex-ledger-version'), '5');
 });
@@ -96,4 +96,94 @@ test('sync rejects payloads outside the full v5 protocol before changing Redis',
   );
   assert.deepEqual(await redis.hgetall('user:u1:codex:turns'), {});
   assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+});
+
+test('a failed atomic list replacement leaves the prior list intact and v5 incomplete', async () => {
+  const redis = new FakeRedis();
+  const key = 'user:u1:timeseries:2026-08-18';
+  const original = [
+    JSON.stringify({ tool: 'claude', tokens: 7, source: 'manual' }),
+    JSON.stringify({ tool: 'codex', tokens: 9, source: 'codex-ledger-v5' }),
+  ];
+  await redis.rpush(key, ...original);
+  redis.failNextEval('replace-list');
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('same', 110)])),
+    /Injected replace-list failure/,
+  );
+  assert.deepEqual(await redis.lrange(key, 0, -1), original);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+});
+
+test('a failed atomic hash replacement writes no manifest summary or version marker', async () => {
+  const redis = new FakeRedis();
+  redis.failNextEval('replace-hash');
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('same', 110)])),
+    /Injected replace-hash failure/,
+  );
+  assert.deepEqual(await redis.hgetall('user:u1:codex:turns'), {});
+  assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), null);
+  assert.equal(await redis.get('user:u1:codex:summary'), null);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+});
+
+test('a 50,001-record payload is rejected before any Redis mutation', async () => {
+  const redis = new FakeRedis();
+  const payload = ledgerPayload(Array(50_001).fill(turnRecord('same', 1)));
+
+  await assert.rejects(syncCodexLedger(redis, 'u1', 'mac', payload), /Invalid Codex ledger payload/);
+  assert.deepEqual(await redis.hgetall('user:u1:codex:turns'), {});
+  assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), null);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+});
+
+test('ledger update writes one canonical Codex event and continues non-Codex history', async () => {
+  const redis = new FakeRedis();
+  await redis.set('user:u1:device:mac:data', JSON.stringify({
+    tokens: {
+      codex: { total: 100, raw_total: 100 },
+      codex_proxy: { total: 50, raw_total: 50 },
+      claude: { total: 10, raw_total: 10 },
+    },
+  }));
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    codex: { total: 200, raw_total: 200 },
+    codex_proxy: { total: 80, raw_total: 80 },
+    claude: { total: 20, raw_total: 20 },
+  }, 'mac', {
+    historyData: {
+      '2026-08-18': {
+        codex: { total: 110, raw_total: 110 },
+        claude: { total: 7, raw_total: 7 },
+      },
+    },
+    historyCompleteTools: ['codex', 'claude'],
+    codexLedger: ledgerPayload([turnRecord('same', 110)]),
+  });
+
+  const keys = (await redis.scan('0', 'MATCH', 'user:u1:timeseries:*'))[1];
+  const events = (await Promise.all(keys.map((key) => redis.lrange(key, 0, -1))))
+    .flat().map(JSON.parse);
+  assert.equal(events.filter((event) => event.source === 'codex-ledger-v5').length, 1);
+  assert.equal(events.filter((event) => ['codex', 'codex_proxy'].includes(event.tool)
+    && ['agent-history-v2', 'agent-history-legacy', 'cumulative-delta-v2', 'snapshot-delta'].includes(event.source)).length, 0);
+  assert.equal(events.filter((event) => event.tool === 'claude' && event.source === 'agent-history-v2').length, 1);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
+});
+
+test('empty positional history still honors the seventh complete-tools argument', async () => {
+  const redis = new FakeRedis();
+  const key = 'user:u1:timeseries:2026-08-18';
+  await redis.rpush(key, JSON.stringify({
+    tool: 'claude', deviceId: 'mac', tokens: 7, source: 'agent-history-v2',
+  }));
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {}, 'mac', {}, ['claude']);
+
+  assert.deepEqual(await redis.lrange(key, 0, -1), []);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
 });

@@ -1,6 +1,6 @@
 import Redis from 'ioredis';
-import { syncCodexLedger, type CodexLedgerPayload } from './codex-ledger';
-import { beijingDateString, beijingDateNDaysAgo } from './date';
+import { replaceRedisList, syncCodexLedger, type CodexLedgerPayload } from './codex-ledger.ts';
+import { beijingDateString, beijingDateNDaysAgo } from './date.ts';
 
 // Fallback for development if no REDIS_URL is provided, or throw
 const redisUrl = process.env.REDIS_URL || '';
@@ -65,10 +65,14 @@ export async function getUserIdByToken(token: string): Promise<string | null> {
 // on large datasets). Iterates with SCAN and collects every matching key.
 export async function scanKeys(pattern: string): Promise<string[]> {
   if (!kv) return [];
+  return scanRedisKeys(kv, pattern);
+}
+
+async function scanRedisKeys(redis: any, pattern: string): Promise<string[]> {
   const found: string[] = [];
   let cursor = '0';
   do {
-    const [next, keys] = await kv.scan(cursor, 'MATCH', pattern, 'COUNT', 500);
+    const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 500);
     cursor = next;
     found.push(...keys);
   } while (cursor !== '0');
@@ -84,15 +88,35 @@ export async function updateTokenUsage(
   optionsOrHistory: TokenUpdateOptions | Record<string, Record<string, any>> | null = {},
   legacyHistoryCompleteTools: string[] = [],
 ) {
+  return updateTokenUsageWithRedis(
+    kv, userId, name, image, tokens, deviceId, optionsOrHistory, legacyHistoryCompleteTools,
+  );
+}
+
+export async function updateTokenUsageWithRedis(
+  redis: any,
+  userId: string,
+  name: string,
+  image: string,
+  tokens: Record<string, any>,
+  deviceId: string = 'default_device',
+  optionsOrHistory: TokenUpdateOptions | Record<string, Record<string, any>> | null = {},
+  legacyHistoryCompleteTools: string[] = [],
+) {
+  const kv = redis;
   if (!kv) return;
 
-  const isLegacyHistory = optionsOrHistory === null || Object.keys(optionsOrHistory)
-    .some((key) => /^\d{4}-\d{2}-\d{2}$/.test(key));
-  const options: TokenUpdateOptions = isLegacyHistory
-    ? { historyData: optionsOrHistory as Record<string, Record<string, any>> | null, historyCompleteTools: legacyHistoryCompleteTools }
-    : optionsOrHistory as TokenUpdateOptions;
+  const isOptions = optionsOrHistory !== null && typeof optionsOrHistory === 'object'
+    && ['historyData', 'historyCompleteTools', 'codexLedger', 'accountAudit']
+      .some((key) => Object.prototype.hasOwnProperty.call(optionsOrHistory, key));
+  const options: TokenUpdateOptions = isOptions
+    ? optionsOrHistory as TokenUpdateOptions
+    : { historyData: optionsOrHistory as Record<string, Record<string, any>> | null, historyCompleteTools: legacyHistoryCompleteTools };
   const historyData = options.historyData ?? null;
   const historyCompleteTools = options.historyCompleteTools ?? [];
+  const excludesLegacyCodex = Boolean(options.codexLedger);
+  const isLegacyCodexTool = (tool: string) => tool === 'codex' || tool === 'codex_proxy';
+  const scanKeys = (pattern: string) => scanRedisKeys(kv, pattern);
 
   // Mac and Windows commonly upload on the same half-hour boundary. Serialize
   // per-user rebuilds so one device cannot overwrite the other device's list
@@ -113,7 +137,8 @@ export async function updateTokenUsage(
     }
 
   const completeHistoryTools = new Set(
-    historyCompleteTools.filter(t => /^[a-z0-9_+-]+$/i.test(t)),
+    historyCompleteTools.filter(t => /^[a-z0-9_+-]+$/i.test(t)
+      && !(excludesLegacyCodex && isLegacyCodexTool(t))),
   );
   
   // Normalize incoming tokens to always be {total, in, out, cache_read, cache_write}
@@ -181,23 +206,21 @@ export async function updateTokenUsage(
   // event for those tool/device pairs before writing the current source of truth.
   // This repairs stale, session-start-bucketed, capped, and duplicated history
   // automatically on the next upload without touching another device.
-  if (completeHistoryTools.size > 0) {
+  if (completeHistoryTools.size > 0 || excludesLegacyCodex) {
     const tsKeys = await scanKeys(`user:${userId}:timeseries:*`);
     for (const key of tsKeys) {
       const raw = await kv.lrange(key, 0, -1);
       const events = raw
         .map((s: any) => { try { return JSON.parse(s); } catch { return null; } })
         .filter(Boolean);
-      const kept = events.filter((e: any) => !(
-        e.deviceId === deviceId && completeHistoryTools.has(String(e.tool || ''))
-      ));
+      const kept = events.filter((e: any) => {
+        const tool = String(e.tool || '');
+        return !(e.deviceId === deviceId && (
+          completeHistoryTools.has(tool) || (excludesLegacyCodex && isLegacyCodexTool(tool))
+        ));
+      });
       if (kept.length === events.length) continue;
-      await kv.del(key);
-      if (kept.length) {
-        const rebuild = kv.pipeline();
-        kept.forEach((e: any) => rebuild.rpush(key, JSON.stringify(e)));
-        await rebuild.exec();
-      }
+      await replaceRedisList(kv, key, kept.map((event: any) => JSON.stringify(event)));
     }
   }
 
@@ -242,7 +265,8 @@ export async function updateTokenUsage(
   if (historyData) {
     for (const toolsObj of Object.values(historyData)) {
       let day = 0;
-      for (const v of Object.values(toolsObj as Record<string, any>)) {
+      for (const [tool, v] of Object.entries(toolsObj as Record<string, any>)) {
+        if (excludesLegacyCodex && isLegacyCodexTool(tool)) continue;
         const hv = typeof v === 'object' && v !== null ? (Number((v as any).total) || 0) : (Number(v) || 0);
         day += hv;
       }
@@ -270,22 +294,19 @@ export async function updateTokenUsage(
         .filter(Boolean);
       if (completeHistoryTools.size === 0 && existingEvents.some((e: any) => e.deviceId === deviceId)) continue;
 
-      const incomingTools = new Set(Object.keys(toolsObj));
+      const incomingTools = new Set(Object.keys(toolsObj)
+        .filter((tool) => !(excludesLegacyCodex && isLegacyCodexTool(tool))));
       // Replace only the incoming tools for this device; preserve other devices
       // and unrelated tools on the same date.
       const kept = existingEvents.filter((e: any) => !(
         e.deviceId === deviceId && incomingTools.has(String(e.tool || ''))
       ));
-      await kv.del(rawKey);
-      if (kept.length) {
-        const rp = kv.pipeline();
-        kept.forEach((e: any) => rp.rpush(rawKey, JSON.stringify(e)));
-        await rp.exec();
-      }
+      await replaceRedisList(kv, rawKey, kept.map((event: any) => JSON.stringify(event)));
 
       const outEvents: { tool: string; tokens: number; rawTokens: number }[] = [];
       for (const [tool, rawVal] of Object.entries(toolsObj as Record<string, any>)) {
         if (tool === 'total' || tool === 'history') continue;
+        if (excludesLegacyCodex && isLegacyCodexTool(tool)) continue;
         if (completeHistoryTools.size > 0 && !completeHistoryTools.has(tool)) continue;
         const isObj = typeof rawVal === 'object' && rawVal !== null;
         const rv = rawVal as any;
@@ -344,7 +365,7 @@ export async function updateTokenUsage(
   // snapshots accumulate across days. `today` is handled by the delta loop below,
   // so it is skipped here. We only fill days that have NO timeseries yet, never
   // overwriting good data.
-  if (completeHistoryTools.size === 0) {
+  if (completeHistoryTools.size === 0 && !excludesLegacyCodex) {
     const snapKeysAll = await scanKeys(`user:${userId}:device:*:snap:*`);
     const perDevice: Record<string, { date: string; total: number }[]> = {};
     for (const sk of snapKeysAll) {
@@ -416,6 +437,7 @@ export async function updateTokenUsage(
 
   for (const [tool, valObj] of Object.entries(normalizedTokens)) {
     if (tool === 'total' || tool === 'history') continue;
+    if (excludesLegacyCodex && isLegacyCodexTool(tool)) continue;
     if (completeHistoryTools.has(tool)) continue;
     const vobj = valObj as any;
     const oldToolData = watermarks[tool] || oldDeviceTokens[tool];

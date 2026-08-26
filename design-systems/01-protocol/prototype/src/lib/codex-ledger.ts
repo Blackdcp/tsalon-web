@@ -17,6 +17,19 @@ export interface CodexLedgerSummary {
 }
 
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
+const MAX_RECORDS = 50_000;
+const REPLACE_HASH_SCRIPT = `-- tokenrank:replace-hash-v1
+redis.call('DEL', KEYS[1])
+for index = 1, #ARGV, 2 do
+  redis.call('HSET', KEYS[1], ARGV[index], ARGV[index + 1])
+end
+return #ARGV / 2`;
+const REPLACE_LIST_SCRIPT = `-- tokenrank:replace-list-v1
+redis.call('DEL', KEYS[1])
+for index = 1, #ARGV do
+  redis.call('RPUSH', KEYS[1], ARGV[index])
+end
+return #ARGV`;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
@@ -49,15 +62,13 @@ function canonicalDailyModels(canonical: CanonicalTurns): Record<string, Record<
 }
 
 async function replaceHash(redis: RedisLike, key: string, canonical: CanonicalTurns) {
-  const previous = await redis.hgetall(key);
-  const nextFields = new Set(Object.keys(canonical));
-  const removed = Object.keys(previous).filter((field) => !nextFields.has(field));
-  const pipeline = redis.pipeline();
-  if (removed.length) pipeline.hdel(key, ...removed);
-  for (const [field, envelope] of Object.entries(canonical)) {
-    pipeline.hset(key, field, JSON.stringify(envelope));
-  }
-  await pipeline.exec();
+  const entries = Object.entries(canonical)
+    .flatMap(([field, envelope]) => [field, JSON.stringify(envelope)]);
+  await redis.eval(REPLACE_HASH_SCRIPT, 1, key, ...entries);
+}
+
+export async function replaceRedisList(redis: RedisLike, key: string, values: string[]) {
+  await redis.eval(REPLACE_LIST_SCRIPT, 1, key, ...values);
 }
 
 function parseEvent(raw: string) {
@@ -117,8 +128,7 @@ async function rebuildCodexLedgerTimeseries(
   }
 
   for (const [key, events] of byKey) {
-    await redis.del(key);
-    if (events.length) await redis.rpush(key, ...events);
+    await replaceRedisList(redis, key, events);
   }
 }
 
@@ -140,7 +150,8 @@ export async function syncCodexLedger(
   payload: CodexLedgerPayload,
 ): Promise<CodexLedgerSummary> {
   if (!payload || payload.version !== 5 || payload.full_sync !== true
-    || !Array.isArray(payload.records) || !/^[a-f0-9]{64}$/i.test(payload.manifest_hash)) {
+    || !Array.isArray(payload.records) || payload.records.length > MAX_RECORDS
+    || !/^[a-f0-9]{64}$/i.test(payload.manifest_hash)) {
     throw new Error('Invalid Codex ledger payload');
   }
   const expectedManifestHash = createHash('sha256')
@@ -160,9 +171,8 @@ export async function syncCodexLedger(
 
   await replaceHash(redis, key, canonical);
   await redis.set(`user:${userId}:device:${deviceId}:codex-manifest`, JSON.stringify({
-    version: 5,
     manifest_hash: payload.manifest_hash,
-    turn_hashes: incoming.map((record) => record.turn_key).sort(),
+    turn_keys: incoming.map((record) => record.turn_key).sort(),
   }));
 
   const summary = aggregateCanonicalTurns(canonical);
