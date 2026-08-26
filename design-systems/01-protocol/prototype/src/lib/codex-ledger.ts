@@ -19,9 +19,70 @@ export interface CodexLedgerSummary {
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
 const MAX_RECORDS = 50_000;
 const REDIS_CHUNK_SIZE = 500;
+const ACCOUNT_AUDIT_TTL_SECONDS = 120 * 24 * 60 * 60;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
+
+export interface CodexAccountAudit {
+  account_audit_key: string;
+  lifetime_tokens: number;
+  daily_buckets: Array<{ date: string; tokens: number }>;
+  observed_at: string;
+}
+
+function validAuditDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function validAuditInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function sanitizeAccountAudit(audit: unknown): CodexAccountAudit {
+  if (!audit || typeof audit !== 'object' || Array.isArray(audit)) throw new Error('Invalid Codex account audit');
+  const value = audit as Record<string, unknown>;
+  const permitted = new Set(['account_audit_key', 'lifetime_tokens', 'daily_buckets', 'observed_at']);
+  if (Object.keys(value).some((key) => !permitted.has(key))
+    || !/^[a-f0-9]{64}$/i.test(String(value.account_audit_key || ''))
+    || !validAuditInteger(value.lifetime_tokens)
+    || !Array.isArray(value.daily_buckets)
+    || value.daily_buckets.length > 3_660
+    || typeof value.observed_at !== 'string'
+    || Number.isNaN(new Date(value.observed_at).getTime())) {
+    throw new Error('Invalid Codex account audit');
+  }
+  const seenDates = new Set<string>();
+  const daily_buckets = value.daily_buckets.map((bucket) => {
+    if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) throw new Error('Invalid Codex account audit');
+    const item = bucket as Record<string, unknown>;
+    if (Object.keys(item).length !== 2 || !validAuditDate(item.date) || !validAuditInteger(item.tokens) || seenDates.has(item.date)) {
+      throw new Error('Invalid Codex account audit');
+    }
+    seenDates.add(item.date);
+    return { date: item.date, tokens: item.tokens };
+  });
+  return {
+    account_audit_key: String(value.account_audit_key).toLowerCase(),
+    lifetime_tokens: value.lifetime_tokens,
+    daily_buckets,
+    observed_at: new Date(value.observed_at).toISOString(),
+  };
+}
+
+export async function storeAccountAudit(redis: RedisLike, userId: string, audit: unknown): Promise<CodexAccountAudit> {
+  if (!/^[a-z0-9_-]+$/i.test(userId)) throw new Error('Invalid Codex account audit');
+  const sanitized = sanitizeAccountAudit(audit);
+  await redis.set(
+    `user:${userId}:codex:audit:${sanitized.account_audit_key}`,
+    JSON.stringify(sanitized),
+    'EX',
+    ACCOUNT_AUDIT_TTL_SECONDS,
+  );
+  return sanitized;
+}
 
 function emptyAggregate(): UsageAggregate {
   return Object.fromEntries([...COUNTERS.map((counter) => [counter, 0]), ['cost', 0], ['estimated', false]]);

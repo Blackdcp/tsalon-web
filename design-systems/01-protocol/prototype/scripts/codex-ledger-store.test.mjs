@@ -1,10 +1,53 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { syncCodexLedger } from '../src/lib/codex-ledger.ts';
+import { storeAccountAudit, syncCodexLedger } from '../src/lib/codex-ledger.ts';
 import * as kvModule from '../src/lib/kv.ts';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
+
+test('account audit storage keeps only a sanitized latest snapshot outside canonical ranking data', async () => {
+  const redis = new FakeRedis();
+  const summaryKey = 'user:u1:codex:summary';
+  const auditKey = 'a'.repeat(64);
+  await redis.set(summaryKey, JSON.stringify({ lifetime: { total: 110 } }));
+  const before = await redis.get(summaryKey);
+
+  await storeAccountAudit(redis, 'u1', {
+    account_audit_key: auditKey,
+    lifetime_tokens: 14_096_012_943,
+    daily_buckets: [{ date: '2026-08-22', tokens: 1_715_126_863 }],
+    observed_at: '2026-08-26T00:00:00.000Z',
+  });
+
+  assert.equal(await redis.get(summaryKey), before);
+  assert.deepEqual(JSON.parse(await redis.get(`user:u1:codex:audit:${auditKey}`)), {
+    account_audit_key: auditKey,
+    lifetime_tokens: 14_096_012_943,
+    daily_buckets: [{ date: '2026-08-22', tokens: 1_715_126_863 }],
+    observed_at: '2026-08-26T00:00:00.000Z',
+  });
+  const serialized = await redis.get(`user:u1:codex:audit:${auditKey}`);
+  assert.equal(serialized.includes('@'), false);
+  assert.equal(serialized.includes('upload-secret'), false);
+});
+
+test('account audit storage rejects email, malformed keys, and invalid daily buckets', async () => {
+  const redis = new FakeRedis();
+  const valid = {
+    account_audit_key: 'a'.repeat(64),
+    lifetime_tokens: 7,
+    daily_buckets: [],
+    observed_at: '2026-08-26T00:00:00.000Z',
+  };
+
+  await assert.rejects(storeAccountAudit(redis, 'u1', { ...valid, email: 'black@example.com' }), /Invalid Codex account audit/);
+  await assert.rejects(storeAccountAudit(redis, 'u1', { ...valid, account_audit_key: 'bad' }), /Invalid Codex account audit/);
+  await assert.rejects(storeAccountAudit(redis, 'u1', {
+    ...valid,
+    daily_buckets: [{ date: 'not-a-date', tokens: -1 }],
+  }), /Invalid Codex account audit/);
+});
 
 test('full sync is idempotent and rebuilds one canonical daily event', async () => {
   const redis = new FakeRedis();

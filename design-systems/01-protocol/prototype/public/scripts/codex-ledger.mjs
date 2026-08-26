@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -7,6 +8,169 @@ const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache
 function positiveInt(value) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function nonNegativeSafeInt(value) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function auditDate(value) {
+  if (typeof value !== 'string') return null;
+  const date = value.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date ? null : date;
+}
+
+function sanitizeDailyBuckets(raw) {
+  if (!Array.isArray(raw)) return [];
+  const buckets = new Map();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const date = auditDate(item.date ?? item.day ?? item.startDate ?? item.start_time);
+    const tokens = nonNegativeSafeInt(item.tokens ?? item.totalTokens ?? item.total_tokens ?? item.tokenCount);
+    if (date === null || tokens === null) continue;
+    buckets.set(date, tokens);
+  }
+  return [...buckets.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, tokens]) => ({ date, tokens }));
+}
+
+function codexBinaryCandidates() {
+  const candidates = [];
+  if (process.env.CODEX_BINARY) candidates.push(process.env.CODEX_BINARY);
+  candidates.push('codex');
+  if (process.platform === 'darwin') {
+    candidates.push(
+      '/Applications/ChatGPT.app/Contents/Resources/codex',
+      '/Applications/ChatGPT.app/Contents/MacOS/codex',
+    );
+  }
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA;
+    const programFiles = process.env.ProgramFiles;
+    if (localAppData) candidates.push(
+      path.join(localAppData, 'Programs', 'ChatGPT', 'codex.exe'),
+      path.join(localAppData, 'ChatGPT', 'codex.exe'),
+    );
+    if (programFiles) candidates.push(path.join(programFiles, 'ChatGPT', 'codex.exe'));
+  }
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function appServerRpc(binary) {
+  const child = spawn(binary, ['app-server'], { stdio: ['pipe', 'pipe', 'ignore'] });
+  let nextId = 1;
+  const pending = new Map();
+  let buffer = '';
+  const rejectAll = (error) => {
+    for (const { reject } of pending.values()) reject(error);
+    pending.clear();
+  };
+  child.on('error', rejectAll);
+  child.on('exit', () => rejectAll(new Error('Codex app-server exited')));
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    buffer += chunk;
+    let newline;
+    while ((newline = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, newline);
+      buffer = buffer.slice(newline + 1);
+      let message;
+      try { message = JSON.parse(line); } catch { continue; }
+      if (!message || typeof message.id !== 'number' || !pending.has(message.id)) continue;
+      const request = pending.get(message.id);
+      pending.delete(message.id);
+      if (message.error) request.reject(new Error('Codex app-server request failed'));
+      else request.resolve(message.result);
+    }
+  });
+  const request = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    try {
+      child.stdin.write(`${JSON.stringify({ id, method, params })}\n`);
+    } catch (error) {
+      pending.delete(id);
+      reject(error);
+    }
+  });
+  return {
+    initialize: () => request('initialize', { clientInfo: { name: 't-salon-token-agent', title: 'T Salon Token Agent', version: '5' } }),
+    initialized: () => child.stdin.write(`${JSON.stringify({ method: 'initialized', params: {} })}\n`),
+    readAccount: () => request('account/read', { refreshToken: false }),
+    readUsage: () => request('account/usage/read'),
+    close: async () => {
+      child.kill();
+    },
+  };
+}
+
+async function withTimeout(promise, timeoutMs) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Codex audit timed out')), timeoutMs); }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function readFromAppServer(deadline) {
+  let lastError = null;
+  for (const binary of codexBinaryCandidates()) {
+    let rpc;
+    try {
+      rpc = appServerRpc(binary);
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error('Codex audit timed out');
+      await withTimeout(rpc.initialize(), remaining);
+      rpc.initialized();
+      return rpc;
+    } catch (error) {
+      lastError = error;
+      await rpc?.close();
+    }
+  }
+  throw lastError || new Error('Codex app-server is unavailable');
+}
+
+export async function readOfficialCodexAudit({ token, timeoutMs = 5000, rpc } = {}) {
+  if (typeof token !== 'string' || !token || !Number.isFinite(timeoutMs) || timeoutMs <= 0) return null;
+  const deadline = Date.now() + Math.floor(timeoutMs);
+  const remainingTimeout = () => Math.max(1, deadline - Date.now());
+  let client = rpc;
+  try {
+    if (!client) client = await readFromAppServer(deadline);
+    const accountResult = await withTimeout(client.readAccount(), remainingTimeout());
+    const account = accountResult?.account ?? accountResult;
+    const accountType = String(account?.type ?? account?.accountType ?? '').toLowerCase();
+    const email = String(account?.email ?? '').trim().toLowerCase();
+    if (accountType !== 'chatgpt' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+    const usageResult = await withTimeout(client.readUsage(), remainingTimeout());
+    const usage = usageResult?.usage ?? usageResult;
+    const lifetimeTokens = nonNegativeSafeInt(usage?.summary?.lifetimeTokens ?? usage?.summary?.lifetime_tokens);
+    if (lifetimeTokens === null) return null;
+    return {
+      account_audit_key: createHmac('sha256', token).update(email).digest('hex'),
+      lifetime_tokens: lifetimeTokens,
+      daily_buckets: sanitizeDailyBuckets(usage?.dailyUsageBuckets ?? usage?.daily_usage_buckets),
+      observed_at: new Date().toISOString(),
+    };
+  } catch {
+    console.warn('Codex official audit unavailable; continuing with local ledger upload.');
+    return null;
+  } finally {
+    try {
+      await client?.close?.();
+    } catch {
+      // Cleanup is best effort; an audit transport error must never affect upload.
+    }
+  }
 }
 
 export function normalizeCodexUsage(raw = {}) {

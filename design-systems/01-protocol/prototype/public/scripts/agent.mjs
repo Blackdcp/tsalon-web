@@ -11,7 +11,7 @@ import { createHash } from 'crypto';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
-import { normalizeCodexUsage, scanCodexLedger } from './codex-ledger.mjs';
+import { normalizeCodexUsage, readOfficialCodexAudit, scanCodexLedger } from './codex-ledger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -710,6 +710,7 @@ async function main() {
   console.log(`  => Grand Total: ${totalAll.toLocaleString()} tokens`);
 
   const deviceId = getOrCreateDeviceId(home);
+  const accountAudit = await readOfficialCodexAudit({ token });
   const historyCompleteTools = ['codex', 'codex_proxy'];
   if (claudeData.historyComplete) historyCompleteTools.push('claude');
   const payload = {
@@ -724,6 +725,7 @@ async function main() {
       records: codexData.ledger.records,
     },
   };
+  if (accountAudit) payload.account_audit = accountAudit;
 
   if (dryRun) {
     console.log('🧪 DRY-RUN: not uploading. Payload:');
@@ -740,6 +742,10 @@ async function main() {
     const result = await resp.json();
     if (result && result.success) {
       console.log('✅ Successfully uploaded token data to T Salon Leaderboard!');
+      if (result.official_delta) {
+        const delta = result.official_delta;
+        console.log(`🔎 Official Codex audit: official ${Number(delta.official_lifetime_tokens || 0).toLocaleString()} / local ${Number(delta.ledger_lifetime_tokens || 0).toLocaleString()} / difference ${Number(delta.difference_tokens || 0).toLocaleString()} tokens`);
+      }
     } else {
       console.log(`❌ Upload failed: ${result && result.message ? result.message : 'unknown error'}`);
     }

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
+import { storeAccountAudit } from '../../../lib/codex-ledger.ts';
 
 export const prerender = false;
 
@@ -69,9 +70,25 @@ export const POST: APIRoute = async ({ request }) => {
         historyData,
         historyCompleteTools,
         codexLedger,
-        accountAudit: body.account_audit ?? null,
       },
     );
+
+    let officialDelta = null;
+    if (body.account_audit !== undefined && body.account_audit !== null) {
+      try {
+        const audit = await storeAccountAudit(kv, userId, body.account_audit);
+        const ledgerLifetimeTokens = Number(result?.codex?.total) || 0;
+        officialDelta = {
+          account_audit_key: audit.account_audit_key,
+          official_lifetime_tokens: audit.lifetime_tokens,
+          ledger_lifetime_tokens: ledgerLifetimeTokens,
+          difference_tokens: ledgerLifetimeTokens - audit.lifetime_tokens,
+        };
+      } catch {
+        // Audit data is optional diagnostics. Reject it without blocking the
+        // normal ledger upload or changing ranking-related state.
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -79,6 +96,7 @@ export const POST: APIRoute = async ({ request }) => {
       schema_version: 5,
       codex: result?.codex ?? null,
       pricing_snapshot_date: result?.pricing_snapshot_date ?? null,
+      official_delta: officialDelta,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

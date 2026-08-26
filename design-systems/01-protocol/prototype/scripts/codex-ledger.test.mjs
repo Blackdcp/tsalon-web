@@ -1,8 +1,57 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { scanCodexLedger } from '../public/scripts/codex-ledger.mjs';
+import { readOfficialCodexAudit, scanCodexLedger } from '../public/scripts/codex-ledger.mjs';
 import { sessionMeta, tempHome, tokenCount, turnContext, writeSession, writeTurn } from './helpers/codex-fixtures.mjs';
+
+test('official audit hashes email locally and never returns it', async () => {
+  const audit = await readOfficialCodexAudit({
+    token: 'upload-secret',
+    rpc: {
+      readAccount: async () => ({ type: 'chatgpt', email: 'Black@Example.com ' }),
+      readUsage: async () => ({
+        summary: { lifetimeTokens: 14_096_012_943 },
+        dailyUsageBuckets: [{ date: '2026-08-22', tokens: 1_715_126_863 }],
+      }),
+      close: async () => {},
+    },
+  });
+
+  assert.deepEqual(audit, {
+    account_audit_key: '68f1ad955a676123a5279c16420a3f6e1ce37d27a59335140791db6b2573663a',
+    lifetime_tokens: 14_096_012_943,
+    daily_buckets: [{ date: '2026-08-22', tokens: 1_715_126_863 }],
+    observed_at: audit.observed_at,
+  });
+  assert.match(audit.observed_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(JSON.stringify(audit).includes('example.com'), false);
+});
+
+test('official audit declines accounts without a stable ChatGPT email', async () => {
+  const audit = await readOfficialCodexAudit({
+    token: 'upload-secret',
+    rpc: {
+      readAccount: async () => ({ type: 'api_key', email: 'black@example.com' }),
+      readUsage: async () => ({ summary: { lifetimeTokens: 9 }, dailyUsageBuckets: [] }),
+      close: async () => {},
+    },
+  });
+
+  assert.equal(audit, null);
+});
+
+test('official audit cleanup failure cannot block the ledger upload path', async () => {
+  const audit = await readOfficialCodexAudit({
+    token: 'upload-secret',
+    rpc: {
+      readAccount: async () => ({ type: 'chatgpt', email: 'black@example.com' }),
+      readUsage: async () => ({ summary: { lifetimeTokens: 9 }, dailyUsageBuckets: [] }),
+      close: async () => { throw new Error('close failed'); },
+    },
+  });
+
+  assert.equal(audit?.lifetime_tokens, 9);
+});
 
 test('cached input remains inside total and only norm excludes it', async (t) => {
   const home = tempHome(t);
