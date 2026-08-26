@@ -121,7 +121,6 @@ export async function updateTokenUsageWithRedis(
     : { historyData: optionsOrHistory as Record<string, Record<string, any>> | null, historyCompleteTools: legacyHistoryCompleteTools };
   const historyData = options.historyData ?? null;
   const historyCompleteTools = options.historyCompleteTools ?? [];
-  const excludesLegacyCodex = Boolean(options.codexLedger);
   const isLegacyCodexTool = (tool: string) => tool === 'codex' || tool === 'codex_proxy';
   const scanKeys = (pattern: string) => scanRedisKeys(kv, pattern);
 
@@ -148,6 +147,8 @@ export async function updateTokenUsageWithRedis(
         try { codexSummary = JSON.parse(storedSummary); } catch { /* rebuild on a later v5 upload */ }
       }
     }
+    const excludesLegacyCodex = Boolean(options.codexLedger)
+      || await kv.get(`user:${userId}:device:${deviceId}:codex-ledger-version`) === '5';
     const canonicalTurnCount = codexSummary
       ? Object.keys(await kv.hgetall(`user:${userId}:codex:turns`)).length
       : 0;
@@ -520,13 +521,21 @@ export async function updateTokenUsageWithRedis(
   };
   
   if (deviceKeys.length > 0) {
-    const allDeviceData = await kv.mget(deviceKeys);
-    for (const dataStr of allDeviceData) {
+    const devicePrefix = `user:${userId}:device:`;
+    const deviceIds = deviceKeys.map((key) => key.slice(devicePrefix.length, -':data'.length));
+    const [allDeviceData, ledgerVersions] = await Promise.all([
+      kv.mget(deviceKeys),
+      kv.mget(deviceIds.map((id) => `user:${userId}:device:${id}:codex-ledger-version`)),
+    ]);
+    for (let index = 0; index < allDeviceData.length; index++) {
+      const dataStr = allDeviceData[index];
       if (dataStr) {
         try {
           const parsed = JSON.parse(dataStr as string);
           if (parsed && parsed.tokens) {
-            const normalizedDevice = normalizeDeviceUpload(parsed.tokens);
+            const normalizedDevice = normalizeDeviceUpload(parsed.tokens, {
+              hasCodexLedger: ledgerVersions[index] === '5',
+            });
             for (const [tool, value] of Object.entries(normalizedDevice)) addToolTokens(tool, value);
           }
         } catch (e) {}

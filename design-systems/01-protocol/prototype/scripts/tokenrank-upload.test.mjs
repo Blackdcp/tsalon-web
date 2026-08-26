@@ -108,6 +108,7 @@ test('v5 migration removes only the uploading device legacy Codex and injects ca
 
 test('malformed v5 fails before device and profile mutation and releases the update lock', async () => {
   const redis = new FakeRedis();
+  await redis.set('user:u1:device:mac:codex-ledger-version', '5');
   const malformed = { ...ledgerPayload([turnRecord('bad', 10)]), manifest_hash: '0'.repeat(64) };
 
   await assert.rejects(
@@ -120,5 +121,97 @@ test('malformed v5 fails before device and profile mutation and releases the upd
   assert.equal(await redis.get('user:u1:device:mac:data'), null);
   assert.equal(await redis.get('user:u1:data'), null);
   assert.equal(await redis.get('user:u1:update-lock'), null);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), '5');
   assert.equal(redis.sortedSets.has('leaderboard:total'), false);
+});
+
+test('persisted v5 marker prevents the same device from reintroducing legacy Codex', async () => {
+  const redis = new FakeRedis();
+  const payload = ledgerPayload([turnRecord('durable-migration', 110)]);
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    codex: { total: 200, raw_total: 200 },
+    claude: { total: 10, raw_total: 10 },
+  }, 'mac', { codexLedger: payload });
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    codex: { total: 200, raw_total: 200 },
+    codex_proxy: { total: 80, raw_total: 80 },
+    claude: { total: 20, raw_total: 20 },
+  }, 'mac', {
+    historyData: {
+      '2026-08-18': {
+        codex: { total: 100, raw_total: 100 },
+        codex_proxy: { total: 40, raw_total: 40 },
+        claude: { total: 7, raw_total: 7 },
+      },
+    },
+    historyCompleteTools: ['codex', 'codex_proxy', 'claude'],
+  });
+
+  const device = JSON.parse(await redis.get('user:u1:device:mac:data'));
+  const profile = JSON.parse(await redis.get('user:u1:data'));
+  const keys = (await redis.scan('0', 'MATCH', 'user:u1:timeseries:*'))[1];
+  const events = (await Promise.all(keys.map((key) => redis.lrange(key, 0, -1))))
+    .flat().map(JSON.parse);
+
+  assert.equal(device.tokens.codex, undefined);
+  assert.equal(device.tokens.codex_proxy, undefined);
+  assert.equal(device.tokens.claude.total, 20);
+  assert.equal(profile.tokens.codex.total, 110);
+  assert.equal(profile.tokens.claude.total, 20);
+  assert.equal(profile.tokens.total, 130);
+  assert.equal(redis.sortedSets.get('leaderboard:total').get('u1'), 130);
+  assert.equal(events.filter((event) => ['codex', 'codex_proxy'].includes(event.tool)
+    && event.source !== 'codex-ledger-v5').length, 0);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), '5');
+  assert.equal(await redis.get('user:u1:update-lock'), null);
+});
+
+test('aggregation ignores stale legacy Codex snapshots from every marked v5 device', async () => {
+  const redis = new FakeRedis();
+  const payload = ledgerPayload([turnRecord('canonical-before-stale-snapshot', 110)]);
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    claude: { total: 10, raw_total: 10 },
+  }, 'mac', { codexLedger: payload });
+
+  await redis.set('user:u1:device:mac:data', JSON.stringify({ tokens: {
+    codex: { total: 200, raw_total: 200 },
+    codex_proxy: { total: 80, raw_total: 80 },
+    claude: { total: 10, raw_total: 10 },
+  } }));
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+    codex: { total: 40, raw_total: 40 },
+  }, 'windows');
+
+  const profile = JSON.parse(await redis.get('user:u1:data'));
+  assert.equal(profile.tokens.codex.total, 150);
+  assert.equal(profile.tokens.codex_proxy, undefined);
+  assert.equal(profile.tokens.claude.total, 10);
+  assert.equal(profile.tokens.total, 160);
+  assert.equal(redis.sortedSets.get('leaderboard:total').get('u1'), 160);
+});
+
+test('persisted marker read errors release the update lock before mutation', async () => {
+  class MarkerReadFailureRedis extends FakeRedis {
+    async get(key) {
+      if (key === 'user:u1:device:mac:codex-ledger-version') {
+        throw new Error('Injected marker read failure');
+      }
+      return super.get(key);
+    }
+  }
+  const redis = new MarkerReadFailureRedis();
+
+  await assert.rejects(
+    kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {
+      claude: { total: 20, raw_total: 20 },
+    }, 'mac'),
+    /Injected marker read failure/,
+  );
+
+  assert.equal(await redis.get('user:u1:device:mac:data'), null);
+  assert.equal(await redis.get('user:u1:data'), null);
+  assert.equal(await redis.get('user:u1:update-lock'), null);
 });
