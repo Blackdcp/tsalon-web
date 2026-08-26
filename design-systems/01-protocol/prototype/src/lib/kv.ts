@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { syncCodexLedger, type CodexLedgerPayload } from './codex-ledger';
 import { beijingDateString, beijingDateNDaysAgo } from './date';
 
 // Fallback for development if no REDIS_URL is provided, or throw
@@ -27,6 +28,19 @@ export interface TimeseriesEvent {
   cacheHit: boolean;
   deviceId?: string;
   source?: string;
+  normTokens?: number;
+  costUsd?: number;
+  pricingEstimated?: boolean;
+  pricingSnapshotDate?: string;
+}
+
+export type CodexAccountAudit = Record<string, unknown>;
+
+export interface TokenUpdateOptions {
+  historyData?: Record<string, Record<string, any>> | null;
+  historyCompleteTools?: string[];
+  codexLedger?: CodexLedgerPayload | null;
+  accountAudit?: CodexAccountAudit | null;
 }
 
 
@@ -67,10 +81,18 @@ export async function updateTokenUsage(
   image: string,
   tokens: Record<string, any>,
   deviceId: string = 'default_device',
-  historyData: Record<string, Record<string, any>> | null = null,
-  historyCompleteTools: string[] = [],
+  optionsOrHistory: TokenUpdateOptions | Record<string, Record<string, any>> | null = {},
+  legacyHistoryCompleteTools: string[] = [],
 ) {
   if (!kv) return;
+
+  const isLegacyHistory = optionsOrHistory === null || Object.keys(optionsOrHistory)
+    .some((key) => /^\d{4}-\d{2}-\d{2}$/.test(key));
+  const options: TokenUpdateOptions = isLegacyHistory
+    ? { historyData: optionsOrHistory as Record<string, Record<string, any>> | null, historyCompleteTools: legacyHistoryCompleteTools }
+    : optionsOrHistory as TokenUpdateOptions;
+  const historyData = options.historyData ?? null;
+  const historyCompleteTools = options.historyCompleteTools ?? [];
 
   // Mac and Windows commonly upload on the same half-hour boundary. Serialize
   // per-user rebuilds so one device cannot overwrite the other device's list
@@ -84,6 +106,11 @@ export async function updateTokenUsage(
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   if (!locked) throw new Error('Token update is busy; retry on the next agent run');
+
+  try {
+    if (options.codexLedger) {
+      await syncCodexLedger(kv, userId, deviceId, options.codexLedger);
+    }
 
   const completeHistoryTools = new Set(
     historyCompleteTools.filter(t => /^[a-z0-9_+-]+$/i.test(t)),
@@ -520,12 +547,14 @@ export async function updateTokenUsage(
   await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
   await kv.zadd('leaderboard:total', finalTotal, userId);
 
-  await kv.eval(
-    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-    1,
-    lockKey,
-    lockId,
-  );
+  } finally {
+    await kv.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      1,
+      lockKey,
+      lockId,
+    );
+  }
 }
 
 export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRankData[]> {
