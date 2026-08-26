@@ -42,6 +42,21 @@ test('unknown and legacy aliases retain usable estimated model pricing', () => {
   assert.deepEqual(normalizeModelId('vendor/not-a-real-model'), { id: 'gpt-5.6-sol', estimated: true });
 });
 
+test('inherited model keys remain estimated, finite, and cannot mutate Object.prototype', () => {
+  for (const model of ['__proto__', 'constructor']) {
+    assert.equal(normalizeModelId(model).estimated, true);
+    const price = priceUsage(model, { base: { net_new_input: 100, cache_read: 0, cache_write: 0, output: 0 }, long: emptyTier() });
+    assert.equal(Number.isFinite(price.usd), true);
+    assert.equal(price.estimated, true);
+  }
+
+  const record = turnRecord('prototype-model', 100, { model: '__proto__' });
+  const turns = reconcileDeviceTurns({}, 'mac', [record]);
+  aggregateCanonicalTurns(turns);
+  assert.equal(Object.hasOwn(Object.prototype, 'input_total'), false);
+  assert.equal(Object.hasOwn(Object.prototype, 'cost'), false);
+});
+
 test('same turn on two devices counts once', () => {
   const shared = turnRecord('same', 110);
   const windowsOnly = turnRecord('windows-only', 220);
@@ -75,6 +90,14 @@ test('a repeated full sync is idempotent', () => {
   const once = reconcileDeviceTurns({}, 'mac', incoming);
   const twice = reconcileDeviceTurns(once, 'mac', incoming);
   assert.deepEqual(twice, once);
+});
+
+test('a same-device full sync authoritatively replaces corrected lower usage', () => {
+  const key = turnRecord('corrected', 300).turn_key;
+  let turns = reconcileDeviceTurns({}, 'mac', [turnRecord('corrected', 300)]);
+  turns = reconcileDeviceTurns(turns, 'mac', [turnRecord('corrected', 100)]);
+  assert.equal(turns[key].device_versions.mac.total, 100);
+  assert.equal(turns[key].record.total, 100);
 });
 
 test('record validation rejects forged keys, inconsistent counters, and invalid days', () => {
@@ -113,4 +136,14 @@ test('rank sorting uses user id ascending to resolve equal metrics', () => {
     { userId: 'm', aggregate: { lifetime: { total: 20, norm: 1, cost: 0 } } },
   ], 'total');
   assert.deepEqual(sorted.map((row) => row.userId), ['m', 'a', 'z']);
+});
+
+test('rank sorting uses exact code-unit user ID order when locale comparison ties', () => {
+  const composed = 'é';
+  const decomposed = 'e\u0301';
+  const sorted = sortRankRows([
+    { userId: composed, aggregate: { lifetime: { total: 10 } } },
+    { userId: decomposed, aggregate: { lifetime: { total: 10 } } },
+  ], 'total');
+  assert.deepEqual(sorted.map((row) => row.userId), [decomposed, composed]);
 });

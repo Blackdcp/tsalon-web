@@ -19,6 +19,15 @@ function emptyCounters() {
   return Object.fromEntries(COUNTERS.map((key) => [key, 0]));
 }
 
+function emptyMap() {
+  return Object.create(null);
+}
+
+function compareStrings(left, right) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 function emptyAggregate() {
   return { ...emptyCounters(), cost: 0, estimated: false };
 }
@@ -78,30 +87,33 @@ function compareRecords(left, right, leftDevice = '', rightDevice = '') {
   if (complete) return complete;
   const total = right.total - left.total;
   if (total) return total;
-  return leftDevice.localeCompare(rightDevice);
+  return compareStrings(leftDevice, rightDevice);
 }
 
 function canonicalVersions(envelope) {
-  if (!isObject(envelope) || !isObject(envelope.device_versions)) return {};
-  return Object.fromEntries(Object.entries(envelope.device_versions)
-    .map(([deviceId, record]) => [deviceId, validateTurnRecord(record)])
-    .filter(([deviceId, record]) => typeof deviceId === 'string' && deviceId && record));
+  const versions = emptyMap();
+  if (!isObject(envelope) || !isObject(envelope.device_versions)) return versions;
+  for (const [deviceId, record] of Object.entries(envelope.device_versions)) {
+    const validRecord = validateTurnRecord(record);
+    if (deviceId && validRecord) versions[deviceId] = validRecord;
+  }
+  return versions;
 }
 
 function materializeEnvelope(versions) {
-  const sourceDevices = Object.keys(versions).sort();
+  const sourceDevices = Object.keys(versions).sort(compareStrings);
   const winner = sourceDevices
     .map((deviceId) => ({ deviceId, record: versions[deviceId] }))
     .sort((left, right) => compareRecords(left.record, right.record, left.deviceId, right.deviceId))[0];
   return {
     record: structuredClone(winner.record),
-    device_versions: Object.fromEntries(sourceDevices.map((deviceId) => [deviceId, structuredClone(versions[deviceId])])),
+    device_versions: Object.assign(emptyMap(), Object.fromEntries(sourceDevices.map((deviceId) => [deviceId, structuredClone(versions[deviceId])]))),
     source_devices: sourceDevices,
   };
 }
 
 function sortedCanonical(turns) {
-  return Object.fromEntries(Object.keys(turns).sort().map((key) => [key, turns[key]]));
+  return Object.assign(emptyMap(), Object.fromEntries(Object.keys(turns).sort(compareStrings).map((key) => [key, turns[key]])));
 }
 
 export function reconcileDeviceTurns(existing = {}, deviceId, incoming = []) {
@@ -111,7 +123,7 @@ export function reconcileDeviceTurns(existing = {}, deviceId, incoming = []) {
   const records = incoming.map(validateTurnRecord);
   if (records.some((record) => record === null)) return sortedCanonical(structuredClone(existing));
 
-  const next = {};
+  const next = emptyMap();
   const incomingKeys = new Set(records.map((record) => record.turn_key));
   for (const [key, envelope] of Object.entries(existing)) {
     const versions = canonicalVersions(envelope);
@@ -124,8 +136,7 @@ export function reconcileDeviceTurns(existing = {}, deviceId, incoming = []) {
   }
   for (const record of records) {
     const versions = canonicalVersions(next[record.turn_key]);
-    const previous = versions[deviceId];
-    versions[deviceId] = previous && compareRecords(previous, record, deviceId, deviceId) < 0 ? previous : record;
+    versions[deviceId] = record;
     next[record.turn_key] = materializeEnvelope(versions);
   }
   return sortedCanonical(next);
@@ -138,8 +149,8 @@ function addUsage(target, usage, cost = 0, estimated = false) {
 }
 
 export function aggregateCanonicalTurns(turns = {}) {
-  const daily = {};
-  const models = {};
+  const daily = emptyMap();
+  const models = emptyMap();
   for (const envelope of Object.values(turns || {})) {
     const record = validateTurnRecord(envelope?.record);
     if (!record) continue;
@@ -157,8 +168,8 @@ export function aggregateCanonicalTurns(turns = {}) {
   for (const usage of Object.values(daily)) addUsage(lifetime, usage, usage.cost, usage.estimated);
   return {
     lifetime,
-    daily: Object.fromEntries(Object.keys(daily).sort().map((day) => [day, daily[day]])),
-    models: Object.fromEntries(Object.keys(models).sort().map((model) => [model, models[model]])),
+    daily: Object.assign(emptyMap(), Object.fromEntries(Object.keys(daily).sort(compareStrings).map((day) => [day, daily[day]]))),
+    models: Object.assign(emptyMap(), Object.fromEntries(Object.keys(models).sort(compareStrings).map((model) => [model, models[model]]))),
   };
 }
 
@@ -171,6 +182,6 @@ export function sortRankRows(rows = [], metric = 'total') {
   return [...rows].sort((left, right) => {
     const metricDifference = metricValue(right.aggregate || right, metric) - metricValue(left.aggregate || left, metric);
     if (metricDifference) return metricDifference;
-    return String(left.userId || '').localeCompare(String(right.userId || ''));
+    return compareStrings(String(left.userId || ''), String(right.userId || ''));
   });
 }
