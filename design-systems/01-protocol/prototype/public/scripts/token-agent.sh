@@ -84,7 +84,7 @@ install_macos_launch_agent() {
   mkdir -p "$launch_dir"
   cat > "$runner" <<EOF
 #!/bin/bash
-exec /bin/bash -c "\$(/usr/bin/curl -fsSL '$HOST/scripts/token-agent.sh')" -- --token='$TOKEN' --host='$HOST' --scheduled-run
+exec /bin/bash -c "\$(/usr/bin/curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=5')" -- --token='$TOKEN' --host='$HOST' --scheduled-run
 EOF
   chmod 700 "$runner"
 
@@ -123,7 +123,7 @@ EOF
 
 install_linux_cron() {
   local line
-  line="*/30 * * * * /bin/bash -c \"\$(curl -fsSL '$HOST/scripts/token-agent.sh')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
+  line="*/30 * * * * /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=5')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
   (crontab -l 2>/dev/null | grep -v 'tsalon.tech/scripts/token-agent.sh'; printf '%s\n' "$line") | crontab -
   echo "✓ Linux background upload installed (every 30 minutes)."
 }

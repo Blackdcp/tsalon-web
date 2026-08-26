@@ -5,6 +5,15 @@
   "trailingSlash": true,
   "headers": [
     {
+      "source": "/scripts/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
       "source": "/api/(fix-db|db-maint)(.*)",
       "headers": [
         {

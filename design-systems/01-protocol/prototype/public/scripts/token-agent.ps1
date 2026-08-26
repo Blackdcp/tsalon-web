@@ -93,7 +93,7 @@ if (-not $scheduledRun) {
     $taskName = "TSalonTokenAgent"
     $safeToken = $token -replace "'", "''"
     $safeHost = $host_url -replace "'", "''"
-    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1'))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
+    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1?v=5' -Headers @{ 'Cache-Control' = 'no-cache' }))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrapCmd))
     $runnerPath = Join-Path $tsalonDir 'run-agent-hidden.vbs'
     $vbsCommand = 'powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + $encodedCommand

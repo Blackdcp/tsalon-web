@@ -34,3 +34,33 @@ test('both installers download codex-ledger.mjs before agent execution', () => {
     assertLedgerDownloadBeforeAgent(fs.readFileSync(file, 'utf8'), downloadPattern);
   }
 });
+
+test('connect-page bootstrap commands pin token-agent schema version 5', () => {
+  for (const file of ['src/pages/tokenrank/connect.astro', 'src/pages/en/tokenrank/connect.astro']) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.match(source, /https:\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\?v=5/);
+    assert.match(source, /https:\/\/www\.tsalon\.tech\/scripts\/token-agent\.ps1\?v=5/);
+  }
+});
+
+test('scheduled self-updaters request versioned installers with cache revalidation', () => {
+  const windows = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
+  assert.match(windows, /irm '\$safeHost\/scripts\/token-agent\.ps1\?v=5' -Headers @\{ 'Cache-Control' = 'no-cache' \}/i);
+
+  const unix = fs.readFileSync('public/scripts/token-agent.sh', 'utf8');
+  const macRunner = unix.split('\n').find((line) => line.includes('/usr/bin/curl -fsSL'));
+  const linuxCron = unix.split('\n').find((line) => line.trimStart().startsWith('line='));
+  assert.match(macRunner, /\/usr\/bin\/curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=5'/);
+  assert.match(linuxCron, /curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=5'/);
+});
+
+test('root Vercel configuration disables caching for scripts while preserving API protection', () => {
+  const config = JSON.parse(fs.readFileSync('../../../vercel.json', 'utf8'));
+  const scriptsRule = config.headers.find((rule) => rule.source === '/scripts/(.*)');
+  const apiRule = config.headers.find((rule) => rule.source === '/api/(fix-db|db-maint)(.*)');
+  assert.deepEqual(scriptsRule?.headers, [{
+    key: 'Cache-Control',
+    value: 'no-store, no-cache, must-revalidate, max-age=0',
+  }]);
+  assert.ok(apiRule, 'existing API cache-control rule must remain');
+});

@@ -63,7 +63,7 @@ const displayToken = uploadToken || '';
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in Terminal. It syncs immediately and installs a login background job:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh)" -- --token="{displayToken}" --install
+                    bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh?v=5)" -- --token="{displayToken}" --install
                   </code>
                 </div>
 
@@ -73,7 +73,7 @@ const displayToken = uploadToken || '';
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in PowerShell (no admin needed). It syncs immediately and creates a login background task:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm 'https://www.tsalon.tech/scripts/token-agent.ps1'))) -token '{displayToken}'"
+                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm 'https://www.tsalon.tech/scripts/token-agent.ps1?v=5'))) -token '{displayToken}'"
                   </code>
                 </div>
               </div>
