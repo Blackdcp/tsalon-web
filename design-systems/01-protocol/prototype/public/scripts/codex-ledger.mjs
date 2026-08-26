@@ -14,7 +14,7 @@ export function normalizeCodexUsage(raw = {}) {
   const output = positiveInt(raw.output_tokens);
   const cacheRead = positiveInt(raw.cached_input_tokens ?? raw.cache_read_input_tokens);
   const cacheWrite = positiveInt(raw.cache_write_input_tokens);
-  const total = positiveInt(raw.total_tokens) || inputTotal + output;
+  const total = inputTotal + output;
   const netNewInput = Math.max(0, inputTotal - cacheRead - cacheWrite);
   return {
     input_total: inputTotal,
@@ -121,10 +121,12 @@ function parseSessionFile(filePath, relativePath) {
       continue;
     }
     const info = event.payload?.type === 'token_count' ? event.payload.info : null;
-    const rawUsage = info?.total_token_usage || info?.last_token_usage;
+    const cumulativeUsage = info?.total_token_usage;
+    const lastUsage = info?.last_token_usage;
+    const rawUsage = cumulativeUsage || lastUsage;
     if (!sessionId || !turnId || !rawUsage) continue;
     const current = normalizeCodexUsage(rawUsage);
-    const isLastUsage = !Object.hasOwn(rawUsage, 'total_tokens');
+    const isLastUsage = !cumulativeUsage && Boolean(lastUsage);
     const fingerprint = hash(`${sessionId}|${turnId}|${stableJson(rawUsage)}`);
     if (isLastUsage && seenLastUsage.has(fingerprint)) continue;
     if (isLastUsage) seenLastUsage.add(fingerprint);
@@ -139,7 +141,7 @@ function parseSessionFile(filePath, relativePath) {
       if (!record.daily[day]) record.daily[day] = emptyCounters();
       addCounters(record.daily[day], delta);
     }
-    const tier = current.input_total > 272_000 ? record.pricing_tiers.long : record.pricing_tiers.base;
+    const tier = delta.input_total > 272_000 ? record.pricing_tiers.long : record.pricing_tiers.base;
     addTier(tier, delta);
   }
   return [...records.values()];
@@ -164,15 +166,18 @@ export async function scanCodexLedger(home, options = {}) {
   } catch {}
   const nextCachedFiles = {};
   const recordsByKey = new Map();
+  let cachedCount = 0;
+  let parsedCount = 0;
   for (let index = 0; index < files.length; index++) {
     const filePath = files[index];
     const relativePath = path.relative(sessionsDir, filePath);
     let stat;
     try { stat = fs.statSync(filePath); } catch { continue; }
     const cached = cachedFiles[relativePath];
-    const records = cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs && Array.isArray(cached.records)
-      ? cached.records
-      : parseSessionFile(filePath, relativePath);
+    const cacheHit = cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs && Array.isArray(cached.records);
+    const records = cacheHit ? cached.records : parseSessionFile(filePath, relativePath);
+    if (cacheHit) cachedCount++;
+    else parsedCount++;
     nextCachedFiles[relativePath] = { size: stat.size, mtimeMs: stat.mtimeMs, records };
     for (const record of records) {
       recordsByKey.set(record.turn_key, preferRecord(recordsByKey.get(record.turn_key), record));
@@ -192,6 +197,6 @@ export async function scanCodexLedger(home, options = {}) {
     records,
     summary,
     hasNativeSessions: files.length > 0,
-    files: { total: files.length, cached: files.length },
+    files: { total: files.length, cached: cachedCount, parsed: parsedCount },
   };
 }
