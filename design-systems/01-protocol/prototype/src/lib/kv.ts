@@ -1,5 +1,7 @@
 import Redis from 'ioredis';
 import {
+  readCodexLedgerTimeseries,
+  readCodexLedgerView,
   replaceRedisList,
   syncCodexLedger,
   type CodexLedgerPayload,
@@ -112,6 +114,7 @@ for _, item in ipairs(operations.zadds or {}) do redis.call('zadd', item[1], ite
 for _, item in ipairs(operations.rpushes or {}) do
   for _, value in ipairs(item[2]) do redis.call('rpush', item[1], value) end
 end
+for _, key in ipairs(operations.persists or {}) do redis.call('persist', key) end
 return 1
 `;
 
@@ -243,16 +246,17 @@ export async function updateTokenUsageWithRedis(
       codexSummary = await syncCodexLedger(kv, userId, deviceId, options.codexLedger, {
         commit: updateLease.commit,
       });
-    } else {
-      const storedSummary = await kv.get(`user:${userId}:codex:summary`);
-      if (storedSummary) {
-        try { codexSummary = JSON.parse(storedSummary); } catch { /* rebuild on a later v5 upload */ }
-      }
     }
+    const codexView = await readCodexLedgerView(kv, userId);
+    codexSummary ??= codexView.summary;
+    const legacyCurrentDeviceVersion = !codexView.generation && !codexView.state.devices[deviceId]
+      ? await kv.get(`user:${userId}:device:${deviceId}:codex-ledger-version`)
+      : null;
     const excludesLegacyCodex = Boolean(options.codexLedger)
-      || await kv.get(`user:${userId}:device:${deviceId}:codex-ledger-version`) === '5';
+      || codexView.state.devices[deviceId]?.version === 5
+      || legacyCurrentDeviceVersion === '5';
     const canonicalTurnCount = codexSummary
-      ? Object.keys(await kv.hgetall(`user:${userId}:codex:turns`)).length
+      ? Object.keys(codexView.turns).length
       : 0;
 
   const completeHistoryTools = new Set(
@@ -356,10 +360,7 @@ export async function updateTokenUsageWithRedis(
   }
 
   const snapshotDeviceIds = [...new Set(snapKeysAll.map(snapshotDeviceId).filter(Boolean))];
-  const snapshotLedgerVersions = snapshotDeviceIds.length
-    ? await kv.mget(snapshotDeviceIds.map((id) => `user:${userId}:device:${id}:codex-ledger-version`))
-    : [];
-  const migratedSnapshotDevices = new Set(snapshotDeviceIds.filter((_, index) => snapshotLedgerVersions[index] === '5'));
+  const migratedSnapshotDevices = new Set(snapshotDeviceIds.filter((id) => codexView.state.devices[id]?.version === 5));
   const migratedSnapshotKeys = snapKeysAll.filter((key) => migratedSnapshotDevices.has(snapshotDeviceId(key)));
 
   if (migratedSnapshotDevices.size) {
@@ -705,10 +706,7 @@ export async function updateTokenUsageWithRedis(
   if (deviceKeys.length > 0) {
     const devicePrefix = `user:${userId}:device:`;
     const deviceIds = deviceKeys.map((key) => key.slice(devicePrefix.length, -':data'.length));
-    const [allDeviceData, ledgerVersions] = await Promise.all([
-      kv.mget(deviceKeys),
-      kv.mget(deviceIds.map((id) => `user:${userId}:device:${id}:codex-ledger-version`)),
-    ]);
+    const allDeviceData = await kv.mget(deviceKeys);
     for (let index = 0; index < allDeviceData.length; index++) {
       const dataStr = allDeviceData[index];
       if (dataStr) {
@@ -716,7 +714,7 @@ export async function updateTokenUsageWithRedis(
           const parsed = JSON.parse(dataStr as string);
           if (parsed && parsed.tokens) {
             const normalizedDevice = normalizeDeviceUpload(parsed.tokens, {
-              hasCodexLedger: ledgerVersions[index] === '5',
+              hasCodexLedger: codexView.state.devices[deviceIds[index]]?.version === 5,
             });
             for (const [tool, value] of Object.entries(normalizedDevice)) addToolTokens(tool, value);
           }
@@ -792,6 +790,11 @@ export async function updateTokenUsageWithRedis(
   }
 }
 
+async function readVisibleTimeseries(redis: any, userId: string, dates: string[]) {
+  const view = await readCodexLedgerView(redis, userId);
+  return Promise.all(dates.map((date) => readCodexLedgerTimeseries(redis, userId, date, view)));
+}
+
 export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetric = 'total'): Promise<UserRankData[]> {
   if (!kv) return [];
 
@@ -842,27 +845,16 @@ export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetr
     }
   });
 
-  const pipe = kv.pipeline();
-  for (const id of activeUserIds) {
-    for (const dateStr of targetDates) {
-      pipe.lrange(`user:${id}:timeseries:${dateStr}`, 0, -1);
-    }
-  }
-  const tsResults = await pipe.exec();
+  const tsResults = await Promise.all(activeUserIds.map((id) => readVisibleTimeseries(kv, id, targetDates)));
 
   const aggregatedList: UserRankData[] = [];
-  let resultIdx = 0;
-  for (const id of activeUserIds) {
+  for (let userIndex = 0; userIndex < activeUserIds.length; userIndex++) {
+    const id = activeUserIds[userIndex];
     const baseData = userMap[id];
-    if (!baseData) {
-      resultIdx += targetDates.length;
-      continue;
-    }
+    if (!baseData) continue;
 
     const userEvents: TimeseriesEvent[] = [];
-    for (let i = 0; i < targetDates.length; i++) {
-      const [err, events] = tsResults![resultIdx++] as [Error | null, string[]];
-      if (err || !events || events.length === 0) continue;
+    for (const events of tsResults[userIndex]) {
       for (const evStr of events) {
         try {
           const ev = JSON.parse(evStr);
@@ -892,12 +884,21 @@ async function discoverActiveUserIds(window: Set<string>): Promise<string[]> {
   do {
     const [next, keys] = await kv.scan(cursor, 'MATCH', 'user:*:timeseries:*', 'COUNT', 500);
     cursor = next;
-    for (const k of keys) {
-      const parts = k.split(':');
-      const date = parts[parts.length - 1];
-      if (window.has(date)) {
-        ids.add(parts.slice(1, parts.length - 2).join(':'));
-      }
+    for (const key of keys) {
+      const match = /^user:(.+):timeseries:(\d{4}-\d{2}-\d{2})$/.exec(key);
+      if (match && window.has(match[2])) ids.add(match[1]);
+    }
+  } while (cursor !== '0');
+
+  cursor = '0';
+  do {
+    const [next, keys] = await kv.scan(cursor, 'MATCH', 'user:*:codex:active-generation', 'COUNT', 500);
+    cursor = next;
+    for (const key of keys) {
+      const match = /^user:(.+):codex:active-generation$/.exec(key);
+      if (!match) continue;
+      const view = await readCodexLedgerView(kv, match[1]);
+      if (view.state.dates.some((date) => window.has(date))) ids.add(match[1]);
     }
   } while (cursor !== '0');
   return [...ids];
@@ -930,20 +931,10 @@ export async function getUserAnalytics(userId: string, days: number = 30) {
     dates.push(beijingDateNDaysAgo(i));
   }
   
-  let allEvents: TimeseriesEvent[] = [];
-  
-  // Because mget doesn't work for lists, we need to pipeline lrange
-  const pipe = kv.pipeline();
-  dates.forEach(dateStr => {
-    pipe.lrange(`user:${userId}:timeseries:${dateStr}`, 0, -1);
-  });
-  
-  const results = await pipe.exec();
-  
-  if (results) {
-    results.forEach(([err, res]) => {
-      if (!err && Array.isArray(res)) {
-        res.forEach(item => {
+  const allEvents: TimeseriesEvent[] = [];
+  const results = await readVisibleTimeseries(kv, userId, dates);
+  for (const result of results) {
+    result.forEach(item => {
           try {
             const event = JSON.parse(item);
             if (event.tool === 'codex' || event.tool === 'codex_proxy') {
@@ -960,8 +951,6 @@ export async function getUserAnalytics(userId: string, days: number = 30) {
             }
             allEvents.push(event);
           } catch(e) {}
-        });
-      }
     });
   }
   

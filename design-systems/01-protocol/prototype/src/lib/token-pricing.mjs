@@ -30,7 +30,7 @@ export function normalizeModelId(raw = '') {
   if (id.startsWith('gpt-5.6-sol')) return { id: 'gpt-5.6-sol', estimated: true };
   if (Object.hasOwn(LEGACY_ALIASES, id)) return { id: LEGACY_ALIASES[id], estimated: true };
   if (Object.hasOwn(MODEL_PRICING, id)) return { id, estimated: true };
-  return { id: 'gpt-5.6-sol', estimated: true };
+  return { id: 'unknown', estimated: true };
 }
 
 function usageValue(tier, key) {

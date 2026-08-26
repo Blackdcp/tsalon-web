@@ -22,6 +22,9 @@ export class FakeRedis {
     if (deadline !== undefined && deadline <= Date.now()) {
       this.expirations.delete(key);
       this.strings.delete(key);
+      this.hashes.delete(key);
+      this.lists.delete(key);
+      this.sortedSets.delete(key);
     }
   }
 
@@ -61,6 +64,18 @@ export class FakeRedis {
     return 1;
   }
 
+  async expire(key, seconds, ...args) {
+    if (!this.hasKey(key)) return 0;
+    if (args.includes('NX') && this.expirations.has(key)) return 0;
+    this.expirations.set(key, Date.now() + Number(seconds) * 1000);
+    return 1;
+  }
+
+  async persist(key) {
+    if (!this.hasKey(key)) return 0;
+    return this.expirations.delete(key) ? 1 : 0;
+  }
+
   async del(...keys) {
     let removed = 0;
     for (const key of keys) {
@@ -74,6 +89,7 @@ export class FakeRedis {
   }
 
   async hgetall(key) {
+    this.expireIfNeeded(key);
     return Object.fromEntries(this.hashes.get(key) ?? []);
   }
 
@@ -101,6 +117,7 @@ export class FakeRedis {
   }
 
   async lrange(key, start, stop) {
+    this.expireIfNeeded(key);
     return redisRange(this.lists.get(key) ?? [], start, stop);
   }
 
@@ -160,6 +177,7 @@ export class FakeRedis {
       for (const [setKey, value] of operations.sets || []) await this.set(setKey, value);
       for (const [setKey, score, member] of operations.zadds || []) await this.zadd(setKey, score, member);
       for (const [listKey, values] of operations.rpushes || []) await this.rpush(listKey, ...values);
+      for (const persistKey of operations.persists || []) await this.persist(persistKey);
       return 1;
     }
     if (script.includes("redis.call('pexpire'")) return this.pexpire(key, args[2]);
@@ -169,7 +187,7 @@ export class FakeRedis {
   pipeline() {
     const commands = [];
     const pipeline = {};
-    for (const method of ['del', 'hset', 'hdel', 'rpush']) {
+    for (const method of ['del', 'hset', 'hdel', 'rpush', 'expire', 'persist']) {
       pipeline[method] = (...args) => {
         commands.push([method, args]);
         return pipeline;
@@ -177,7 +195,7 @@ export class FakeRedis {
     }
     pipeline.exec = async () => Promise.all(commands.map(async ([method, args]) => {
       const key = args[0];
-      const operation = String(key).includes(':tmp:')
+      const operation = String(key).includes(':tmp:') || String(key).includes(':codex:generation:')
         ? (method === 'hset' ? 'replace-hash' : method === 'rpush' ? 'replace-list' : null)
         : null;
       if (operation && this.pipelineFailures.has(operation)) {
@@ -195,7 +213,7 @@ export class FakeRedis {
     })).then((replies) => {
       const first = commands[0];
       const key = first?.[1]?.[0];
-      const operation = String(key).includes(':tmp:')
+      const operation = String(key).includes(':tmp:') || String(key).includes(':codex:generation:')
         ? (first[0] === 'hset' ? 'replace-hash' : first[0] === 'rpush' ? 'replace-list' : null)
         : null;
       if (operation && this.pipelineFailures.has(operation)) {
@@ -209,7 +227,7 @@ export class FakeRedis {
   multi() {
     const commands = [];
     const transaction = {};
-    for (const method of ['del', 'rename', 'set']) {
+    for (const method of ['del', 'rename', 'set', 'persist']) {
       transaction[method] = (...args) => {
         commands.push([method, args]);
         return transaction;

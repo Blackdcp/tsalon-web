@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { replaceRedisList, storeAccountAudit, storeAccountAuditWithTimeout, syncCodexLedger } from '../src/lib/codex-ledger.ts';
+import {
+  readCodexLedgerTimeseries,
+  readCodexLedgerView,
+  replaceRedisList,
+  storeAccountAudit,
+  storeAccountAuditWithTimeout,
+  syncCodexLedger,
+} from '../src/lib/codex-ledger.ts';
 import * as kvModule from '../src/lib/kv.ts';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
@@ -82,7 +89,7 @@ test('full sync is idempotent and rebuilds one canonical daily event', async () 
   const summary = await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([turnRecord('same', 110)]));
 
   assert.equal(summary.lifetime.total, 110);
-  const events = await redis.lrange('user:u1:timeseries:2026-08-18', 0, -1);
+  const events = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
   assert.equal(events.filter((raw) => JSON.parse(raw).source === 'codex-ledger-v5').length, 1);
 });
 
@@ -125,8 +132,8 @@ test('daily costs price each day token type and tier instead of prorating the tu
   assert.equal(summary.daily['2026-08-18'].cost, 0.4);
   assert.equal(summary.daily['2026-08-19'].cost, 20);
   assert.equal(summary.lifetime.cost, 20.4);
-  const dayOne = JSON.parse((await redis.lrange('user:u1:timeseries:2026-08-18', 0, -1))[0]);
-  const dayTwo = JSON.parse((await redis.lrange('user:u1:timeseries:2026-08-19', 0, -1))[0]);
+  const dayOne = JSON.parse((await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18'))[0]);
+  const dayTwo = JSON.parse((await readCodexLedgerTimeseries(redis, 'u1', '2026-08-19'))[0]);
   assert.equal(dayOne.costUsd, 0.4);
   assert.equal(dayTwo.costUsd, 20);
 });
@@ -139,21 +146,72 @@ test('canonical hashes retain device versions and a sorted device manifest', asy
   await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([beta, alpha]));
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('alpha', 100)]));
 
-  const turns = await redis.hgetall('user:u1:codex:turns');
+  const view = await readCodexLedgerView(redis, 'u1');
+  const turns = Object.fromEntries(Object.entries(view.turns).map(([key, value]) => [key, JSON.stringify(value)]));
   assert.deepEqual(Object.keys(turns), [alpha.turn_key, beta.turn_key].sort());
   assert.deepEqual(JSON.parse(turns[alpha.turn_key]).source_devices, ['mac', 'windows']);
   assert.deepEqual(Object.keys(JSON.parse(turns[alpha.turn_key]).device_versions), ['mac', 'windows']);
   assert.deepEqual(JSON.parse(turns[beta.turn_key]).source_devices, ['windows']);
-  assert.deepEqual(JSON.parse(await redis.get('user:u1:device:windows:codex-manifest')), {
+  assert.deepEqual(view.state.devices.windows.manifest, {
     manifest_hash: ledgerPayload([beta, alpha]).manifest_hash,
     turn_keys: [alpha.turn_key, beta.turn_key].sort(),
   });
-  assert.equal(await redis.get('user:u1:device:windows:codex-ledger-version'), '5');
+  assert.equal(view.state.devices.windows.version, 5);
+});
+
+test('generation state safely retains prototype-shaped device ids', async () => {
+  const redis = new FakeRedis();
+  await syncCodexLedger(redis, 'u1', '__proto__', ledgerPayload([turnRecord('prototype-device', 10)]));
+
+  const view = await readCodexLedgerView(redis, 'u1');
+  assert.equal(Object.hasOwn(view.state.devices, '__proto__'), true);
+  assert.equal(view.state.devices.__proto__.version, 5);
+  assert.deepEqual(view.turns[turnRecord('prototype-device', 10).turn_key].source_devices, ['__proto__']);
+});
+
+test('successful publication expires older generations but never the active generation', async () => {
+  const redis = new FakeRedis();
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('generation-one', 10)]));
+  const first = await readCodexLedgerView(redis, 'u1');
+  const firstKeys = (await redis.scan('0', 'MATCH', `${first.prefix}:*`))[1];
+
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('generation-two', 20)]));
+  const second = await readCodexLedgerView(redis, 'u1');
+  const secondKeys = (await redis.scan('0', 'MATCH', `${second.prefix}:*`))[1];
+
+  assert.equal(firstKeys.length > 0, true);
+  assert.equal(firstKeys.every((key) => redis.expirations.has(key)), true);
+  assert.equal(secondKeys.every((key) => !redis.expirations.has(key)), true);
+
+  const firstDeadlines = firstKeys.map((key) => redis.expirations.get(key));
+  await new Promise((resolve) => setTimeout(resolve, 2));
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('generation-three', 30)]));
+  assert.deepEqual(firstKeys.map((key) => redis.expirations.get(key)), firstDeadlines);
+});
+
+test('an ambiguous successful pointer response never deletes the active generation', async () => {
+  const redis = new FakeRedis();
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('before-ambiguous', 7)]));
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('after-ambiguous', 110)]), {
+      commit: async (operations) => {
+        for (const [key, value] of operations.sets || []) await redis.set(key, value);
+        throw new Error('Injected lost publication reply');
+      },
+    }),
+    /Injected lost publication reply/,
+  );
+
+  const view = await readCodexLedgerView(redis, 'u1');
+  assert.equal(view.summary.lifetime.total, 110);
+  assert.equal(Object.keys(view.turns).length, 1);
 });
 
 test('server canonical storage drops every unrecognized privacy field before Redis persistence', async () => {
   const redis = new FakeRedis();
   const record = turnRecord('privacy-boundary', 10);
+  record.model = '/Users/black@example.com/secret-project/private-model';
   record.prompt = 'TOP-LEVEL-SECRET';
   record.file_path = '/secret/project/file.ts';
   record.pricing_tiers.base.prompt = 'TIER-SECRET';
@@ -162,10 +220,11 @@ test('server canonical storage drops every unrecognized privacy field before Red
 
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record]));
 
-  const serialized = JSON.stringify(await redis.hgetall('user:u1:codex:turns'));
-  for (const secret of ['TOP-LEVEL-SECRET', '/secret/project', 'TIER-SECRET', '/secret/daily']) {
+  const serialized = JSON.stringify((await readCodexLedgerView(redis, 'u1')).turns);
+  for (const secret of ['TOP-LEVEL-SECRET', '/secret/project', 'TIER-SECRET', '/secret/daily', 'black@example.com', 'secret-project']) {
     assert.equal(serialized.includes(secret), false);
   }
+  assert.equal(Object.values((await readCodexLedgerView(redis, 'u1')).turns)[0].record.model, 'unknown');
 });
 
 test('first v5 sync removes only that device legacy Codex events and preserves Claude', async () => {
@@ -179,7 +238,7 @@ test('first v5 sync removes only that device legacy Codex events and preserves C
 
   await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([turnRecord('same', 110)]));
 
-  const events = (await redis.lrange(key, 0, -1)).map(JSON.parse);
+  const events = (await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18')).map(JSON.parse);
   assert.deepEqual(events.filter((event) => event.source !== 'codex-ledger-v5'), [
     { tool: 'codex_proxy', deviceId: 'mac', tokens: 888, source: 'cumulative-delta-v2' },
     { tool: 'claude', deviceId: 'windows', tokens: 77, source: 'agent-history-v2' },
@@ -212,9 +271,27 @@ test('an empty corrected manifest removes stale canonical days but keeps unrelat
   const summary = await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([]));
 
   assert.equal(summary.lifetime.total, 0);
-  assert.deepEqual((await redis.lrange(key, 0, -1)).map(JSON.parse), [
+  assert.deepEqual((await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18')).map(JSON.parse), [
     { tool: 'claude', tokens: 7, source: 'manual' },
   ]);
+});
+
+test('a later authoritative empty upload clears a previously non-empty live ledger', async () => {
+  const redis = new FakeRedis();
+  const first = await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {}, 'mac', {
+    codexLedger: ledgerPayload([turnRecord('authoritative-before-empty', 10)]),
+  });
+  assert.equal(first.codex.total, 10);
+  assert.equal(first.codex.turns, 1);
+
+  const cleared = await kvModule.updateTokenUsageWithRedis(redis, 'u1', 'User', '', {}, 'mac', {
+    codexLedger: ledgerPayload([]),
+  });
+  const view = await readCodexLedgerView(redis, 'u1');
+  assert.equal(cleared.codex.total, 0);
+  assert.equal(cleared.codex.turns, 0);
+  assert.deepEqual(view.turns, Object.create(null));
+  assert.deepEqual(view.state.devices.mac.manifest.turn_keys, []);
 });
 
 test('sync rejects payloads outside the full v5 protocol before changing Redis', async () => {
@@ -241,7 +318,7 @@ test('sync rejects non-canonical and duplicate manifest turn keys before Redis m
   }
 });
 
-test('a failed second temp-list chunk leaves the live list intact and cleans the temp key', async () => {
+test('a failed generation-list write leaves the active generation and legacy list intact', async () => {
   const redis = new FakeRedis();
   const key = 'user:u1:timeseries:2026-08-18';
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('original', 7)]));
@@ -251,33 +328,25 @@ test('a failed second temp-list chunk leaves the live list intact and cleans the
   original.push(JSON.stringify({ tool: 'codex', tokens: 9, source: 'codex-ledger-v5' }));
   await redis.del(key);
   await redis.rpush(key, ...original);
-  const before = {
-    turns: await redis.hgetall('user:u1:codex:turns'),
-    summary: await redis.get('user:u1:codex:summary'),
-    manifest: await redis.get('user:u1:device:mac:codex-manifest'),
-    version: await redis.get('user:u1:device:mac:codex-ledger-version'),
-    timeseries: await redis.lrange(key, 0, -1),
-  };
-  redis.failPipelineAfter('replace-list', 1);
+  const before = await readCodexLedgerView(redis, 'u1');
+  const legacyBefore = await redis.lrange(key, 0, -1);
+  const generationKeysBefore = (await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1];
+  redis.failPipelineAfter('replace-list', 0);
 
   await assert.rejects(
     syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('replacement', 110)])),
     /Injected replace-list pipeline failure/,
   );
-  assert.deepEqual(await redis.hgetall('user:u1:codex:turns'), before.turns);
-  assert.equal(await redis.get('user:u1:codex:summary'), before.summary);
-  assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), before.manifest);
-  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), before.version);
-  assert.deepEqual(await redis.lrange(key, 0, -1), before.timeseries);
-  assert.deepEqual((await redis.scan('0', 'MATCH', `${key}:tmp:*`))[1], []);
-  assert.deepEqual((await redis.scan('0', 'MATCH', 'user:u1:codex:turns:tmp:*'))[1], []);
+  assert.deepEqual(await readCodexLedgerView(redis, 'u1'), before);
+  assert.deepEqual(await redis.lrange(key, 0, -1), legacyBefore);
+  assert.deepEqual((await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1], generationKeysBefore);
 });
 
-test('a failed second temp-hash chunk leaves the live hash intact and cleans the temp key', async () => {
+test('a failed second generation-hash chunk leaves the active generation intact', async () => {
   const redis = new FakeRedis();
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('original', 7)]));
-  const key = 'user:u1:codex:turns';
-  const original = await redis.hgetall(key);
+  const original = await readCodexLedgerView(redis, 'u1');
+  const generationKeysBefore = (await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1];
   const records = Array.from({ length: 501 }, (_, index) => turnRecord(`replacement-${index}`, 1));
   redis.failPipelineAfter('replace-hash', 1);
 
@@ -285,8 +354,8 @@ test('a failed second temp-hash chunk leaves the live hash intact and cleans the
     syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(records)),
     /Injected replace-hash pipeline failure/,
   );
-  assert.deepEqual(await redis.hgetall(key), original);
-  assert.deepEqual((await redis.scan('0', 'MATCH', `${key}:tmp:*`))[1], []);
+  assert.deepEqual(await readCodexLedgerView(redis, 'u1'), original);
+  assert.deepEqual((await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1], generationKeysBefore);
 });
 
 test('a 50,001-record payload is rejected before any Redis mutation', async () => {
@@ -318,8 +387,9 @@ test('a 70,001-turn reconciled ledger rebuilds without spread limits', async () 
   const summary = await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(incoming));
 
   assert.equal(summary.lifetime.total, 70_001);
-  assert.equal(Object.keys(await redis.hgetall(key)).length, 70_001);
-  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), '5');
+  const view = await readCodexLedgerView(redis, 'u1');
+  assert.equal(Object.keys(view.turns).length, 70_001);
+  assert.equal(view.state.devices.mac.version, 5);
 });
 
 test('ledger update writes one canonical Codex event and continues non-Codex history', async () => {
@@ -347,9 +417,7 @@ test('ledger update writes one canonical Codex event and continues non-Codex his
     codexLedger: ledgerPayload([turnRecord('same', 110)]),
   });
 
-  const keys = (await redis.scan('0', 'MATCH', 'user:u1:timeseries:*'))[1];
-  const events = (await Promise.all(keys.map((key) => redis.lrange(key, 0, -1))))
-    .flat().map(JSON.parse);
+  const events = (await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18')).map(JSON.parse);
   assert.equal(events.filter((event) => event.source === 'codex-ledger-v5').length, 1);
   assert.equal(events.filter((event) => ['codex', 'codex_proxy'].includes(event.tool)
     && ['agent-history-v2', 'agent-history-legacy', 'cumulative-delta-v2', 'snapshot-delta'].includes(event.source)).length, 0);

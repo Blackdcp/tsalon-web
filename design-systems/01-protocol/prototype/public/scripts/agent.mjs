@@ -348,7 +348,7 @@ async function getCodexTokens(home) {
   // for the v5 full-sync ledger. History stays in the old shape for compatibility.
   const ledger = await scanCodexLedger(home);
   tokens.codex = ledger.summary;
-  tokens.ledger = { version: 5, full_sync: true, records: ledger.records };
+  tokens.ledger = { version: 5, full_sync: true, authoritative: ledger.authoritative, records: ledger.records };
   for (const record of ledger.records) {
     for (const [date, usage] of Object.entries(record.daily)) {
       addHistory(date, 'codex', {
@@ -438,7 +438,7 @@ async function getCodexTokens(home) {
         // cached_input_tokens and reasoning_output_tokens are breakdowns of
         // input/output, not extra tokens. Prefer the database's total_tokens.
         const resolvedRawTotal = rawTotal || (inp + out);
-        if (source === 'openai_account' && !ledger.hasNativeSessions) {
+        if (source === 'openai_account' && !ledger.authoritative) {
           const usage = normalizeCodexUsage({
             total_tokens: resolvedRawTotal,
             input_tokens: inp,
@@ -719,7 +719,7 @@ async function main() {
     history_complete_tools: historyCompleteTools,
     data: finalTokens,
   };
-  if (codexData.ledger.records.length > 0) {
+  if (codexData.ledger.authoritative) {
     payload.codex_ledger = {
       version: 5,
       full_sync: true,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import * as kvModule from '../src/lib/kv.ts';
+import { readCodexLedgerView } from '../src/lib/codex-ledger.ts';
 import { normalizeDeviceUpload, normalizeToolTokens } from '../src/lib/tokenrank-domain.mjs';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
@@ -183,7 +184,7 @@ test('persisted v5 marker prevents the same device from reintroducing legacy Cod
   assert.equal(redis.sortedSets.get('leaderboard:total').get('u1'), 130);
   assert.equal(events.filter((event) => ['codex', 'codex_proxy'].includes(event.tool)
     && event.source !== 'codex-ledger-v5').length, 0);
-  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), '5');
+  assert.equal((await readCodexLedgerView(redis, 'u1')).state.devices.mac.version, 5);
   assert.equal(await redis.get('user:u1:update-lock'), null);
 });
 

@@ -22,6 +22,7 @@ export interface RedisCommitOperations {
   sets?: Array<[string, string]>;
   zadds?: Array<[string, number, string]>;
   rpushes?: Array<[string, string[]]>;
+  persists?: string[];
 }
 
 export interface SyncCodexLedgerOptions {
@@ -31,6 +32,8 @@ export interface SyncCodexLedgerOptions {
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
 const MAX_RECORDS = 50_000;
 const REDIS_CHUNK_SIZE = 500;
+const GENERATION_STAGING_TTL_SECONDS = 24 * 60 * 60;
+const GENERATION_READER_GRACE_SECONDS = 60 * 60;
 const ACCOUNT_AUDIT_TTL_SECONDS = 120 * 24 * 60 * 60;
 const ACCOUNT_AUDIT_WRITE_TIMEOUT_MS = 250;
 const MAX_ACCOUNT_AUDIT_BYTES = 192 * 1024;
@@ -38,6 +41,22 @@ const MAX_ACCOUNT_AUDIT_USER_ID_LENGTH = 128;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
+
+export interface CodexLedgerGenerationState {
+  devices: Record<string, {
+    version: 5;
+    manifest: { manifest_hash: string; turn_keys: string[] };
+  }>;
+  dates: string[];
+}
+
+export interface CodexLedgerView {
+  generation: string | null;
+  prefix: string | null;
+  turns: CanonicalTurns;
+  summary: CodexLedgerSummary | null;
+  state: CodexLedgerGenerationState;
+}
 
 export interface CodexAccountAudit {
   account_audit_key: string;
@@ -180,46 +199,139 @@ function canonicalDailyModels(canonical: CanonicalTurns): Record<string, Record<
   return days;
 }
 
-interface StagedRedisValue {
-  liveKey: string;
-  tempKey: string | null;
+function emptyGenerationState(): CodexLedgerGenerationState {
+  return { devices: Object.create(null), dates: [] };
 }
 
-async function stageHash(redis: RedisLike, key: string, canonical: CanonicalTurns): Promise<StagedRedisValue> {
-  const entries = Object.entries(canonical);
-  if (!entries.length) return { liveKey: key, tempKey: null };
-  const tempKey = `${key}:tmp:${randomUUID()}`;
+function generationPointerKey(userId: string) {
+  return `user:${userId}:codex:active-generation`;
+}
+
+function generationPrefix(userId: string, generation: string) {
+  return `user:${userId}:codex:generation:${generation}`;
+}
+
+function parseJsonObject(raw: string | null): Record<string, any> | null {
+  if (!raw) return null;
   try {
-    await redis.del(tempKey);
-    for (let start = 0; start < entries.length; start += REDIS_CHUNK_SIZE) {
-      const pipeline = redis.pipeline();
-      for (const [field, envelope] of entries.slice(start, start + REDIS_CHUNK_SIZE)) {
-        pipeline.hset(tempKey, field, JSON.stringify(envelope));
-      }
-      await executePipeline(pipeline);
-    }
-    return { liveKey: key, tempKey };
-  } catch (error) {
-    try { await redis.del(tempKey); } catch { /* best effort */ }
-    throw error;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
   }
 }
 
-async function stageRedisList(redis: RedisLike, key: string, values: string[]): Promise<StagedRedisValue> {
-  if (!values.length) return { liveKey: key, tempKey: null };
-  const tempKey = `${key}:tmp:${randomUUID()}`;
-  try {
-    await redis.del(tempKey);
-    for (let start = 0; start < values.length; start += REDIS_CHUNK_SIZE) {
-      const pipeline = redis.pipeline();
-      pipeline.rpush(tempKey, ...values.slice(start, start + REDIS_CHUNK_SIZE));
-      await executePipeline(pipeline);
-    }
-    return { liveKey: key, tempKey };
-  } catch (error) {
-    try { await redis.del(tempKey); } catch { /* best effort */ }
-    throw error;
+function parseTurns(raw: Record<string, string>): CanonicalTurns {
+  const turns: CanonicalTurns = Object.create(null);
+  for (const [field, value] of Object.entries(raw || {})) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) turns[field] = parsed;
+    } catch { /* a later authoritative upload repairs malformed legacy data */ }
   }
+  return turns;
+}
+
+function parseGenerationState(raw: string | null): CodexLedgerGenerationState {
+  const parsed = parseJsonObject(raw);
+  const state = emptyGenerationState();
+  if (!parsed) return state;
+  if (parsed.devices && typeof parsed.devices === 'object' && !Array.isArray(parsed.devices)) {
+    for (const [deviceId, device] of Object.entries(parsed.devices as Record<string, any>)) {
+      if (!deviceId || device?.version !== 5 || !device.manifest
+        || typeof device.manifest.manifest_hash !== 'string'
+        || !Array.isArray(device.manifest.turn_keys)) continue;
+      state.devices[deviceId] = {
+        version: 5,
+        manifest: {
+          manifest_hash: device.manifest.manifest_hash,
+          turn_keys: device.manifest.turn_keys.filter((key: unknown) => typeof key === 'string'),
+        },
+      };
+    }
+  }
+  if (Array.isArray(parsed.dates)) {
+    state.dates = [...new Set(parsed.dates.filter((date: unknown) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)))].sort();
+  }
+  return state;
+}
+
+async function readLegacyGenerationState(redis: RedisLike, userId: string): Promise<CodexLedgerGenerationState> {
+  const state = emptyGenerationState();
+  const prefix = `user:${userId}:device:`;
+  const suffix = ':codex-ledger-version';
+  const versionKeys = await scanKeys(redis, `${prefix}*${suffix}`);
+  for (const key of versionKeys) {
+    const deviceId = key.slice(prefix.length, -suffix.length);
+    if (!deviceId || await redis.get(key) !== '5') continue;
+    const manifest = parseJsonObject(await redis.get(`${prefix}${deviceId}:codex-manifest`));
+    state.devices[deviceId] = {
+      version: 5,
+      manifest: {
+        manifest_hash: typeof manifest?.manifest_hash === 'string' ? manifest.manifest_hash : '',
+        turn_keys: Array.isArray(manifest?.turn_keys)
+          ? manifest.turn_keys.filter((turnKey: unknown) => typeof turnKey === 'string')
+          : [],
+      },
+    };
+  }
+  return state;
+}
+
+export async function readCodexLedgerView(redis: RedisLike, userId: string): Promise<CodexLedgerView> {
+  // Resolve the pointer exactly once. Generation keys are immutable after
+  // publication, so every value below necessarily belongs to the same view.
+  const generation = await redis.get(generationPointerKey(userId));
+  if (generation) {
+    const prefix = generationPrefix(userId, generation);
+    const [rawTurns, rawSummary, rawState] = await Promise.all([
+      redis.hgetall(`${prefix}:turns`),
+      redis.get(`${prefix}:summary`),
+      redis.get(`${prefix}:state`),
+    ]);
+    return {
+      generation,
+      prefix,
+      turns: parseTurns(rawTurns),
+      summary: parseJsonObject(rawSummary) as CodexLedgerSummary | null,
+      state: parseGenerationState(rawState),
+    };
+  }
+
+  const [rawTurns, rawSummary, state] = await Promise.all([
+    redis.hgetall(`user:${userId}:codex:turns`),
+    redis.get(`user:${userId}:codex:summary`),
+    readLegacyGenerationState(redis, userId),
+  ]);
+  return {
+    generation: null,
+    prefix: null,
+    turns: parseTurns(rawTurns),
+    summary: parseJsonObject(rawSummary) as CodexLedgerSummary | null,
+    state,
+  };
+}
+
+export async function readCodexLedgerTimeseries(
+  redis: RedisLike,
+  userId: string,
+  date: string,
+  view?: CodexLedgerView,
+): Promise<string[]> {
+  const resolved = view ?? await readCodexLedgerView(redis, userId);
+  const legacy = await redis.lrange(`user:${userId}:timeseries:${date}`, 0, -1) as string[];
+  if (!resolved.generation || !resolved.prefix) return legacy;
+
+  const migratedDevices = new Set(Object.keys(resolved.state.devices));
+  const kept = legacy.filter((raw) => {
+    const event = parseEvent(raw);
+    if (!event) return true;
+    if (event.source === 'codex-ledger-v5') return false;
+    return !(migratedDevices.has(String(event.deviceId || ''))
+      && (event.tool === 'codex' || event.tool === 'codex_proxy'));
+  });
+  const canonical = await redis.lrange(`${resolved.prefix}:timeseries:${date}`, 0, -1) as string[];
+  return [...kept, ...canonical];
 }
 
 export async function replaceRedisList(
@@ -264,32 +376,10 @@ function parseEvent(raw: string) {
   }
 }
 
-async function rebuildCodexLedgerTimeseries(
-  redis: RedisLike,
-  userId: string,
-  canonical: CanonicalTurns,
-  removeLegacyDeviceId: string | null,
-): Promise<Map<string, string[]>> {
-  const keyPrefix = `user:${userId}:timeseries:`;
-  const existingKeys = await scanKeys(redis, `${keyPrefix}*`);
-  const byKey = new Map<string, string[]>();
-
-  for (const key of existingKeys) {
-    const rawEvents = await redis.lrange(key, 0, -1) as string[];
-    const kept = rawEvents.filter((raw: string) => {
-      const event = parseEvent(raw);
-      if (!event) return true;
-      if (event.source === 'codex-ledger-v5') return false;
-      return !(removeLegacyDeviceId
-        && event.deviceId === removeLegacyDeviceId
-        && (event.tool === 'codex' || event.tool === 'codex_proxy'));
-    });
-    byKey.set(key, kept);
-  }
-
+function buildCodexLedgerTimeseries(canonical: CanonicalTurns): Map<string, string[]> {
+  const byDate = new Map<string, string[]>();
   for (const [date, models] of Object.entries(canonicalDailyModels(canonical))) {
-    const key = `${keyPrefix}${date}`;
-    const events = byKey.get(key) ?? [];
+    const events: string[] = [];
     for (const [model, usage] of Object.entries(models)) {
       events.push(JSON.stringify({
         timestamp: new Date(`${date}T00:00:00.000Z`).getTime(),
@@ -309,10 +399,9 @@ async function rebuildCodexLedgerTimeseries(
         pricingSnapshotDate: PRICING_SNAPSHOT_DATE,
       }));
     }
-    byKey.set(key, events);
+    byDate.set(date, events);
   }
-
-  return byKey;
+  return byDate;
 }
 
 async function scanKeys(redis: RedisLike, pattern: string): Promise<string[]> {
@@ -324,6 +413,18 @@ async function scanKeys(redis: RedisLike, pattern: string): Promise<string[]> {
     keys.push(...found);
   } while (cursor !== '0');
   return keys;
+}
+
+async function expireInactiveGenerations(redis: RedisLike, userId: string, activePrefix: string) {
+  const keys = await scanKeys(redis, `user:${userId}:codex:generation:*`);
+  const inactive = keys.filter((key) => !key.startsWith(`${activePrefix}:`));
+  for (let start = 0; start < inactive.length; start += REDIS_CHUNK_SIZE) {
+    const pipeline = redis.pipeline();
+    for (const key of inactive.slice(start, start + REDIS_CHUNK_SIZE)) {
+      pipeline.expire(key, GENERATION_READER_GRACE_SECONDS, 'NX');
+    }
+    await executePipeline(pipeline);
+  }
 }
 
 export async function syncCodexLedger(
@@ -348,57 +449,79 @@ export async function syncCodexLedger(
     .digest('hex');
   if (payload.manifest_hash !== expectedManifestHash) throw new Error('Invalid Codex ledger payload');
 
-  const key = `user:${userId}:codex:turns`;
-  const raw = await redis.hgetall(key);
-  const existing = Object.fromEntries(Object.entries(raw).map(([field, value]) => [field, JSON.parse(value as string)]));
+  const previousView = await readCodexLedgerView(redis, userId);
+  const existing = previousView.turns;
   const incoming = payload.records.map(validateTurnRecord);
   if (incoming.some((record) => !record)) throw new Error('Invalid Codex ledger record');
   const validIncoming = incoming as Record<string, any>[];
 
   const canonical = reconcileDeviceTurns(existing, deviceId, validIncoming);
-  const versionKey = `user:${userId}:device:${deviceId}:codex-ledger-version`;
-  const firstV5Sync = await redis.get(versionKey) !== '5';
-
-  const manifestKey = `user:${userId}:device:${deviceId}:codex-manifest`;
-  const manifest = JSON.stringify({
+  const manifest = {
     manifest_hash: payload.manifest_hash,
     turn_keys: validIncoming.map((record) => record.turn_key).sort(),
-  });
+  };
 
   const summary = aggregateCanonicalTurns(canonical);
-  const timeseries = await rebuildCodexLedgerTimeseries(redis, userId, canonical, firstV5Sync ? deviceId : null);
-  const staged: StagedRedisValue[] = [];
-  try {
-    staged.push(await stageHash(redis, key, canonical));
-    for (const [timeseriesKey, events] of timeseries) {
-      staged.push(await stageRedisList(redis, timeseriesKey, events));
-    }
+  const timeseries = buildCodexLedgerTimeseries(canonical);
+  const nextState = emptyGenerationState();
+  for (const [previousDeviceId, previousDevice] of Object.entries(previousView.state.devices)) {
+    nextState.devices[previousDeviceId] = structuredClone(previousDevice);
+  }
+  nextState.devices[deviceId] = { version: 5, manifest };
+  nextState.dates = [...timeseries.keys()].sort();
 
-    const operations: RedisCommitOperations = { renames: [], deletes: [], sets: [] };
-    for (const value of staged) {
-      if (value.tempKey) operations.renames!.push([value.tempKey, value.liveKey]);
-      else operations.deletes!.push(value.liveKey);
+  const generation = randomUUID();
+  const prefix = generationPrefix(userId, generation);
+  const turnsKey = `${prefix}:turns`;
+  const summaryKey = `${prefix}:summary`;
+  const stateKey = `${prefix}:state`;
+  const stagedKeys = [turnsKey, summaryKey, stateKey,
+    ...[...timeseries.keys()].map((date) => `${prefix}:timeseries:${date}`)];
+  let activationStarted = false;
+  try {
+    const entries = Object.entries(canonical);
+    for (let start = 0; start < entries.length; start += REDIS_CHUNK_SIZE) {
+      const pipeline = redis.pipeline();
+      for (const [field, envelope] of entries.slice(start, start + REDIS_CHUNK_SIZE)) {
+        pipeline.hset(turnsKey, field, JSON.stringify(envelope));
+      }
+      pipeline.expire(turnsKey, GENERATION_STAGING_TTL_SECONDS);
+      await executePipeline(pipeline);
     }
-    operations.sets!.push(
-      [manifestKey, manifest],
-      [`user:${userId}:codex:summary`, JSON.stringify(summary)],
-      [versionKey, '5'],
-    );
+    for (const [date, events] of timeseries) {
+      const timeseriesKey = `${prefix}:timeseries:${date}`;
+      for (let start = 0; start < events.length; start += REDIS_CHUNK_SIZE) {
+        const pipeline = redis.pipeline();
+        pipeline.rpush(timeseriesKey, ...events.slice(start, start + REDIS_CHUNK_SIZE));
+        pipeline.expire(timeseriesKey, GENERATION_STAGING_TTL_SECONDS);
+        await executePipeline(pipeline);
+      }
+    }
+    await redis.set(summaryKey, JSON.stringify(summary), 'EX', GENERATION_STAGING_TTL_SECONDS);
+    await redis.set(stateKey, JSON.stringify(nextState), 'EX', GENERATION_STAGING_TTL_SECONDS);
+
+    const operations: RedisCommitOperations = {
+      sets: [[generationPointerKey(userId), generation]],
+      persists: stagedKeys,
+    };
+    // After activation starts, a lost Redis response is ambiguous: the pointer
+    // may already reference this generation. Never delete immutable generation
+    // data in that state; an unreferenced generation is harmless staging garbage.
+    activationStarted = true;
     if (options.commit) {
       await options.commit(operations);
     } else {
       const transaction = redis.multi();
-      for (const [source, destination] of operations.renames!) transaction.rename(source, destination);
-      for (const deleteKey of operations.deletes!) transaction.del(deleteKey);
-      for (const [setKey, value] of operations.sets!) transaction.set(setKey, value);
+      transaction.set(generationPointerKey(userId), generation);
+      for (const key of stagedKeys) transaction.persist(key);
       await executePipeline(transaction);
     }
   } catch (error) {
-    for (const value of staged) {
-      if (!value.tempKey) continue;
-      try { await redis.del(value.tempKey); } catch { /* best effort */ }
+    if (!activationStarted) {
+      try { await redis.del(...stagedKeys); } catch { /* orphaned staging is invisible and safe */ }
     }
     throw error;
   }
+  try { await expireInactiveGenerations(redis, userId, prefix); } catch { /* best-effort generation GC */ }
   return summary;
 }

@@ -39,7 +39,19 @@ test('Claude Fable 5 retains its normal price in the long bucket', () => {
 
 test('unknown and legacy aliases retain usable estimated model pricing', () => {
   assert.deepEqual(normalizeModelId('gemini-2.5-pro'), { id: 'gemini-2.5-pro', estimated: true });
-  assert.deepEqual(normalizeModelId('vendor/not-a-real-model'), { id: 'gpt-5.6-sol', estimated: true });
+  assert.deepEqual(normalizeModelId('vendor/not-a-real-model'), { id: 'unknown', estimated: true });
+});
+
+test('record validation normalizes path and identity shaped model strings before storage', () => {
+  for (const unsafeModel of [
+    '/Users/private/acme/project/model',
+    'black@example.com',
+    'customer-secret-project',
+  ]) {
+    const record = validateTurnRecord(turnRecord(`unsafe-${unsafeModel}`, 10, { model: unsafeModel }));
+    assert.equal(record.model, 'unknown');
+    assert.equal(JSON.stringify(record).includes(unsafeModel), false);
+  }
 });
 
 test('inherited model keys remain estimated, finite, and cannot mutate Object.prototype', () => {

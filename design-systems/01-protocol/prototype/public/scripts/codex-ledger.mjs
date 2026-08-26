@@ -239,9 +239,13 @@ function stableJson(value) {
 
 function findSessionFiles(dir) {
   const files = [];
+  let available = true;
   const visit = (current) => {
     let entries = [];
-    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { return; }
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch {
+      available = false;
+      return;
+    }
     for (const entry of entries) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) visit(full);
@@ -249,7 +253,7 @@ function findSessionFiles(dir) {
     }
   };
   visit(dir);
-  return files.sort();
+  return { files: files.sort(), available };
 }
 
 function makeRecord(sessionId, turnId, model) {
@@ -272,13 +276,13 @@ function parseSessionFile(filePath, relativePath) {
   let tokenEventSequence = 0;
   const seenLastUsage = new Set();
   let content = '';
-  try { content = fs.readFileSync(filePath, 'utf8'); } catch { return []; }
+  try { content = fs.readFileSync(filePath, 'utf8'); } catch { return null; }
   for (const line of content.split('\n')) {
     if (!line.trim()) continue;
     let event;
     try { event = JSON.parse(line); } catch (error) {
       console.warn(`Codex session ${hash(relativePath).slice(0, 16)}: ${error.name}`);
-      continue;
+      return null;
     }
     if (event.type === 'session_meta') {
       sessionId = event.payload?.id || null;
@@ -334,7 +338,9 @@ function preferRecord(current, candidate) {
 
 export async function scanCodexLedger(home, options = {}) {
   const sessionsDir = path.join(home, '.codex', 'sessions');
-  const files = findSessionFiles(sessionsDir);
+  const discovery = findSessionFiles(sessionsDir);
+  const files = discovery.files;
+  let authoritative = discovery.available;
   const cacheDir = path.join(home, '.tsalon');
   const cachePath = path.join(cacheDir, 'codex-session-cache-v5.json');
   let cachedFiles = {};
@@ -350,10 +356,17 @@ export async function scanCodexLedger(home, options = {}) {
     const filePath = files[index];
     const relativePath = path.relative(sessionsDir, filePath);
     let stat;
-    try { stat = fs.statSync(filePath); } catch { continue; }
+    try { stat = fs.statSync(filePath); } catch {
+      authoritative = false;
+      continue;
+    }
     const cached = cachedFiles[relativePath];
     const cacheHit = cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs && Array.isArray(cached.records);
     const records = cacheHit ? cached.records : parseSessionFile(filePath, relativePath);
+    if (!records) {
+      authoritative = false;
+      continue;
+    }
     if (cacheHit) cachedCount++;
     else parsedCount++;
     nextCachedFiles[relativePath] = { size: stat.size, mtimeMs: stat.mtimeMs, records };
@@ -368,7 +381,7 @@ export async function scanCodexLedger(home, options = {}) {
     fs.writeFileSync(temporary, JSON.stringify({ version: 6, files: nextCachedFiles }));
     fs.renameSync(temporary, cachePath);
   } catch {}
-  const records = [...recordsByKey.values()]
+  const records = (authoritative ? [...recordsByKey.values()] : [])
     .filter((record) => Number.isFinite(record.total) && record.total > 0)
     .sort((a, b) => a.turn_key.localeCompare(b.turn_key));
   const summary = emptyCounters();
@@ -376,7 +389,9 @@ export async function scanCodexLedger(home, options = {}) {
   return {
     records,
     summary,
-    hasNativeSessions: records.length > 0,
+    authoritative,
+    available: authoritative,
+    hasNativeSessions: authoritative,
     files: { total: files.length, cached: cachedCount, parsed: parsedCount },
   };
 }

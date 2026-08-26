@@ -173,7 +173,7 @@ export function validateTurnRecord(raw) {
   return {
     turn_key: raw.turn_key.toLowerCase(),
     session_key: raw.session_key.toLowerCase(),
-    model: raw.model.trim(),
+    model: normalizeModelId(raw.model).id,
     ...counters,
     pricing_tiers,
     daily,
