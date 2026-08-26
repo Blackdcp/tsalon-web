@@ -11,6 +11,7 @@ import { createHash } from 'crypto';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
+import { normalizeCodexUsage, scanCodexLedger } from './codex-ledger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -328,7 +329,7 @@ async function getCursorTokens(home) {
 // ---------------------------------------------------------------------------
 async function getCodexTokens(home) {
   const tokens = {
-    codex: { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 },
+    codex: { input_total: 0, net_new_input: 0, output: 0, cache_read: 0, cache_write: 0, total: 0, norm: 0 },
     codex_proxy: { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 },
     history: {},
   };
@@ -343,73 +344,22 @@ async function getCodexTokens(home) {
     for (const k of Object.keys(stats)) t[k] += stats[k];
   }
 
-  // 1. ~/.codex/sessions/<year>/<month>/<day>/<session>.jsonl
-  const sessionsDir = path.join(home, '.codex', 'sessions');
-  if (dirExists(sessionsDir)) {
-    const files = [];
-    walk(sessionsDir, (f) => { if (f.endsWith('.jsonl')) files.push(f); });
-    files.sort();
-
-    const cacheDir = path.join(home, '.tsalon');
-    const cachePath = path.join(cacheDir, 'codex-session-cache-v4.json');
-    let cachedFiles = {};
-    try {
-      const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-      if (parsed?.version === 4 && parsed.files) cachedFiles = parsed.files;
-    } catch {}
-    const nextCacheFiles = {};
-    let cacheHits = 0;
-    let parsedFiles = 0;
-    let lastFileProgressAt = Date.now();
-    if (files.length) console.log(`  Codex sessions: ${files.length.toLocaleString()} files.`);
-
-    for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
-      const sf = files[fileIndex];
-      const parts = sf.split(path.sep);
-      let dtStr = null;
-      const idx = parts.indexOf('sessions');
-      if (idx >= 0 && parts.length >= idx + 4) {
-        dtStr = `${parts[idx + 1]}-${parts[idx + 2]}-${parts[idx + 3]}`;
-      }
-
-      const relativePath = path.relative(sessionsDir, sf);
-      let stat = null;
-      try { stat = fs.statSync(sf); } catch { continue; }
-      const cached = cachedFiles[relativePath];
-      let summary = null;
-      if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) {
-        summary = cached;
-        cacheHits++;
-      } else {
-        parsedFiles++;
-        summary = await readCodexSessionFile(sf, dtStr, (bytesRead) => {
-          console.log(`  Codex file ${fileIndex + 1}/${files.length}: ${(bytesRead / 1_048_576).toFixed(1)} MB read...`);
-        });
-        summary.size = stat.size;
-        summary.mtimeMs = stat.mtimeMs;
-      }
-
-      nextCacheFiles[relativePath] = summary;
-      addCounters(tokens.codex, summary.lifetime);
-      for (const [date, stats] of Object.entries(summary.history || {})) {
-        addHistory(date, 'codex', stats);
-      }
-
-      if (Date.now() - lastFileProgressAt >= 3_000 || fileIndex === files.length - 1) {
-        console.log(`  Codex progress: ${fileIndex + 1}/${files.length} (${cacheHits} cached, ${parsedFiles} parsed).`);
-        lastFileProgressAt = Date.now();
-      }
-      // Yield between files so Windows can flush console output and the process
-      // remains visibly alive even on a very large history.
-      if (fileIndex % 25 === 24) await new Promise(resolve => setImmediate(resolve));
+  // 1. Native Codex JSONL is authoritative and retains anonymous per-turn data
+  // for the v5 full-sync ledger. History stays in the old shape for compatibility.
+  const ledger = await scanCodexLedger(home);
+  tokens.codex = ledger.summary;
+  tokens.ledger = { version: 5, full_sync: true, records: ledger.records };
+  for (const record of ledger.records) {
+    for (const [date, usage] of Object.entries(record.daily)) {
+      addHistory(date, 'codex', {
+        total: usage.total,
+        raw_total: usage.total,
+        in: usage.input_total,
+        out: usage.output,
+        cache_read: usage.cache_read,
+        cache_write: usage.cache_write,
+      });
     }
-
-    try {
-      fs.mkdirSync(cacheDir, { recursive: true });
-      const tmp = `${cachePath}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ version: 4, files: nextCacheFiles }));
-      fs.renameSync(tmp, cachePath);
-    } catch {}
   }
 
   // 2. ~/.opencodex/usage.jsonl
@@ -488,10 +438,27 @@ async function getCodexTokens(home) {
         // cached_input_tokens and reasoning_output_tokens are breakdowns of
         // input/output, not extra tokens. Prefer the database's total_tokens.
         const resolvedRawTotal = rawTotal || (inp + out);
-        const s = { total: Math.max(0, resolvedRawTotal - cache), raw_total: resolvedRawTotal, in: inp, out, cache_read: cache, cache_write: 0 };
-        const target = source === 'openai_account' ? 'codex' : 'codex_proxy';
-        for (const k of Object.keys(s)) tokens[target][k] += s[k];
-        addHistory(dt, target, s);
+        if (source === 'openai_account' && !ledger.hasNativeSessions) {
+          const usage = normalizeCodexUsage({
+            total_tokens: resolvedRawTotal,
+            input_tokens: inp,
+            output_tokens: out,
+            cached_input_tokens: cache,
+          });
+          for (const key of Object.keys(usage)) tokens.codex[key] += usage[key];
+          addHistory(dt, 'codex', {
+            total: usage.total,
+            raw_total: usage.total,
+            in: usage.input_total,
+            out: usage.output,
+            cache_read: usage.cache_read,
+            cache_write: usage.cache_write,
+          });
+        } else if (source !== 'openai_account') {
+          const s = { total: Math.max(0, resolvedRawTotal - cache), raw_total: resolvedRawTotal, in: inp, out, cache_read: cache, cache_write: 0 };
+          for (const k of Object.keys(s)) tokens.codex_proxy[k] += s[k];
+          addHistory(dt, 'codex_proxy', s);
+        }
       }
     } catch {}
   }
@@ -736,10 +703,11 @@ async function main() {
   console.log('📊 Extracted Data:');
   for (const [k, v] of Object.entries(finalTokens)) {
     if (k === 'history' || k === 'total') continue;
-    const rawLabel = Number.isFinite(v.raw_total) ? `, Raw: ${v.raw_total.toLocaleString()}` : '';
-    console.log(`  - ${k.charAt(0).toUpperCase() + k.slice(1)}: ${v.total.toLocaleString()} effective tokens (In: ${v.in.toLocaleString()}, Out: ${v.out.toLocaleString()}, Cache: ${v.cache_read.toLocaleString()}${rawLabel})`);
+    const noCache = Number.isFinite(v.norm) ? v.norm : v.total;
+    const cache = (v.cache_read || 0) + (v.cache_write || 0);
+    console.log(`  - ${k.charAt(0).toUpperCase() + k.slice(1)}: Total ${v.total.toLocaleString()} / No-cache ${noCache.toLocaleString()} / Cache ${cache.toLocaleString()}`);
   }
-  console.log(`  => Grand Total: ${totalAll.toLocaleString()} effective tokens`);
+  console.log(`  => Grand Total: ${totalAll.toLocaleString()} tokens`);
 
   const deviceId = getOrCreateDeviceId(home);
   const historyCompleteTools = ['codex', 'codex_proxy'];
@@ -749,6 +717,12 @@ async function main() {
     device_id: deviceId,
     history_complete_tools: historyCompleteTools,
     data: finalTokens,
+    codex_ledger: {
+      version: 5,
+      full_sync: true,
+      manifest_hash: createHash('sha256').update(codexData.ledger.records.map((record) => record.turn_key).sort().join('\n')).digest('hex'),
+      records: codexData.ledger.records,
+    },
   };
 
   if (dryRun) {
