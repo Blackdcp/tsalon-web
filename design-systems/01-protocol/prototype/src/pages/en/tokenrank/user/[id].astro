@@ -3,7 +3,7 @@ import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { kv, getUserAnalytics } from '../../../../lib/kv';
 import { beijingDateString, beijingDateNDaysAgo } from '../../../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../../../lib/token-pricing.mjs';
-import { resolveRankQuery } from '../../../../lib/tokenrank-domain.mjs';
+import { rankEventMetric, rankMetricsFromTokens, resolveRankQuery, summarizeRankWindow } from '../../../../lib/tokenrank-domain.mjs';
 
 export const prerender = false;
 
@@ -29,6 +29,7 @@ if (!userDataStr) {
   return Astro.redirect('/en/tokenrank');
 }
 const userData = JSON.parse(userDataStr);
+const profileMetrics = userData.metrics || rankMetricsFromTokens(userData.tokens);
 
 // --- Derived, per-user facts to replace the old hardcoded label ---
 let joinDays = 0;
@@ -82,20 +83,21 @@ if (timeFilter === 'yesterday') {
   });
 }
 
-const eventTotal = (event: any) => Number(event.rawTokens ?? event.tokens) || 0;
-const eventNorm = (event: any) => Number(event.normTokens ?? event.tokens) || 0;
-const eventCost = (event: any) => Number(event.costUsd) || 0;
-const eventMetric = (event: any) => metricFilter === 'norm' ? eventNorm(event) : metricFilter === 'cost' ? eventCost(event) : eventTotal(event);
+const eventTotal = (event: any) => rankEventMetric(event, 'total');
+const eventCost = (event: any) => rankEventMetric(event, 'cost');
+const eventMetric = (event: any) => rankEventMetric(event, metricFilter);
+const windowSummary = summarizeRankWindow(events, metricFilter);
+const windowMetricTotal = windowSummary.selected;
 
 // Basic aggregations
-let periodTokens = events.reduce((acc, e) => acc + eventMetric(e), 0);
-let periodRawTokens = events.reduce((acc, e) => acc + (e.rawTokens ?? e.tokens ?? 0), 0);
+let periodTokens = windowMetricTotal;
+let periodRawTokens = windowSummary.metrics.total;
 
 // For 'all' (lifetime) view, the headline total must be the persistent lifetime
 // total from the profile — not just the sum of the days we have daily
 // timeseries for. Keeps the personal page consistent with the homepage 'all'.
 if (timeFilter === 'all' && userData && userData.tokens) {
-  periodTokens = Number(userData.metrics?.[metricFilter] ?? (metricFilter === 'total' ? userData.tokens.total : 0)) || periodTokens;
+  periodTokens = Number(profileMetrics[metricFilter]) || 0;
   periodRawTokens = Object.entries(userData.tokens).reduce((acc, [tool, raw]: [string, any]) => {
     if (tool === 'total' || tool === 'history') return acc;
     if (typeof raw === 'number') return acc + raw;
@@ -103,36 +105,34 @@ if (timeFilter === 'all' && userData && userData.tokens) {
   }, 0);
 }
 
-let periodCost = events.reduce((sum, event) => sum + eventCost(event), 0);
-if (timeFilter === 'all') periodCost = Number(userData.metrics?.cost) || periodCost;
+let periodCost = windowSummary.metrics.cost;
+if (timeFilter === 'all') periodCost = Number(profileMetrics.cost) || 0;
 
 // Cache READ tokens only (not the whole event), so "effective" = total minus
 // the cached portion. This matches the homepage dashboard's definition; the old
 // code summed the full event for cache-hit events, which over-subtracted and
 // made the personal page's effective token / cache hit-rate diverge.
-let cacheReadTokensTotal = events.reduce((acc, e) => acc + (e.cacheReadTokens || 0), 0);
+let cacheReadTokensTotal = windowSummary.cacheRead;
 // Real hit-rate from events; when the window has expired ('all' with no
 // timeseries), derive it from the persistent user breakdown instead of a
 // hardcoded 93%.
-let cacheHitRate = periodRawTokens > 0
-  ? (cacheReadTokensTotal > 0 ? (cacheReadTokensTotal / periodRawTokens * 100).toFixed(1) : '0.0')
-  : '0.0';
-if (cacheReadTokensTotal === 0 && timeFilter === 'all' && userData && userData.tokens) {
-  let cRead = 0, cTotal = 0;
+let cacheHitRate = (windowSummary.cacheRate * 100).toFixed(1);
+if (timeFilter === 'all' && userData && userData.tokens) {
+  let cRead = 0;
   Object.entries(userData.tokens).forEach(([tool, raw]: [string, any]) => {
     if (tool === 'total' || tool === 'history') return;
     const o = (typeof raw === 'object' && raw !== null) ? raw : null;
     cRead += o?.cache_read || 0;
-    cTotal += o?.raw_total ?? o?.total ?? 0;
   });
+  const cTotal = Number(profileMetrics.total) || 0;
   if (cTotal > 0) {
     cacheReadTokensTotal = cRead;
     cacheHitRate = (cRead / cTotal * 100).toFixed(1);
   }
 }
-let freshTokens = events.reduce((acc, e) => acc + eventNorm(e), 0);
+let freshTokens = windowSummary.metrics.norm;
 if (timeFilter === 'all' && userData?.tokens) {
-  freshTokens = Number(userData.metrics?.norm) || freshTokens;
+  freshTokens = Number(profileMetrics.norm) || 0;
 }
 
 const toolsUsed = (timeFilter === 'all' && userData?.tokens)
@@ -141,7 +141,8 @@ const toolsUsed = (timeFilter === 'all' && userData?.tokens)
 
 // Daily averages
 const effectiveDays = timeFilter === 'today' || timeFilter === 'yesterday' ? 1 : days;
-const avgTokens = effectiveDays > 0 ? Math.floor(periodTokens / effectiveDays) : 0;
+const avgTokens = effectiveDays > 0 ? windowMetricTotal / effectiveDays : 0;
+const windowLabel = timeFilter === 'all' ? 'available event window (up to 365 days)' : `selected ${effectiveDays}-day window`;
 
 // Group by Date for tables and streaks, tracking per-tool tokens dynamically
 // (no hardcoded Codex/Antigravity columns) and a DETERMINISTIC session count
@@ -186,7 +187,7 @@ if (events.length > 0) {
 // AI time = actual generated (output) tokens / 80 tok per second, in minutes.
 const aiTimeMinutes = periodOutTokens > 0 ? Math.floor(periodOutTokens / 80 / 60) : 0;
 const totalConversations = Object.values(dailyMap).reduce((s, d) => s + (d.sessions || 0), 0);
-const avgTokensPerConv = totalConversations > 0 ? Math.floor(periodTokens / totalConversations) : 0;
+const avgTokensPerConv = totalConversations > 0 ? windowMetricTotal / totalConversations : 0;
 
 // Token composition percentages (replaces the hardcoded 6.4/0.7/92.8 split).
 const compSum = periodInTokens + periodOutTokens + periodCacheRead + periodCacheWrite;
@@ -204,10 +205,6 @@ for (const [date, data] of Object.entries(dailyMap)) {
     maxDayStr = date;
   }
 }
-if (maxDayTokens === 0 && userData && userData.tokens) {
-  maxDayTokens = periodTokens;
-  maxDayStr = todayDateStr;
-}
 
 // Streak
 let activeStreak = 0;
@@ -219,7 +216,6 @@ for (let i = 0; i < days; i++) {
     break;
   }
 }
-if (activeStreak === 0 && periodTokens > 0) activeStreak = 1;
 
 const formatAmountObj = (num: number, metric: string = metricFilter) => {
   if (metric === 'cost') return { val: num.toFixed(2), unit: 'USD' };
@@ -314,7 +310,7 @@ const chartData = {
 };
 ---
 
-<BaseLayout alternatePath={`/tokenrank/user/${id}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`See ${userData.name}'s AI token trends, cost, and tool breakdown.`}>
+<BaseLayout alternatePath={`/tokenrank/user/${id}?time=${timeFilter}&metric=${metricFilter}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`See ${userData.name}'s AI token trends, cost, and tool breakdown.`}>
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div class="user-info">
@@ -355,7 +351,7 @@ const chartData = {
           <span class="label">{timeLabel} · {metricLabel} ❔</span>
         </div>
         <div class="value">{periodTokensObj.val}<span class="unit">{periodTokensObj.unit}</span></div>
-        <div class="subtext">Daily avg {formatAmountStr(avgTokens)}</div>
+        <div class="subtext">Daily avg {formatAmountStr(avgTokens)} · {windowLabel}</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
@@ -395,7 +391,7 @@ const chartData = {
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">Cache Hit Rate ❔</span>
+          <span class="label">Cache Hit Rate{timeFilter === 'all' ? ' (lifetime)' : ''} ❔</span>
         </div>
         <div class="value">{cacheHitRate}<span class="unit">%</span></div>
         <div class="subtext">Cache read {formatAmountStr(cacheReadTokensTotal, 'total')}</div>
@@ -412,7 +408,7 @@ const chartData = {
     <!-- Key Facts Banner -->
     <div class="key-facts-banner">
       <div class="fact-col">
-        <span class="fact-label">Best single day</span>
+        <span class="fact-label">Best single day · {windowLabel}</span>
         <span class="fact-value">{formatAmountStr(maxDayTokens, metricFilter)} · {maxDayStr}</span>
       </div>
       <div class="fact-col">
@@ -424,11 +420,11 @@ const chartData = {
         <span class="fact-value">{joinDate}</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">Active days this period</span>
+        <span class="fact-label">Active days · {windowLabel}</span>
         <span class="fact-value">{Object.keys(dailyMap).length} days</span>
       </div>
       <div class="fact-col">
-        <span class="fact-label">Daily avg</span>
+        <span class="fact-label">Daily avg · {windowLabel}</span>
         <span class="fact-value">{formatAmountStr(avgTokens, metricFilter)}</span>
       </div>
     </div>
@@ -436,7 +432,7 @@ const chartData = {
     <!-- Charts -->
     <div class="charts-row">
       <div class="chart-box">
-        <h3>Daily {metricLabel.toLowerCase()} · last {chartWindow} days</h3>
+        <h3>{windowLabel} · daily {metricLabel.toLowerCase()} · last {chartWindow} days</h3>
         <div id="usageChart" style="height: 250px; width: 100%;"></div>
       </div>
       <div class="chart-box">
@@ -508,7 +504,7 @@ const chartData = {
 
     <!-- Data Table -->
     <div class="chart-box">
-      <h3>Daily breakdown</h3>
+      <h3>Daily breakdown · {windowLabel}</h3>
       <div class="table-responsive">
         <table class="data-table">
           <thead>

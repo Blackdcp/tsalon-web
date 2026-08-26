@@ -56,6 +56,25 @@ test('v4 upload stores raw_total as the main Codex total and derived norm', asyn
   assert.equal(profile.tokens.codex.norm, 6_089_897);
 });
 
+test('Claude upload prices both lifetime profile and canonical history event', async () => {
+  const redis = new FakeRedis();
+  const claude = { total: 1_000_000, cache_read: 400_000, cache_write: 0 };
+
+  await kvModule.updateTokenUsageWithRedis(redis, 'claude-user', 'Claude User', '', { claude }, 'mac', {
+    historyData: { '2026-08-18': { claude } },
+    historyCompleteTools: ['claude'],
+  });
+
+  const profile = JSON.parse(await redis.get('user:claude-user:data'));
+  const [eventJson] = await redis.lrange('user:claude-user:timeseries:2026-08-18', 0, -1);
+  const event = JSON.parse(eventJson);
+  assert.equal(profile.metrics.norm, 600_000);
+  assert.equal(profile.metrics.cost, 3.12);
+  assert.equal(event.normTokens, 600_000);
+  assert.equal(event.costUsd, 3.12);
+  assert.equal(event.pricingEstimated, true);
+});
+
 test('v5 migration removes only the uploading device legacy Codex and injects canonical totals once', async () => {
   const redis = new FakeRedis();
   await redis.set('user:u1:device:mac:data', JSON.stringify({ tokens: {

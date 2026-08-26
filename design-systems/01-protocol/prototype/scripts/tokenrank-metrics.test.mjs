@@ -30,6 +30,17 @@ test('canonical events aggregate total norm and cost from the same rows', () => 
   assert.equal(aggregate.tokens.claude.cost, 0.75);
 });
 
+test('legacy non-Codex window events derive missing norm and cost centrally', () => {
+  const aggregate = domain.aggregateRankEvents([
+    {
+      tool: 'claude', model: 'claude', tokens: 1_000_000, rawTokens: 1_000_000,
+      cacheReadTokens: 400_000, cacheWriteTokens: 0,
+    },
+  ]);
+
+  assert.deepEqual(aggregate.metrics, { total: 1_000_000, norm: 600_000, cost: 3.12 });
+});
+
 test('rank query defaults to today total and preserves legacy cost mode', () => {
   assert.deepEqual(domain.resolveRankQuery(new URLSearchParams()), { time: 'today', metric: 'total' });
   assert.deepEqual(domain.resolveRankQuery(new URLSearchParams('time=7d&metric=norm')), { time: '7d', metric: 'norm' });
@@ -44,4 +55,33 @@ test('lifetime profile metrics preserve total tokens and sum norm and cost by to
   });
 
   assert.deepEqual(metrics, { total: 300, norm: 170, cost: 3.75 });
+});
+
+test('non-Codex tools derive norm and estimated cost from central pricing', () => {
+  const claude = domain.normalizeToolTokens('claude', {
+    total: 1_000_000,
+    cache_read: 400_000,
+    cache_write: 0,
+  });
+
+  assert.equal(claude.norm, 600_000);
+  assert.equal(claude.cost, 3.12);
+  assert.equal(claude.pricing_estimated, true);
+  assert.equal(claude.model, 'claude-3-5-sonnet');
+});
+
+test('secondary leaderboard metric follows the product contract', () => {
+  assert.equal(domain.secondaryRankMetric('total'), 'cost');
+  assert.equal(domain.secondaryRankMetric('norm'), 'total');
+  assert.equal(domain.secondaryRankMetric('cost'), 'total');
+});
+
+test('an empty event window reports no activity instead of fabricating a day', () => {
+  assert.deepEqual(domain.summarizeRankWindow([], 'total'), {
+    metrics: { total: 0, norm: 0, cost: 0 },
+    selected: 0,
+    cacheRead: 0,
+    cacheRate: 0,
+    hasEvents: false,
+  });
 });

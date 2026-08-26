@@ -350,7 +350,11 @@ export async function updateTokenUsageWithRedis(
       ));
       await replaceRedisList(kv, rawKey, kept.map((event: any) => JSON.stringify(event)));
 
-      const outEvents: { tool: string; tokens: number; rawTokens: number; normTokens: number }[] = [];
+      const outEvents: Array<{
+        tool: string; tokens: number; rawTokens: number; normTokens: number;
+        inTokens: number; outTokens: number; cacheReadTokens: number; cacheWriteTokens: number;
+        costUsd: number; model: string; pricingEstimated: boolean;
+      }> = [];
       for (const [tool, rawVal] of Object.entries(toolsObj as Record<string, any>)) {
         if (tool === 'total' || tool === 'history') continue;
         if (excludesLegacyCodex && isLegacyCodexTool(tool)) continue;
@@ -369,31 +373,39 @@ export async function updateTokenUsageWithRedis(
         // whole day was discarded and the personal page showed 0).
         const isCumulativeDump = completeHistoryTools.size === 0 && deviceTotal > 0 && hVal > 0.5 * deviceTotal;
         if (hVal <= 0 || isCumulativeDump) continue;
-        outEvents.push({ tool, tokens: hVal, rawTokens, normTokens });
+        outEvents.push({
+          tool,
+          tokens: hVal,
+          rawTokens,
+          normTokens,
+          inTokens: Number(normalized.in) || 0,
+          outTokens: Number(normalized.out) || 0,
+          cacheReadTokens: Number(normalized.cache_read) || 0,
+          cacheWriteTokens: Number(normalized.cache_write) || 0,
+          costUsd: Number(normalized.cost) || 0,
+          model: normalized.model || modelFor(tool),
+          pricingEstimated: Boolean(normalized.pricing_estimated),
+        });
       }
       // Write every event for the day. No DAY_CAP truncation: a real busy day can
       // legitimately exceed any statistical cap, and the cumulative-dump guard
       // above is the sole protective filter.
       for (const e of outEvents) {
-        const isObj = typeof (toolsObj as Record<string, any>)[e.tool] === 'object';
-        const rv: any = (toolsObj as Record<string, any>)[e.tool];
-        const has = (key: string) => isObj && Object.prototype.hasOwnProperty.call(rv, key);
-        const inT = has('in') ? Number(rv.in) || 0 : e.tokens * 0.9;
-        const outT = has('out') ? Number(rv.out) || 0 : e.tokens * 0.1;
-        const crT = has('cache_read') ? Number(rv.cache_read) || 0 : 0;
-        const cwT = has('cache_write') ? Number(rv.cache_write) || 0 : 0;
         const ev: TimeseriesEvent = {
           timestamp: new Date(dateStr).getTime(),
           tool: e.tool,
-          model: modelFor(e.tool),
+          model: e.model,
           tokens: e.tokens,
           rawTokens: e.rawTokens,
           normTokens: e.normTokens,
-          inTokens: inT,
-          outTokens: outT,
-          cacheReadTokens: crT,
-          cacheWriteTokens: cwT,
-          cacheHit: crT > 0,
+          inTokens: e.inTokens,
+          outTokens: e.outTokens,
+          cacheReadTokens: e.cacheReadTokens,
+          cacheWriteTokens: e.cacheWriteTokens,
+          costUsd: e.costUsd,
+          pricingEstimated: e.pricingEstimated,
+          pricingSnapshotDate: PRICING_SNAPSHOT_DATE,
+          cacheHit: e.cacheReadTokens > 0,
           deviceId,
           source: completeHistoryTools.size > 0 ? 'agent-history-v2' : 'agent-history-legacy',
         };
@@ -460,6 +472,12 @@ export async function updateTokenUsageWithRedis(
           cacheReadTokens: 0,
           cacheWriteTokens: 0,
           cacheHit: false,
+          costUsd: Number(normalizeToolTokens('codex', {
+            total: delta, raw_total: delta, in: delta * 0.9, out: delta * 0.1,
+            cache_read: 0, cache_write: 0,
+          }).cost) || 0,
+          pricingEstimated: true,
+          pricingSnapshotDate: PRICING_SNAPSHOT_DATE,
           deviceId: did,
           source: 'snapshot-delta'
         };
@@ -510,10 +528,12 @@ export async function updateTokenUsageWithRedis(
       if (hv > 0 && hv <= DAY_CAP) {
         eventTokens = hv;
         rawTokens = ht && typeof ht === 'object' ? (Number(ht.raw_total) || hv) : hv;
-        normTokens = ht && typeof ht === 'object' && Number.isFinite(Number(ht.norm))
-          ? Number(ht.norm)
-          : hv;
-        inTokens = hv * 0.9; outTokens = hv * 0.1;
+        const normalizedHistory = normalizeToolTokens(tool, ht);
+        normTokens = Number(normalizedHistory.norm) || 0;
+        inTokens = Number(normalizedHistory.in) || 0;
+        outTokens = Number(normalizedHistory.out) || 0;
+        cacheReadTokens = Number(normalizedHistory.cache_read) || 0;
+        cacheWriteTokens = Number(normalizedHistory.cache_write) || 0;
       }
     }
     const nextWatermark: Record<string, number> = {};
@@ -527,17 +547,28 @@ export async function updateTokenUsageWithRedis(
 
     if (eventTokens <= 0 || eventTokens > DAY_CAP) continue;
 
+    const pricedEvent = normalizeToolTokens(tool, {
+      total: rawTokens || eventTokens,
+      raw_total: rawTokens || eventTokens,
+      in: inTokens,
+      out: outTokens,
+      cache_read: cacheReadTokens,
+      cache_write: cacheWriteTokens,
+    });
     const event: TimeseriesEvent = {
       timestamp: now,
       tool,
-      model: modelFor(tool),
+      model: pricedEvent.model || modelFor(tool),
       tokens: eventTokens,
       rawTokens: rawTokens || eventTokens,
-      normTokens,
+      normTokens: Number(pricedEvent.norm) || normTokens,
       inTokens,
       outTokens,
       cacheReadTokens,
       cacheWriteTokens,
+      costUsd: Number(pricedEvent.cost) || 0,
+      pricingEstimated: Boolean(pricedEvent.pricing_estimated),
+      pricingSnapshotDate: PRICING_SNAPSHOT_DATE,
       cacheHit: cacheReadTokens > 0,
       deviceId,
       source: 'cumulative-delta-v2',
@@ -611,6 +642,9 @@ export async function updateTokenUsageWithRedis(
       cache_read: Number(lifetime.cache_read) || 0,
       cache_write: Number(lifetime.cache_write) || 0,
       cost: Number(lifetime.cost) || 0,
+      model: 'gpt-5.6-sol',
+      pricing_estimated: Boolean(lifetime.estimated),
+      pricing_snapshot_date: PRICING_SNAPSHOT_DATE,
       turns: canonicalTurnCount,
     });
   }

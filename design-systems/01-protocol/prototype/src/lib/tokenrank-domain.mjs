@@ -1,4 +1,4 @@
-import { normalizeModelId, priceUsage } from './token-pricing.mjs';
+import { normalizeModelId, priceUsage, PRICING_SNAPSHOT_DATE } from './token-pricing.mjs';
 
 const COUNTERS = Object.freeze(['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm']);
 const TIER_COUNTERS = Object.freeze(['net_new_input', 'cache_read', 'cache_write', 'output']);
@@ -38,14 +38,32 @@ function numericFallback(raw) {
 
 export function normalizeToolTokens(tool, raw) {
   const value = typeof raw === 'number' ? numericFallback(raw) : { ...(raw || {}) };
-  if (tool === 'codex' || tool === 'codex_proxy') {
-    const total = Number(value.raw_total ?? value.total) || 0;
-    value.total = total;
-    value.raw_total = total;
-    value.norm = Number.isFinite(Number(value.norm))
-      ? Number(value.norm)
-      : Math.max(0, total - (Number(value.cache_read) || 0) - (Number(value.cache_write) || 0));
-  }
+  const suppliedCentralCost = value.pricing_snapshot_date === PRICING_SNAPSHOT_DATE
+    && Number.isFinite(Number(value.cost)) ? Number(value.cost) : null;
+  const total = Number(value.raw_total ?? value.total) || 0;
+  const cacheRead = Number(value.cache_read) || 0;
+  const cacheWrite = Number(value.cache_write) || 0;
+  const hasIn = Number.isFinite(Number(value.in));
+  const hasOut = Number.isFinite(Number(value.out));
+  const out = hasOut ? Number(value.out) : hasIn ? Math.max(0, total - Number(value.in)) : total * 0.1;
+  const input = hasIn ? Number(value.in) : Math.max(0, total - out);
+  const netNewInput = Math.max(0, input - cacheRead - cacheWrite);
+  const model = normalizeModelId(value.model || tool);
+  const price = priceUsage(value.model || tool, {
+    base: { net_new_input: netNewInput, cache_read: cacheRead, cache_write: cacheWrite, output: out },
+    long: { net_new_input: 0, cache_read: 0, cache_write: 0, output: 0 },
+  });
+  value.total = total;
+  value.raw_total = total;
+  value.norm = Math.max(0, total - cacheRead - cacheWrite);
+  value.in = input;
+  value.out = out;
+  value.cache_read = cacheRead;
+  value.cache_write = cacheWrite;
+  value.cost = suppliedCentralCost ?? price.usd;
+  value.model = model.id;
+  value.pricing_estimated = suppliedCentralCost === null ? price.estimated : Boolean(value.pricing_estimated);
+  value.pricing_snapshot_date = PRICING_SNAPSHOT_DATE;
   return value;
 }
 
@@ -220,9 +238,9 @@ export function aggregateRankEvents(events = []) {
   const tokens = {};
   for (const event of events || []) {
     const tool = String(event?.tool || 'unknown');
-    const total = Number(event?.rawTokens ?? event?.tokens) || 0;
-    const norm = Number(event?.normTokens ?? event?.tokens) || 0;
-    const cost = Number(event?.costUsd) || 0;
+    const total = rankEventMetric(event, 'total');
+    const norm = rankEventMetric(event, 'norm');
+    const cost = rankEventMetric(event, 'cost');
     if (!tokens[tool]) {
       tokens[tool] = {
         total: 0,
@@ -264,6 +282,39 @@ export function rankMetricsFromTokens(tokens = {}) {
     metrics.cost += Number(value?.cost) || 0;
   }
   return metrics;
+}
+
+export function secondaryRankMetric(metric = 'total') {
+  return metric === 'total' ? 'cost' : 'total';
+}
+
+export function rankEventMetric(event, metric = 'total') {
+  const total = Number(event?.rawTokens ?? event?.tokens) || 0;
+  if (metric === 'total') return total;
+  if (metric === 'norm' && Number.isFinite(Number(event?.normTokens))) return Number(event.normTokens);
+  if (metric === 'cost' && Number.isFinite(Number(event?.costUsd))) return Number(event.costUsd);
+  const normalized = normalizeToolTokens(String(event?.tool || 'unknown'), {
+    total,
+    raw_total: total,
+    in: event?.inTokens,
+    out: event?.outTokens,
+    cache_read: event?.cacheReadTokens,
+    cache_write: event?.cacheWriteTokens,
+    model: event?.model,
+  });
+  return metric === 'cost' ? Number(normalized.cost) || 0 : Number(normalized.norm) || 0;
+}
+
+export function summarizeRankWindow(events = [], metric = 'total') {
+  const aggregate = aggregateRankEvents(events);
+  const cacheRead = (events || []).reduce((sum, event) => sum + (Number(event?.cacheReadTokens) || 0), 0);
+  return {
+    metrics: aggregate.metrics,
+    selected: Number(aggregate.metrics[metric]) || 0,
+    cacheRead,
+    cacheRate: aggregate.metrics.total > 0 ? cacheRead / aggregate.metrics.total : 0,
+    hasEvents: Array.isArray(events) && events.length > 0,
+  };
 }
 
 const RANK_TIMES = new Set(['today', 'yesterday', '3d', '7d', '30d', '90d', 'all']);

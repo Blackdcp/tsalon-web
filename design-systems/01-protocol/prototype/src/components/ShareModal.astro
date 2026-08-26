@@ -2,6 +2,7 @@
 // src/components/ShareModal.astro
 import type { SiteLocale } from '../lib/i18n';
 import { beijingDateString } from '../lib/date';
+import { secondaryRankMetric } from '../lib/tokenrank-domain.mjs';
 
 export interface Props {
   leaderboard: any[];
@@ -9,13 +10,16 @@ export interface Props {
   currentUser?: any;
   locale?: SiteLocale;
   metric?: 'total' | 'norm' | 'cost';
+  time?: string;
 }
 
-const { leaderboard, currentUserRank, currentUser, locale = 'zh', metric = 'total' } = Astro.props;
+const { leaderboard, currentUserRank, currentUser, locale = 'zh', metric = 'total', time = 'today' } = Astro.props;
 const top10 = leaderboard.slice(0, 10);
 const todayDateStr = beijingDateString();
 const isEn = locale === 'en';
 const rankValue = (user: any) => Number(user?.metrics?.[metric]) || 0;
+const secondaryMetric = secondaryRankMetric(metric);
+const secondaryValue = (user: any) => Number(user?.metrics?.[secondaryMetric]) || 0;
 
 // English uses Western units (B/M/K); Chinese uses 亿/万.
 const formatPosterAmount = (num: any) => {
@@ -30,6 +34,12 @@ const formatPosterAmount = (num: any) => {
   if (n >= 10_000) return { val: (n / 10_000).toFixed(1), unit: '万' };
   return { val: n.toFixed(0), unit: '' };
 };
+const formatPosterMetric = (value: number, selectedMetric: string) => selectedMetric === 'cost'
+  ? `$${value.toFixed(2)}`
+  : `${formatPosterAmount(value).val} ${formatPosterAmount(value).unit}`.trim();
+
+const enWindow = time === 'today' ? 'Today' : time === 'yesterday' ? 'Yesterday' : time === 'all' ? 'All-time' : `Last ${time.replace('d', '')} days`;
+const zhWindow = time === 'today' ? '今天' : time === 'yesterday' ? '昨天' : time === 'all' ? '全部时间' : `近 ${time.replace('d', '')} 天`;
 
 const t = isEn ? {
   title: 'Token Consumption Leaderboard',
@@ -39,12 +49,14 @@ const t = isEn ? {
   qrSub: 'More ranks beyond the Top 10',
   qrUpdate: 'Updated every 30 minutes',
   metric: metric === 'norm' ? 'No cache' : metric === 'cost' ? 'Estimated cost' : 'With cache',
+  secondaryMetric: secondaryMetric === 'cost' ? 'Estimated cost' : 'With cache',
+  window: enWindow,
   myRankPrefix: 'Rank ',
   branding: `T Salon · Token Leaderboard · Generated ${todayDateStr}`,
   save: 'Save Image',
   close: 'Close',
   instruction: 'On mobile, long-press to save or share',
-  qrUrl: `https://www.tsalon.tech/en/tokenrank?metric=${metric}`
+  qrUrl: `https://www.tsalon.tech/en/tokenrank?time=${time}&metric=${metric}`
 } : {
   title: 'Token 消耗排行榜',
   tagPill: '造垃圾耻辱榜 · 实时排行',
@@ -53,12 +65,14 @@ const t = isEn ? {
   qrSub: 'Top 10 之外还有更多排名',
   qrUpdate: '数据每 30 分钟更新',
   metric: metric === 'norm' ? '不含缓存' : metric === 'cost' ? '预估费用' : '含缓存',
+  secondaryMetric: secondaryMetric === 'cost' ? '预估费用' : '含缓存',
+  window: zhWindow,
   myRankPrefix: '排名 ',
   branding: `T Salon · Token 消耗排行榜 · ${todayDateStr} 生成`,
   save: '保存图片',
   close: '关闭',
   instruction: '手机端可长按图片保存或转发好友',
-  qrUrl: `https://www.tsalon.tech/tokenrank?metric=${metric}`
+  qrUrl: `https://www.tsalon.tech/tokenrank?time=${time}&metric=${metric}`
 };
 
 
@@ -86,7 +100,7 @@ const top10Deduped = top10.filter((u) => {
       <div class="share-card-header">
         <img src="/images/logo-dark.png" alt="T Salon" class="share-logo-primary" crossorigin="anonymous" />
         <h2>{t.title}</h2>
-        <div class="share-tag-pill">{t.tagPill} · {t.metric}</div>
+        <div class="share-tag-pill">{t.tagPill} · {t.window} · {t.metric}</div>
       </div>
       
       <div class="share-top10">
@@ -102,8 +116,8 @@ const top10Deduped = top10.filter((u) => {
                 <span class="share-list-name">{user.name}</span>
               </div>
               <div class="share-list-right">
-                <strong class="share-list-tokens">{metric === 'cost' ? `$${rankValue(user).toFixed(2)}` : `${formatPosterAmount(rankValue(user)).val} ${formatPosterAmount(rankValue(user)).unit}`}</strong>
-                {metric !== 'cost' && <span class="share-list-cost">${(Number(user.metrics?.cost) || 0).toFixed(2)}</span>}
+                <strong class="share-list-tokens">{formatPosterMetric(rankValue(user), metric)}</strong>
+                <span class="share-list-cost">{t.secondaryMetric}: {formatPosterMetric(secondaryValue(user), secondaryMetric)}</span>
               </div>
             </li>
           ))}

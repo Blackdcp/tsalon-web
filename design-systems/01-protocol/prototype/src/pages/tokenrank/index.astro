@@ -5,13 +5,15 @@ import { getSession } from 'auth-astro/server';
 import { getLeaderboard, getGlobalStats } from '../../lib/kv';
 import { beijingDateString } from '../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../lib/token-pricing.mjs';
-import { resolveRankQuery } from '../../lib/tokenrank-domain.mjs';
+import { resolveRankQuery, secondaryRankMetric } from '../../lib/tokenrank-domain.mjs';
 
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
 const { time: timeFilter, metric: metricFilter } = resolveRankQuery(Astro.url.searchParams);
 const rankValue = (user: any) => Number(user?.metrics?.[metricFilter]) || 0;
+const secondaryMetric = secondaryRankMetric(metricFilter);
+const secondaryValue = (user: any) => Number(user?.metrics?.[secondaryMetric]) || 0;
 
 let leaderboard: any[] = [];
 let stats = { totalUsers: 0, totalTokens: 0 };
@@ -130,6 +132,7 @@ leaderboard.forEach(user => {
 const globalCacheHitRate = globalRawTokens > 0 ? ((globalCacheHitTokens / globalRawTokens) * 100).toFixed(1) : '0.0';
 const globalSelected = leaderboard.reduce((sum, user) => sum + rankValue(user), 0);
 const metricLabel = metricFilter === 'norm' ? '不含缓存' : metricFilter === 'cost' ? '预估费用' : '含缓存';
+const secondaryLabel = secondaryMetric === 'cost' ? '预估费用' : '含缓存';
 const activeToolsCount = Object.keys(toolCounts).length;
 const conversations = Math.floor(globalTokens / 200_000);
 const effectiveTokens = globalEffectiveTokens;
@@ -145,7 +148,7 @@ const timeDays = timeFilter === 'all' ? 30 : (parseInt(timeFilter.replace('d', '
 const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
 ---
 
-<BaseLayout alternatePath="/en/tokenrank/" title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
+<BaseLayout alternatePath={`/en/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="Token 排行榜 — T Salon" description="全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main class="container page-content">
     
     <header class="page-title" style="margin-bottom: 1.5rem; border-bottom: none; padding-bottom: 0;">
@@ -279,7 +282,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
           <div class="lb-col-user">T 友</div>
           <div class="lb-col-details">消耗详情 (多端工具)</div>
           <div class="lb-col-tokens">{metricLabel}</div>
-          <div class="lb-col-cost">预估成本</div>
+          <div class="lb-col-cost">{secondaryLabel}</div>
         </div>
 
         <!-- Current User Section (Integrated Highlight) -->
@@ -305,7 +308,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
             </div>
             <div class="lb-col-cost">
               <div class="lb-num-cost">
-                ${(Number(currentUser.metrics?.cost) || 0).toFixed(2)}
+                {formatDisplayAmount(secondaryValue(currentUser), secondaryMetric)}
               </div>
             </div>
           </div>
@@ -383,7 +386,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
                 <div class="lb-num-tokens">{formatDisplayAmount(rankValue(user), metricFilter)}</div>
               </div>
               <div class="lb-col-cost">
-                <div class="lb-num-cost">${(Number(user.metrics?.cost) || 0).toFixed(2)}</div>
+                <div class="lb-num-cost">{formatDisplayAmount(secondaryValue(user), secondaryMetric)}</div>
               </div>
             </div>
           );
@@ -400,7 +403,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
 
   </main>
 
-  <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} metric={metricFilter} />
+  <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} metric={metricFilter} time={timeFilter} />
 </BaseLayout>
 
 <style>

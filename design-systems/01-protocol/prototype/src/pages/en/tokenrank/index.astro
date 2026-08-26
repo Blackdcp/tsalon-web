@@ -5,13 +5,15 @@ import { getSession } from 'auth-astro/server';
 import { getLeaderboard, getGlobalStats } from '../../../lib/kv';
 import { beijingDateString } from '../../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../../lib/token-pricing.mjs';
-import { resolveRankQuery } from '../../../lib/tokenrank-domain.mjs';
+import { resolveRankQuery, secondaryRankMetric } from '../../../lib/tokenrank-domain.mjs';
 
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
 const { time: timeFilter, metric: metricFilter } = resolveRankQuery(Astro.url.searchParams);
 const rankValue = (user: any) => Number(user?.metrics?.[metricFilter]) || 0;
+const secondaryMetric = secondaryRankMetric(metricFilter);
+const secondaryValue = (user: any) => Number(user?.metrics?.[secondaryMetric]) || 0;
 
 let leaderboard: any[] = [];
 let stats = { totalUsers: 0, totalTokens: 0 };
@@ -132,6 +134,7 @@ leaderboard.forEach(user => {
 const globalCacheHitRate = globalRawTokens > 0 ? ((globalCacheHitTokens / globalRawTokens) * 100).toFixed(1) : '0.0';
 const globalSelected = leaderboard.reduce((sum, user) => sum + rankValue(user), 0);
 const metricLabel = metricFilter === 'norm' ? 'No cache' : metricFilter === 'cost' ? 'Estimated cost' : 'With cache';
+const secondaryLabel = secondaryMetric === 'cost' ? 'Estimated cost' : 'With cache';
 const activeToolsCount = Object.keys(toolCounts).length;
 const conversations = Math.floor(globalTokens / 200_000);
 const effectiveTokens = globalEffectiveTokens;
@@ -150,7 +153,7 @@ const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
 const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
 ---
 
-<BaseLayout alternatePath="/tokenrank/" title="Token Leaderboard — T Salon" description="A live leaderboard of AI developers’ token consumption — tracking local AI code generation across the community in real time." image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
+<BaseLayout alternatePath={`/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="Token Leaderboard — T Salon" description="A live leaderboard of AI developers’ token consumption — tracking local AI code generation across the community in real time." image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main class="container page-content">
 
     <header class="page-title" style="margin-bottom: 1.5rem; border-bottom: none; padding-bottom: 0;">
@@ -283,7 +286,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
           <div class="lb-col-user">Developer</div>
           <div class="lb-col-details">By tool</div>
           <div class="lb-col-tokens">{metricLabel}</div>
-          <div class="lb-col-cost">Est. Cost</div>
+          <div class="lb-col-cost">{secondaryLabel}</div>
         </div>
 
         <!-- Current User Section (Integrated Highlight) -->
@@ -309,7 +312,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
             </div>
             <div class="lb-col-cost">
               <div class="lb-num-cost">
-                ${(Number(currentUser.metrics?.cost) || 0).toFixed(2)}
+                {formatDisplayAmount(secondaryValue(currentUser), secondaryMetric)}
               </div>
             </div>
           </div>
@@ -387,7 +390,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
                 <div class="lb-num-tokens">{formatDisplayAmount(rankValue(user), metricFilter)}</div>
               </div>
               <div class="lb-col-cost">
-                <div class="lb-num-cost">${(Number(user.metrics?.cost) || 0).toFixed(2)}</div>
+                <div class="lb-num-cost">{formatDisplayAmount(secondaryValue(user), secondaryMetric)}</div>
               </div>
             </div>
           );
@@ -404,7 +407,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
 
   </main>
 
-  <ShareModal locale="en" leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} metric={metricFilter} />
+  <ShareModal locale="en" leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} metric={metricFilter} time={timeFilter} />
 </BaseLayout>
 
 <style>
