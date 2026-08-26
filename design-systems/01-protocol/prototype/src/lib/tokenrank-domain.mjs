@@ -23,6 +23,43 @@ function emptyMap() {
   return Object.create(null);
 }
 
+function numericFallback(raw) {
+  const total = Number(raw) || 0;
+  return {
+    total,
+    raw_total: total,
+    norm: total,
+    in: total * 0.9,
+    out: total * 0.1,
+    cache_read: 0,
+    cache_write: 0,
+  };
+}
+
+export function normalizeToolTokens(tool, raw) {
+  const value = typeof raw === 'number' ? numericFallback(raw) : { ...(raw || {}) };
+  if (tool === 'codex' || tool === 'codex_proxy') {
+    const total = Number(value.raw_total ?? value.total) || 0;
+    value.total = total;
+    value.raw_total = total;
+    value.norm = Number.isFinite(Number(value.norm))
+      ? Number(value.norm)
+      : Math.max(0, total - (Number(value.cache_read) || 0) - (Number(value.cache_write) || 0));
+  }
+  return value;
+}
+
+export function normalizeDeviceUpload(tokens = {}, { hasCodexLedger = false } = {}) {
+  const normalized = {};
+  for (const [tool, raw] of Object.entries(tokens || {})) {
+    if (tool === 'total' || tool === 'history') continue;
+    if (hasCodexLedger && (tool === 'codex' || tool === 'codex_proxy')) continue;
+    if (typeof raw !== 'number' && (!raw || typeof raw !== 'object' || Array.isArray(raw))) continue;
+    normalized[tool] = normalizeToolTokens(tool, raw);
+  }
+  return normalized;
+}
+
 function compareStrings(left, right) {
   if (left === right) return 0;
   return left < right ? -1 : 1;

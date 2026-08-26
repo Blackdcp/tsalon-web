@@ -1,6 +1,8 @@
 import Redis from 'ioredis';
 import { replaceRedisList, syncCodexLedger, type CodexLedgerPayload } from './codex-ledger.ts';
 import { beijingDateString, beijingDateNDaysAgo } from './date.ts';
+import { PRICING_SNAPSHOT_DATE } from './token-pricing.mjs';
+import { normalizeDeviceUpload, normalizeToolTokens } from './tokenrank-domain.mjs';
 
 // Fallback for development if no REDIS_URL is provided, or throw
 const redisUrl = process.env.REDIS_URL || '';
@@ -41,6 +43,11 @@ export interface TokenUpdateOptions {
   historyCompleteTools?: string[];
   codexLedger?: CodexLedgerPayload | null;
   accountAudit?: CodexAccountAudit | null;
+}
+
+export interface TokenUpdateResult {
+  codex: { total: number; norm: number; cost: number; turns: number } | null;
+  pricing_snapshot_date: string;
 }
 
 
@@ -132,9 +139,18 @@ export async function updateTokenUsageWithRedis(
   if (!locked) throw new Error('Token update is busy; retry on the next agent run');
 
   try {
+    let codexSummary: Record<string, any> | null = null;
     if (options.codexLedger) {
-      await syncCodexLedger(kv, userId, deviceId, options.codexLedger);
+      codexSummary = await syncCodexLedger(kv, userId, deviceId, options.codexLedger);
+    } else {
+      const storedSummary = await kv.get(`user:${userId}:codex:summary`);
+      if (storedSummary) {
+        try { codexSummary = JSON.parse(storedSummary); } catch { /* rebuild on a later v5 upload */ }
+      }
     }
+    const canonicalTurnCount = codexSummary
+      ? Object.keys(await kv.hgetall(`user:${userId}:codex:turns`)).length
+      : 0;
 
   const completeHistoryTools = new Set(
     historyCompleteTools.filter(t => /^[a-z0-9_+-]+$/i.test(t)
@@ -142,24 +158,9 @@ export async function updateTokenUsageWithRedis(
   );
   
   // Normalize incoming tokens to always be {total, in, out, cache_read, cache_write}
-  const normalizedTokens: Record<string, any> = {};
-  for (const [k, v] of Object.entries(tokens)) {
-    if (k === 'total' || k === 'history') continue;
-    if (typeof v === 'number') {
-      normalizedTokens[k] = { total: v, raw_total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
-    } else if (v && typeof v === 'object') {
-      const obj = { ...(v as Record<string, any>) };
-      // Agent v2 originally sent Codex total as the raw counter (including
-      // cached input). Upgrade those payloads at the server boundary so an old
-      // scheduled client cannot reintroduce the inflated ranking value.
-      if ((k === 'codex' || k === 'codex_proxy') && !Object.prototype.hasOwnProperty.call(obj, 'raw_total')) {
-        const rawTotal = Number(obj.total) || 0;
-        obj.raw_total = rawTotal;
-        obj.total = Math.max(0, rawTotal - (Number(obj.cache_read) || 0));
-      }
-      normalizedTokens[k] = obj;
-    }
-  }
+  const normalizedTokens: Record<string, any> = normalizeDeviceUpload(tokens, {
+    hasCodexLedger: excludesLegacyCodex,
+  });
 
   // 0. Fetch previous device data to calculate deltas
   const oldDeviceDataStr = await kv.get(`user:${userId}:device:${deviceId}:data`);
@@ -168,26 +169,14 @@ export async function updateTokenUsageWithRedis(
     try {
       const parsed = JSON.parse(oldDeviceDataStr);
       if (parsed.tokens) {
-        for (const [k, v] of Object.entries(parsed.tokens)) {
-          if (k === 'total' || k === 'history') continue;
-          if (typeof v === 'number') {
-            oldDeviceTokens[k] = { total: v, raw_total: v, in: v * 0.9, out: v * 0.1, cache_read: 0, cache_write: 0 };
-          } else if (v && typeof v === 'object') {
-            const obj = { ...(v as Record<string, any>) };
-            if ((k === 'codex' || k === 'codex_proxy') && !Object.prototype.hasOwnProperty.call(obj, 'raw_total')) {
-              const rawTotal = Number(obj.total) || 0;
-              obj.raw_total = rawTotal;
-              obj.total = Math.max(0, rawTotal - (Number(obj.cache_read) || 0));
-            }
-            oldDeviceTokens[k] = obj;
-          }
-        }
+        Object.assign(oldDeviceTokens, normalizeDeviceUpload(parsed.tokens));
       }
     } catch(e) {}
   }
   
   // 1. Save data for THIS device
-  const deviceTotal = Object.values(normalizedTokens).reduce((acc, val) => acc + (val.total || 0), 0);
+  const deviceTotal = Object.values(normalizedTokens)
+    .reduce((acc, val) => acc + (Number((val as any).total) || 0), 0);
   normalizedTokens['total'] = deviceTotal;
   
   const deviceData = {
@@ -303,20 +292,17 @@ export async function updateTokenUsageWithRedis(
       ));
       await replaceRedisList(kv, rawKey, kept.map((event: any) => JSON.stringify(event)));
 
-      const outEvents: { tool: string; tokens: number; rawTokens: number }[] = [];
+      const outEvents: { tool: string; tokens: number; rawTokens: number; normTokens: number }[] = [];
       for (const [tool, rawVal] of Object.entries(toolsObj as Record<string, any>)) {
         if (tool === 'total' || tool === 'history') continue;
         if (excludesLegacyCodex && isLegacyCodexTool(tool)) continue;
         if (completeHistoryTools.size > 0 && !completeHistoryTools.has(tool)) continue;
-        const isObj = typeof rawVal === 'object' && rawVal !== null;
-        const rv = rawVal as any;
-        const reportedTotal = isObj ? (Number(rv.total) || 0) : (Number(rawVal) || 0);
-        const hasRawTotal = isObj && Object.prototype.hasOwnProperty.call(rv, 'raw_total');
-        const isLegacyRawCodex = (tool === 'codex' || tool === 'codex_proxy') && isObj && !hasRawTotal;
-        const hVal = isLegacyRawCodex
-          ? Math.max(0, reportedTotal - (Number(rv.cache_read) || 0))
-          : reportedTotal;
-        const rawTokens = hasRawTotal ? (Number(rv.raw_total) || 0) : reportedTotal;
+        const normalized = normalizeToolTokens(tool, rawVal);
+        const hVal = Number(normalized.total) || 0;
+        const rawTokens = Number(normalized.raw_total ?? normalized.total) || 0;
+        const normTokens = Number.isFinite(Number(normalized.norm))
+          ? Number(normalized.norm)
+          : hVal;
         // Drop zeros only. The ONLY safe rejection for a past-day history entry is
         // a CUMULATIVE-DUMP misreport (agent sent its lifetime total as a day:
         // hVal ≈ deviceTotal). We must NOT drop legitimately large days just for
@@ -325,7 +311,7 @@ export async function updateTokenUsageWithRedis(
         // whole day was discarded and the personal page showed 0).
         const isCumulativeDump = completeHistoryTools.size === 0 && deviceTotal > 0 && hVal > 0.5 * deviceTotal;
         if (hVal <= 0 || isCumulativeDump) continue;
-        outEvents.push({ tool, tokens: hVal, rawTokens });
+        outEvents.push({ tool, tokens: hVal, rawTokens, normTokens });
       }
       // Write every event for the day. No DAY_CAP truncation: a real busy day can
       // legitimately exceed any statistical cap, and the cumulative-dump guard
@@ -344,6 +330,7 @@ export async function updateTokenUsageWithRedis(
           model: modelFor(e.tool),
           tokens: e.tokens,
           rawTokens: e.rawTokens,
+          normTokens: e.normTokens,
           inTokens: inT,
           outTokens: outT,
           cacheReadTokens: crT,
@@ -449,11 +436,12 @@ export async function updateTokenUsageWithRedis(
     // No baseline for this device: never record the full cumulative as "today"
     // (that created the 1.3B phantom). Fall back to a *sane* history[today]
     // value, else skip.
-    let eventTokens = 0, rawTokens = 0;
+    let eventTokens = 0, rawTokens = 0, normTokens = 0;
     let inTokens = 0, outTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
     if (hasBaseline && delta > 0) {
       eventTokens = delta;
       rawTokens = Math.max(0, (Number(vobj.raw_total) || valTotal) - (oldToolData ? Number(oldToolData.raw_total) || oldTotal : 0));
+      normTokens = Math.max(0, (Number(vobj.norm) || valTotal) - (oldToolData ? Number(oldToolData.norm) || oldTotal : 0));
       inTokens = Math.max(0, (Number(vobj.in) || 0) - (oldToolData ? Number(oldToolData.in) || 0 : 0));
       outTokens = Math.max(0, (Number(vobj.out) || 0) - (oldToolData ? Number(oldToolData.out) || 0 : 0));
       cacheReadTokens = Math.max(0, (Number(vobj.cache_read) || 0) - (oldToolData ? Number(oldToolData.cache_read) || 0 : 0));
@@ -464,11 +452,14 @@ export async function updateTokenUsageWithRedis(
       if (hv > 0 && hv <= DAY_CAP) {
         eventTokens = hv;
         rawTokens = ht && typeof ht === 'object' ? (Number(ht.raw_total) || hv) : hv;
+        normTokens = ht && typeof ht === 'object' && Number.isFinite(Number(ht.norm))
+          ? Number(ht.norm)
+          : hv;
         inTokens = hv * 0.9; outTokens = hv * 0.1;
       }
     }
     const nextWatermark: Record<string, number> = {};
-    for (const counter of ['total', 'raw_total', 'in', 'out', 'cache_read', 'cache_write']) {
+    for (const counter of ['total', 'raw_total', 'norm', 'in', 'out', 'cache_read', 'cache_write']) {
       nextWatermark[counter] = Math.max(
         Number(oldToolData?.[counter]) || 0,
         Number(vobj[counter]) || 0,
@@ -484,6 +475,7 @@ export async function updateTokenUsageWithRedis(
       model: modelFor(tool),
       tokens: eventTokens,
       rawTokens: rawTokens || eventTokens,
+      normTokens,
       inTokens,
       outTokens,
       cacheReadTokens,
@@ -505,6 +497,27 @@ export async function updateTokenUsageWithRedis(
   const deviceKeys = await scanKeys(`user:${userId}:device:*:data`);
   
   const aggregatedTokens: Record<string, any> = {};
+
+  const addToolTokens = (tool: string, raw: any) => {
+    const value = normalizeToolTokens(tool, raw);
+    if (!aggregatedTokens[tool]) {
+      aggregatedTokens[tool] = {
+        total: 0, raw_total: 0, norm: 0, in: 0, out: 0,
+        cache_read: 0, cache_write: 0, cost: 0, turns: 0,
+      };
+    }
+    const target = aggregatedTokens[tool];
+    const total = Number(value.total) || 0;
+    target.total += total;
+    target.raw_total += Number(value.raw_total ?? value.total) || 0;
+    target.norm += Number.isFinite(Number(value.norm)) ? Number(value.norm) : total;
+    target.in += Number(value.in) || 0;
+    target.out += Number(value.out) || 0;
+    target.cache_read += Number(value.cache_read) || 0;
+    target.cache_write += Number(value.cache_write) || 0;
+    target.cost += Number(value.cost) || 0;
+    target.turns += Number(value.turns) || 0;
+  };
   
   if (deviceKeys.length > 0) {
     const allDeviceData = await kv.mget(deviceKeys);
@@ -513,34 +526,27 @@ export async function updateTokenUsageWithRedis(
         try {
           const parsed = JSON.parse(dataStr as string);
           if (parsed && parsed.tokens) {
-            for (const [t, v] of Object.entries(parsed.tokens)) {
-              if (t === 'total' || t === 'history') continue;
-              if (typeof v === 'number') {
-                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
-                aggregatedTokens[t].total += v;
-                aggregatedTokens[t].raw_total += v;
-                aggregatedTokens[t].in += v * 0.9;
-                aggregatedTokens[t].out += v * 0.1;
-              } else if (v && typeof v === 'object') {
-                if (!aggregatedTokens[t]) aggregatedTokens[t] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
-                const objV = v as any;
-                const reportedTotal = Number(objV.total) || 0;
-                const hasRawTotal = Object.prototype.hasOwnProperty.call(objV, 'raw_total');
-                const effectiveTotal = (t === 'codex' || t === 'codex_proxy') && !hasRawTotal
-                  ? Math.max(0, reportedTotal - (Number(objV.cache_read) || 0))
-                  : reportedTotal;
-                aggregatedTokens[t].total += effectiveTotal;
-                aggregatedTokens[t].raw_total += hasRawTotal ? (Number(objV.raw_total) || 0) : reportedTotal;
-                aggregatedTokens[t].in += objV.in || 0;
-                aggregatedTokens[t].out += objV.out || 0;
-                aggregatedTokens[t].cache_read += objV.cache_read || 0;
-                aggregatedTokens[t].cache_write += objV.cache_write || 0;
-              }
-            }
+            const normalizedDevice = normalizeDeviceUpload(parsed.tokens);
+            for (const [tool, value] of Object.entries(normalizedDevice)) addToolTokens(tool, value);
           }
         } catch (e) {}
       }
     }
+  }
+
+  if (codexSummary?.lifetime) {
+    const lifetime = codexSummary.lifetime;
+    addToolTokens('codex', {
+      total: Number(lifetime.total) || 0,
+      raw_total: Number(lifetime.total) || 0,
+      norm: Number(lifetime.norm) || 0,
+      in: Number(lifetime.input_total) || 0,
+      out: Number(lifetime.output) || 0,
+      cache_read: Number(lifetime.cache_read) || 0,
+      cache_write: Number(lifetime.cache_write) || 0,
+      cost: Number(lifetime.cost) || 0,
+      turns: canonicalTurnCount,
+    });
   }
   
   // 3. Calculate final total
@@ -568,6 +574,16 @@ export async function updateTokenUsageWithRedis(
   
   await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
   await kv.zadd('leaderboard:total', finalTotal, userId);
+
+  return {
+    codex: codexSummary?.lifetime ? {
+      total: Number(codexSummary.lifetime.total) || 0,
+      norm: Number(codexSummary.lifetime.norm) || 0,
+      cost: Number(codexSummary.lifetime.cost) || 0,
+      turns: canonicalTurnCount,
+    } : null,
+    pricing_snapshot_date: PRICING_SNAPSHOT_DATE,
+  } satisfies TokenUpdateResult;
 
   } finally {
     await kv.eval(
@@ -652,16 +668,18 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
       for (const evStr of events) {
         try {
           const ev = JSON.parse(evStr);
-          const isLegacyRawCodex = (ev.tool === 'codex' || ev.tool === 'codex_proxy')
-            && ev.rawTokens === undefined
-            && ev.source === 'agent-history-v2'
-            && ev.cacheReadTokens !== undefined;
-          const effectiveEventTokens = isLegacyRawCodex
-            ? Math.max(0, (Number(ev.tokens) || 0) - (Number(ev.cacheReadTokens) || 0))
-            : (Number(ev.tokens) || 0);
-          if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, raw_total: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
-          tokens[ev.tool].total += effectiveEventTokens;
-          tokens[ev.tool].raw_total += ev.rawTokens ?? ev.tokens;
+          const eventTotal = Number(ev.rawTokens ?? ev.tokens) || 0;
+          const eventNorm = Number.isFinite(Number(ev.normTokens))
+            ? Number(ev.normTokens)
+            : (ev.rawTokens !== undefined
+              ? Number(ev.tokens) || 0
+              : ((ev.tool === 'codex' || ev.tool === 'codex_proxy')
+                ? Math.max(0, eventTotal - (Number(ev.cacheReadTokens) || 0) - (Number(ev.cacheWriteTokens) || 0))
+                : eventTotal));
+          if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, raw_total: 0, norm: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
+          tokens[ev.tool].total += eventTotal;
+          tokens[ev.tool].raw_total += eventTotal;
+          tokens[ev.tool].norm += eventNorm;
 
           if (ev.cacheReadTokens !== undefined) {
             tokens[ev.tool].in += ev.inTokens || 0;
@@ -681,7 +699,7 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
             tokens[ev.tool].out += freshTokens * 0.1;
             tokens[ev.tool].cache_read += fallbackCache;
           }
-          userTotal += effectiveEventTokens;
+          userTotal += eventTotal;
         } catch (e) {}
       }
     }
@@ -762,12 +780,17 @@ export async function getUserAnalytics(userId: string, days: number = 30) {
         res.forEach(item => {
           try {
             const event = JSON.parse(item);
-            if ((event.tool === 'codex' || event.tool === 'codex_proxy')
-              && event.rawTokens === undefined
-              && event.source === 'agent-history-v2'
-              && event.cacheReadTokens !== undefined) {
-              event.rawTokens = Number(event.tokens) || 0;
-              event.tokens = Math.max(0, event.rawTokens - (Number(event.cacheReadTokens) || 0));
+            if (event.tool === 'codex' || event.tool === 'codex_proxy') {
+              const originalTokens = Number(event.tokens) || 0;
+              const hadRawTokens = event.rawTokens !== undefined;
+              const total = Number(event.rawTokens ?? originalTokens) || 0;
+              event.rawTokens = total;
+              event.normTokens = Number.isFinite(Number(event.normTokens))
+                ? Number(event.normTokens)
+                : (hadRawTokens
+                  ? originalTokens
+                  : Math.max(0, total - (Number(event.cacheReadTokens) || 0) - (Number(event.cacheWriteTokens) || 0)));
+              event.tokens = total;
             }
             allEvents.push(event);
           } catch(e) {}

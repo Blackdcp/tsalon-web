@@ -7,6 +7,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
     const { token, data, device_id, reset, history_complete_tools } = body;
+    const codexLedger = body.codex_ledger?.version === 5 ? body.codex_ledger : null;
 
     if (!token) {
       return new Response(JSON.stringify({ success: false, message: 'Missing token' }), { status: 400 });
@@ -58,22 +59,37 @@ export const POST: APIRoute = async ({ request }) => {
       ? history_complete_tools.filter((t: unknown): t is string => typeof t === 'string')
       : [];
 
-    await updateTokenUsage(
+    const result = await updateTokenUsage(
       userId,
       name,
       image,
       dynamicTokens,
       actualDeviceId,
-      historyData,
-      historyCompleteTools,
+      {
+        historyData,
+        historyCompleteTools,
+        codexLedger,
+        accountAudit: body.account_audit ?? null,
+      },
     );
 
-    return new Response(JSON.stringify({ success: true, message: 'Tokens updated' }), {
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Tokens updated',
+      schema_version: 5,
+      codex: result?.codex ?? null,
+      pricing_snapshot_date: result?.pricing_snapshot_date ?? null,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error(error);
-    return new Response(JSON.stringify({ success: false, message: 'Server error' }), { status: 500 });
+    const invalidLedger = error instanceof Error && /^Invalid Codex ledger/.test(error.message);
+    return new Response(JSON.stringify({
+      success: false,
+      message: invalidLedger ? error.message : 'Server error',
+      schema_version: 5,
+    }), { status: invalidLedger ? 400 : 500 });
   }
 };
