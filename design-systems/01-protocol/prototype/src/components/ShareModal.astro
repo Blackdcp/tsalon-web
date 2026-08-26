@@ -8,12 +8,14 @@ export interface Props {
   currentUserRank?: number;
   currentUser?: any;
   locale?: SiteLocale;
+  metric?: 'total' | 'norm' | 'cost';
 }
 
-const { leaderboard, currentUserRank, currentUser, locale = 'zh' } = Astro.props;
+const { leaderboard, currentUserRank, currentUser, locale = 'zh', metric = 'total' } = Astro.props;
 const top10 = leaderboard.slice(0, 10);
 const todayDateStr = beijingDateString();
 const isEn = locale === 'en';
+const rankValue = (user: any) => Number(user?.metrics?.[metric]) || 0;
 
 // English uses Western units (B/M/K); Chinese uses 亿/万.
 const formatPosterAmount = (num: any) => {
@@ -36,12 +38,13 @@ const t = isEn ? {
   qrTitle: 'Scan to view the full leaderboard',
   qrSub: 'More ranks beyond the Top 10',
   qrUpdate: 'Updated every 30 minutes',
+  metric: metric === 'norm' ? 'No cache' : metric === 'cost' ? 'Estimated cost' : 'With cache',
   myRankPrefix: 'Rank ',
   branding: `T Salon · Token Leaderboard · Generated ${todayDateStr}`,
   save: 'Save Image',
   close: 'Close',
   instruction: 'On mobile, long-press to save or share',
-  qrUrl: 'https://www.tsalon.tech/en/tokenrank'
+  qrUrl: `https://www.tsalon.tech/en/tokenrank?metric=${metric}`
 } : {
   title: 'Token 消耗排行榜',
   tagPill: '造垃圾耻辱榜 · 实时排行',
@@ -49,12 +52,13 @@ const t = isEn ? {
   qrTitle: '扫码看完整排行榜',
   qrSub: 'Top 10 之外还有更多排名',
   qrUpdate: '数据每 30 分钟更新',
+  metric: metric === 'norm' ? '不含缓存' : metric === 'cost' ? '预估费用' : '含缓存',
   myRankPrefix: '排名 ',
   branding: `T Salon · Token 消耗排行榜 · ${todayDateStr} 生成`,
   save: '保存图片',
   close: '关闭',
   instruction: '手机端可长按图片保存或转发好友',
-  qrUrl: 'https://www.tsalon.tech/tokenrank'
+  qrUrl: `https://www.tsalon.tech/tokenrank?metric=${metric}`
 };
 
 
@@ -82,7 +86,7 @@ const top10Deduped = top10.filter((u) => {
       <div class="share-card-header">
         <img src="/images/logo-dark.png" alt="T Salon" class="share-logo-primary" crossorigin="anonymous" />
         <h2>{t.title}</h2>
-        <div class="share-tag-pill">{t.tagPill}</div>
+        <div class="share-tag-pill">{t.tagPill} · {t.metric}</div>
       </div>
       
       <div class="share-top10">
@@ -98,8 +102,8 @@ const top10Deduped = top10.filter((u) => {
                 <span class="share-list-name">{user.name}</span>
               </div>
               <div class="share-list-right">
-                <strong class="share-list-tokens">{formatPosterAmount(user.tokens?.total || 0).val} {formatPosterAmount(user.tokens?.total || 0).unit}</strong>
-                <span class="share-list-cost">~${((user.tokens?.total || 0) / 1000000 * 3).toFixed(0)}</span>
+                <strong class="share-list-tokens">{metric === 'cost' ? `$${rankValue(user).toFixed(2)}` : `${formatPosterAmount(rankValue(user)).val} ${formatPosterAmount(rankValue(user)).unit}`}</strong>
+                {metric !== 'cost' && <span class="share-list-cost">${(Number(user.metrics?.cost) || 0).toFixed(2)}</span>}
               </div>
             </li>
           ))}

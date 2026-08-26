@@ -215,9 +215,80 @@ export function metricValue(aggregate, metric) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+export function aggregateRankEvents(events = []) {
+  const metrics = { total: 0, norm: 0, cost: 0 };
+  const tokens = {};
+  for (const event of events || []) {
+    const tool = String(event?.tool || 'unknown');
+    const total = Number(event?.rawTokens ?? event?.tokens) || 0;
+    const norm = Number(event?.normTokens ?? event?.tokens) || 0;
+    const cost = Number(event?.costUsd) || 0;
+    if (!tokens[tool]) {
+      tokens[tool] = {
+        total: 0,
+        raw_total: 0,
+        norm: 0,
+        cost: 0,
+        in: 0,
+        out: 0,
+        cache_read: 0,
+        cache_write: 0,
+      };
+    }
+    const toolTokens = tokens[tool];
+    toolTokens.total += total;
+    toolTokens.raw_total += total;
+    toolTokens.norm += norm;
+    toolTokens.cost += cost;
+    toolTokens.in += Number(event?.inTokens) || 0;
+    toolTokens.out += Number(event?.outTokens) || 0;
+    toolTokens.cache_read += Number(event?.cacheReadTokens) || 0;
+    toolTokens.cache_write += Number(event?.cacheWriteTokens) || 0;
+    metrics.total += total;
+    metrics.norm += norm;
+    metrics.cost += cost;
+  }
+  tokens.total = metrics.total;
+  return { metrics, tokens };
+}
+
+export function rankMetricsFromTokens(tokens = {}) {
+  const metrics = { total: Number(tokens?.total) || 0, norm: 0, cost: 0 };
+  for (const [tool, value] of Object.entries(tokens || {})) {
+    if (tool === 'total' || tool === 'history') continue;
+    if (typeof value === 'number') {
+      metrics.norm += Number(value) || 0;
+      continue;
+    }
+    metrics.norm += Number(value?.norm ?? value?.total) || 0;
+    metrics.cost += Number(value?.cost) || 0;
+  }
+  return metrics;
+}
+
+const RANK_TIMES = new Set(['today', 'yesterday', '3d', '7d', '30d', '90d', 'all']);
+const RANK_METRICS = new Set(['total', 'norm', 'cost']);
+
+export function resolveRankQuery(searchParams) {
+  const requestedTime = searchParams?.get?.('time');
+  const requestedMetric = searchParams?.get?.('metric');
+  return {
+    time: RANK_TIMES.has(requestedTime) ? requestedTime : 'today',
+    metric: RANK_METRICS.has(requestedMetric)
+      ? requestedMetric
+      : searchParams?.get?.('mode') === 'cost' ? 'cost' : 'total',
+  };
+}
+
 export function sortRankRows(rows = [], metric = 'total') {
   return [...rows].sort((left, right) => {
-    const metricDifference = metricValue(right.aggregate || right, metric) - metricValue(left.aggregate || left, metric);
+    const valueOf = (row) => {
+      const value = row?.metrics?.[metric];
+      return typeof value === 'number' && Number.isFinite(value)
+        ? value
+        : metricValue(row.aggregate || row, metric);
+    };
+    const metricDifference = valueOf(right) - valueOf(left);
     if (metricDifference) return metricDifference;
     return compareStrings(String(left.userId || ''), String(right.userId || ''));
   });

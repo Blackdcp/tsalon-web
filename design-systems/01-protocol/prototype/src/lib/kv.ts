@@ -2,7 +2,13 @@ import Redis from 'ioredis';
 import { replaceRedisList, syncCodexLedger, type CodexLedgerPayload } from './codex-ledger.ts';
 import { beijingDateString, beijingDateNDaysAgo } from './date.ts';
 import { PRICING_SNAPSHOT_DATE } from './token-pricing.mjs';
-import { normalizeDeviceUpload, normalizeToolTokens } from './tokenrank-domain.mjs';
+import {
+  aggregateRankEvents,
+  normalizeDeviceUpload,
+  normalizeToolTokens,
+  rankMetricsFromTokens,
+  sortRankRows,
+} from './tokenrank-domain.mjs';
 
 // Fallback for development if no REDIS_URL is provided, or throw
 const redisUrl = process.env.REDIS_URL || '';
@@ -13,9 +19,12 @@ export interface UserRankData {
   name: string;
   image: string;
   tokens: Record<string, any>;
+  metrics: Record<RankMetric, number>;
   updatedAt: string;
   createdAt?: string;
 }
+
+export type RankMetric = 'total' | 'norm' | 'cost';
 
 export interface TimeseriesEvent {
   timestamp: number;
@@ -609,6 +618,7 @@ export async function updateTokenUsageWithRedis(
   // 3. Calculate final total
   const finalTotal = Object.values(aggregatedTokens).reduce((acc, val) => acc + val.total, 0);
   aggregatedTokens['total'] = finalTotal;
+  const metrics = rankMetricsFromTokens(aggregatedTokens);
   
   // 4. Save to the main user profile (preserve the original createdAt so the
   // "since when" stat is real, not hardcoded).
@@ -625,12 +635,17 @@ export async function updateTokenUsageWithRedis(
     name,
     image,
     tokens: aggregatedTokens,
+    metrics,
     updatedAt: new Date().toISOString(),
     createdAt
   };
   
   await kv.set(`user:${userId}:data`, JSON.stringify(aggregatedData));
-  await kv.zadd('leaderboard:total', finalTotal, userId);
+  await Promise.all([
+    kv.zadd('leaderboard:total', metrics.total, userId),
+    kv.zadd('leaderboard:norm', metrics.norm, userId),
+    kv.zadd('leaderboard:cost', metrics.cost, userId),
+  ]);
 
   return {
     codex: codexSummary?.lifetime ? {
@@ -652,18 +667,20 @@ export async function updateTokenUsageWithRedis(
   }
 }
 
-export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRankData[]> {
+export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetric = 'total'): Promise<UserRankData[]> {
   if (!kv) return [];
 
   // 'all' = lifetime ranking straight from the persistent ZSET.
   if (time === 'all') {
-    const userIds = await kv.zrevrange('leaderboard:total', 0, limit - 1);
+    const userIds = await kv.zrevrange(`leaderboard:${metric}`, 0, limit - 1);
     if (!userIds || userIds.length === 0) return [];
     const keys = userIds.map(id => `user:${id}:data`);
     const results = await kv.mget(keys);
-    const list = results.filter(Boolean).map(res => JSON.parse(res as string));
-    list.sort((a, b) => (b.tokens?.total || 0) - (a.tokens?.total || 0));
-    return list.slice(0, limit);
+    const list = results.filter(Boolean).map((res) => {
+      const row = JSON.parse(res as string);
+      return { ...row, metrics: row.metrics || rankMetricsFromTokens(row.tokens) };
+    });
+    return sortRankRows(list, metric).slice(0, limit);
   }
 
   // Period views must rank by REAL activity inside the window — not by lifetime
@@ -717,61 +734,28 @@ export async function getLeaderboard(limit = 100, time = 'all'): Promise<UserRan
       continue;
     }
 
-    let userTotal = 0;
-    const tokens: Record<string, any> = {};
+    const userEvents: TimeseriesEvent[] = [];
     for (let i = 0; i < targetDates.length; i++) {
       const [err, events] = tsResults![resultIdx++] as [Error | null, string[]];
       if (err || !events || events.length === 0) continue;
       for (const evStr of events) {
         try {
           const ev = JSON.parse(evStr);
-          const eventTotal = Number(ev.rawTokens ?? ev.tokens) || 0;
-          const eventNorm = Number.isFinite(Number(ev.normTokens))
-            ? Number(ev.normTokens)
-            : (ev.rawTokens !== undefined
-              ? Number(ev.tokens) || 0
-              : ((ev.tool === 'codex' || ev.tool === 'codex_proxy')
-                ? Math.max(0, eventTotal - (Number(ev.cacheReadTokens) || 0) - (Number(ev.cacheWriteTokens) || 0))
-                : eventTotal));
-          if (!tokens[ev.tool]) tokens[ev.tool] = { total: 0, raw_total: 0, norm: 0, in: 0, out: 0, cache_read: 0, cache_write: 0 };
-          tokens[ev.tool].total += eventTotal;
-          tokens[ev.tool].raw_total += eventTotal;
-          tokens[ev.tool].norm += eventNorm;
-
-          if (ev.cacheReadTokens !== undefined) {
-            tokens[ev.tool].in += ev.inTokens || 0;
-            tokens[ev.tool].out += ev.outTokens || 0;
-            tokens[ev.tool].cache_read += ev.cacheReadTokens || 0;
-            tokens[ev.tool].cache_write += ev.cacheWriteTokens || 0;
-          } else {
-            // Legacy events stored without a cache breakdown: derive a
-            // deterministic cache estimate from the tool's known rate.
-            let fallbackCache = ev.tokens * 0.5;
-            if (ev.tool === 'cursor' || ev.tool === 'codex' || ev.tool === 'codex_proxy') fallbackCache = ev.tokens * 0.93;
-            else if (ev.tool === 'claude') fallbackCache = ev.tokens * 0.8;
-            else if (ev.tool === 'antigravity') fallbackCache = ev.tokens * 0.1;
-
-            const freshTokens = Math.max(0, ev.tokens - fallbackCache);
-            tokens[ev.tool].in += freshTokens * 0.9;
-            tokens[ev.tool].out += freshTokens * 0.1;
-            tokens[ev.tool].cache_read += fallbackCache;
-          }
-          userTotal += eventTotal;
+          userEvents.push(ev);
         } catch (e) {}
       }
     }
 
-    if (userTotal > 0) {
-      tokens['total'] = userTotal;
-      aggregatedList.push({ ...baseData, tokens });
+    const aggregate = aggregateRankEvents(userEvents);
+    if (aggregate.metrics.total > 0) {
+      aggregatedList.push({ ...baseData, tokens: aggregate.tokens, metrics: aggregate.metrics });
     }
   }
 
   // Keyed by userId (never by display name) — two people sharing a name stay
   // separate, and a single user's multi-device data is already merged upstream
   // in updateTokenUsage.
-  aggregatedList.sort((a, b) => b.tokens.total - a.tokens.total);
-  return aggregatedList.slice(0, limit);
+  return sortRankRows(aggregatedList, metric).slice(0, limit);
 }
 
 // Scan timeseries keys and return the set of userIds that have data on any date
@@ -794,17 +778,17 @@ async function discoverActiveUserIds(window: Set<string>): Promise<string[]> {
   return [...ids];
 }
 
-export async function getGlobalStats(leaderboardData: UserRankData[] | null = null) {
+export async function getGlobalStats(leaderboardData: UserRankData[] | null = null, metric: RankMetric = 'total') {
   if (!kv) return { totalUsers: 0, totalTokens: 0 };
   
   if (leaderboardData) {
     const totalUsers = leaderboardData.length;
-    const totalTokens = leaderboardData.reduce((acc, user) => acc + (user.tokens.total || 0), 0);
+    const totalTokens = leaderboardData.reduce((acc, user) => acc + (user.metrics?.[metric] || 0), 0);
     return { totalUsers, totalTokens };
   }
   
-  const totalUsers = await kv.zcard('leaderboard:total');
-  const allScores = await kv.zrange('leaderboard:total', 0, -1, 'WITHSCORES');
+  const totalUsers = await kv.zcard(`leaderboard:${metric}`);
+  const allScores = await kv.zrange(`leaderboard:${metric}`, 0, -1, 'WITHSCORES');
   let totalTokens = 0;
   for (let i = 1; i < allScores.length; i += 2) {
      totalTokens += Number(allScores[i]) || 0;

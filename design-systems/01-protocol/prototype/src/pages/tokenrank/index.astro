@@ -4,19 +4,20 @@ import ShareModal from '../../components/ShareModal.astro';
 import { getSession } from 'auth-astro/server';
 import { getLeaderboard, getGlobalStats } from '../../lib/kv';
 import { beijingDateString } from '../../lib/date';
+import { PRICING_SNAPSHOT_DATE } from '../../lib/token-pricing.mjs';
+import { resolveRankQuery } from '../../lib/tokenrank-domain.mjs';
 
 // Opt-out of static rendering for real-time leaderboard
 export const prerender = false;
 
-const timeFilter = Astro.url.searchParams.get('time') || 'today';
-const rawMode = Astro.url.searchParams.get('mode') || 'tokens';
-const modeFilter = rawMode === 'cost' ? 'cost' : 'tokens';
+const { time: timeFilter, metric: metricFilter } = resolveRankQuery(Astro.url.searchParams);
+const rankValue = (user: any) => Number(user?.metrics?.[metricFilter]) || 0;
 
 let leaderboard: any[] = [];
 let stats = { totalUsers: 0, totalTokens: 0 };
 try {
-  leaderboard = await getLeaderboard(100, timeFilter);
-  stats = await getGlobalStats(leaderboard);
+  leaderboard = await getLeaderboard(100, timeFilter, metricFilter);
+  stats = await getGlobalStats(leaderboard, metricFilter);
 } catch (e) {
   console.error('Failed to fetch leaderboard data:', e);
 }
@@ -51,8 +52,8 @@ try {
     let bestIdx = -1;
     let bestTotal = -1;
     leaderboard.forEach((u: any, i: number) => {
-      if (userMatchesSession(u) && (u.tokens?.total || 0) > bestTotal) {
-        bestTotal = u.tokens?.total || 0;
+      if (userMatchesSession(u) && rankValue(u) > bestTotal) {
+        bestTotal = rankValue(u);
         bestIdx = i;
       }
     });
@@ -64,7 +65,8 @@ try {
       currentUser = {
         name: session.user.name,
         image: session.user.image,
-        tokens: { total: 0 }
+        tokens: { total: 0 },
+        metrics: { total: 0, norm: 0, cost: 0 }
       };
       currentUserRank = 0;
     }
@@ -78,43 +80,10 @@ const seoJsonLd = {
   description: '全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。'
 };
 
-const PRICING: Record<string, { in: number, out: number, cache: number }> = {
-  'gpt-5.6-sol': { in: 2.5, out: 10, cache: 0.5 },
-  'gemini-2.5-pro': { in: 1.25, out: 5, cache: 0.3 },
-  'claude-3-5-sonnet': { in: 3.0, out: 15, cache: 0.3 },
-  'default': { in: 1.0, out: 4, cache: 0.2 }
-};
-
-const getToolEstimatedCost = (tool: string, amount: any) => {
-  let model = 'default';
-  if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') model = 'gpt-5.6-sol';
-  else if (tool === 'antigravity') model = 'gemini-2.5-pro';
-  else if (tool === 'claude') model = 'claude-3-5-sonnet';
-  const p = PRICING[model] || PRICING['default'];
-  
-  if (typeof amount === 'number') {
-    let cacheRate = 0.5;
-    if (model === 'gpt-5.6-sol') cacheRate = 0.93;
-    else if (model === 'claude-3-5-sonnet') cacheRate = 0.8;
-    else if (model === 'gemini-2.5-pro') cacheRate = 0.1;
-    const millions = amount / 1_000_000;
-    return (millions * cacheRate * p.cache) + (millions * (1 - cacheRate) * (0.9 * p.in + 0.1 * p.out));
-  } else if (amount) {
-    const rawIn = Number(amount.in) || 0;
-    const cacheRead = Number(amount.cache_read) || 0;
-    const freshIn = Math.max(0, rawIn - cacheRead);
-    const out = Number(amount.out) || 0;
-    return (freshIn / 1_000_000 * p.in) + 
-           (out / 1_000_000 * p.out) + 
-           (cacheRead / 1_000_000 * p.cache);
-  }
-  return 0;
-};
-
-const formatDisplayAmount = (num: any, mode: string = 'tokens') => {
+const formatDisplayAmount = (num: any, metric: string = 'total') => {
   const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));
+  if (metric === 'cost') return '$' + n.toFixed(2);
   if (n === 0) return '暂无消耗';
-  if (mode === 'cost') return '$' + n.toFixed(2);
   if (n >= 100_000_000) return (n / 100_000_000).toFixed(2) + '亿';
   if (n >= 10_000) return (n / 10_000).toFixed(1) + '万';
   return n.toFixed(0);
@@ -133,7 +102,6 @@ let globalTokens = 0;
 let globalRawTokens = 0;
 let globalEffectiveTokens = 0;
 let globalCost = 0;
-let globalNoCacheCost = 0;
 let globalCacheHitTokens = 0;
 let globalOutputTokens = 0;
 const toolCounts: Record<string, number> = {};
@@ -143,40 +111,25 @@ leaderboard.forEach(user => {
     if (tool === 'total') return;
     toolCounts[tool] = (toolCounts[tool] || 0) + 1;
     
-    globalCost += getToolEstimatedCost(tool, amount);
-    
-    let model = 'default';
-    if (tool === 'cursor' || tool === 'codex' || tool === 'codex_proxy') model = 'gpt-5.6-sol';
-    else if (tool === 'antigravity') model = 'gemini-2.5-pro';
-    else if (tool === 'claude') model = 'claude-3-5-sonnet';
-    const p = PRICING[model] || PRICING['default'];
-    
     if (typeof amount === 'number') {
-      let cacheRate = 0.5;
-      if (model === 'gpt-5.6-sol') cacheRate = 0.93;
-      else if (model === 'claude-3-5-sonnet') cacheRate = 0.8;
-      else if (model === 'gemini-2.5-pro') cacheRate = 0.1;
-      globalCacheHitTokens += amount * cacheRate;
       globalRawTokens += amount;
-      globalEffectiveTokens += Math.max(0, amount - amount * cacheRate);
-      const millions = amount / 1_000_000;
-      globalNoCacheCost += millions * (0.9 * p.in + 0.1 * p.out);
-      globalOutputTokens += (amount * (1 - cacheRate)) * 0.1;
+      globalEffectiveTokens += amount;
     } else if (amount) {
       const cacheRead = Number(amount.cache_read) || 0;
       const rawTotal = Number(amount.raw_total ?? amount.total) || 0;
       globalCacheHitTokens += cacheRead;
       globalRawTokens += rawTotal;
-      globalEffectiveTokens += Math.max(0, rawTotal - cacheRead);
-      globalNoCacheCost += ((amount.in || 0) / 1_000_000 * p.in) + ((amount.out || 0) / 1_000_000 * p.out);
+      globalEffectiveTokens += Number(amount.norm ?? amount.total) || 0;
       globalOutputTokens += amount.out || 0;
     }
   });
-  globalTokens += (user.tokens.total || 0);
+  globalTokens += Number(user.metrics?.total) || 0;
+  globalCost += Number(user.metrics?.cost) || 0;
 });
 
-const cacheSavings = globalNoCacheCost - globalCost;
 const globalCacheHitRate = globalRawTokens > 0 ? ((globalCacheHitTokens / globalRawTokens) * 100).toFixed(1) : '0.0';
+const globalSelected = leaderboard.reduce((sum, user) => sum + rankValue(user), 0);
+const metricLabel = metricFilter === 'norm' ? '不含缓存' : metricFilter === 'cost' ? '预估费用' : '含缓存';
 const activeToolsCount = Object.keys(toolCounts).length;
 const conversations = Math.floor(globalTokens / 200_000);
 const effectiveTokens = globalEffectiveTokens;
@@ -213,10 +166,10 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
           <span class="bc-title">{timeFilter === 'today' ? '当日' : timeFilter === 'yesterday' ? '昨日' : timeFilter === 'all' ? '历史' : `近${timeFilter.replace('d', '天')}`}消耗 (Top 100) <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {formatDisplayAmount(globalTokens, modeFilter).replace('亿', '').replace('万', '')}
-          {formatDisplayAmount(globalTokens, modeFilter).includes('亿') ? <span class="bc-unit">亿</span> : formatDisplayAmount(globalTokens, modeFilter).includes('万') ? <span class="bc-unit">万</span> : ''}
+          {formatDisplayAmount(globalSelected, metricFilter).replace('亿', '').replace('万', '')}
+          {formatDisplayAmount(globalSelected, metricFilter).includes('亿') ? <span class="bc-unit">亿</span> : formatDisplayAmount(globalSelected, metricFilter).includes('万') ? <span class="bc-unit">万</span> : ''}
         </div>
-        <div class="bc-subtext">日均约 {(globalTokens / 100_000_000 / 30).toFixed(1)} 亿</div>
+        <div class="bc-subtext">当前排行口径：{metricLabel}</div>
       </div>
 
       <!-- Card 2 -->
@@ -227,7 +180,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
         <div class="bc-value">
           <span class="bc-unit-prefix">$</span>{globalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}
         </div>
-        <div class="bc-subtext">缓存节省 ${cacheSavings.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+        <div class="bc-subtext">按中央价目等效折算 · {PRICING_SNAPSHOT_DATE}</div>
       </div>
 
       <!-- Card 3 -->
@@ -300,13 +253,18 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
     <!-- Time Filters -->
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
-        <a href="?time=today" class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href="?time=yesterday" class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
-        <a href="?time=3d" class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
-        <a href="?time=7d" class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
-        <a href="?time=30d" class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
-        <a href="?time=90d" class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
-        <a href="?time=all" class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+        <a href={`?time=today&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+        <a href={`?time=yesterday&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
+        <a href={`?time=3d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+        <a href={`?time=7d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+        <a href={`?time=30d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+        <a href={`?time=90d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+        <a href={`?time=all&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+      </div>
+      <div class="time-filter-pills metric-filter-pills">
+        <a href={`?time=${timeFilter}&metric=total`} class={`pill-item ${metricFilter === 'total' ? 'active' : ''}`}>含缓存</a>
+        <a href={`?time=${timeFilter}&metric=norm`} class={`pill-item ${metricFilter === 'norm' ? 'active' : ''}`}>不含缓存</a>
+        <a href={`?time=${timeFilter}&metric=cost`} class={`pill-item ${metricFilter === 'cost' ? 'active' : ''}`}>预估费用</a>
       </div>
       
       <div class="date-display">
@@ -320,7 +278,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
           <div class="lb-col-rank">排名</div>
           <div class="lb-col-user">T 友</div>
           <div class="lb-col-details">消耗详情 (多端工具)</div>
-          <div class="lb-col-tokens">消耗 Token</div>
+          <div class="lb-col-tokens">{metricLabel}</div>
           <div class="lb-col-cost">预估成本</div>
         </div>
 
@@ -343,11 +301,11 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
               <button class="btn-share-mini" onclick="openShareModal()">生成海报分享 ↗</button>
             </div>
             <div class="lb-col-tokens">
-              <div class="lb-num-tokens">{formatDisplayAmount(currentUser.tokens?.total || 0, 'tokens')}</div>
+              <div class="lb-num-tokens">{formatDisplayAmount(rankValue(currentUser), metricFilter)}</div>
             </div>
             <div class="lb-col-cost">
               <div class="lb-num-cost">
-                ${Object.entries(currentUser.tokens || {}).filter(([k]) => k !== 'total').reduce((acc, [t, a]) => acc + getToolEstimatedCost(t, a), 0).toFixed(2)}
+                ${(Number(currentUser.metrics?.cost) || 0).toFixed(2)}
               </div>
             </div>
           </div>
@@ -384,20 +342,17 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
             if (gh && seenGithubIds.has(gh)) return null;
             if (gh) seenGithubIds.add(gh);
             const rank = idx + 1;
-            let userTotalEstimatedCost = 0;
-          let userTotalTokens = typeof user.tokens?.total === 'number' ? user.tokens.total : 0;
-          
           const toolsBreakdown = Object.entries(user.tokens || {})
             .filter(([k]) => k !== 'total')
             .map(([tool, rawAmount]: [string, any]) => {
-              const cost = getToolEstimatedCost(tool, rawAmount);
-              const totalVal = typeof rawAmount === 'object' && rawAmount !== null ? (rawAmount.total || 0) : (Number(rawAmount) || 0);
-              userTotalEstimatedCost += cost;
-              return { tool, amount: totalVal };
+              const amount = typeof rawAmount === 'object' && rawAmount !== null
+                ? Number(rawAmount[metricFilter] ?? rawAmount.total) || 0
+                : (metricFilter === 'cost' ? 0 : Number(rawAmount) || 0);
+              return { tool, amount };
             });
 
           return (
-            <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}'`}>
+            <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}?time=${timeFilter}&metric=${metricFilter}'`}>
               <div class="lb-col-rank">
                 {rank === 1 ? <div class="rank-text rank-1">#1</div> : 
                  rank === 2 ? <div class="rank-text rank-2">#2</div> : 
@@ -421,14 +376,14 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
                     else if (t.includes('antigravity')) tagClass = 'tag-antigravity';
                     else if (t.includes('cherry')) tagClass = 'tag-cherry';
                     else if (t.includes('claude')) tagClass = 'tag-claude';
-                    return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, 'tokens')}</span>;
+                    return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, metricFilter)}</span>;
                 })}
               </div>
               <div class="lb-col-tokens">
-                <div class="lb-num-tokens">{formatDisplayAmount(userTotalTokens, 'tokens')}</div>
+                <div class="lb-num-tokens">{formatDisplayAmount(rankValue(user), metricFilter)}</div>
               </div>
               <div class="lb-col-cost">
-                <div class="lb-num-cost">${userTotalEstimatedCost.toFixed(2)}</div>
+                <div class="lb-num-cost">${(Number(user.metrics?.cost) || 0).toFixed(2)}</div>
               </div>
             </div>
           );
@@ -445,7 +400,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
 
   </main>
 
-  <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} />
+  <ShareModal leaderboard={leaderboard} currentUser={currentUser} currentUserRank={currentUserRank} metric={metricFilter} />
 </BaseLayout>
 
 <style>
