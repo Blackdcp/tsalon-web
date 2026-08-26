@@ -40,3 +40,20 @@
 - `node --test scripts/tokenrank-metrics.test.mjs scripts/tokenrank-domain.test.mjs scripts/tokenrank-upload.test.mjs scripts/codex-ledger-store.test.mjs` — 46/46 passed.
 - `npx astro check` — 0 errors, 0 warnings; 15 pre-existing hints in generated/public scripts.
 - `git diff --check` — passed.
+
+## Fix Round 2
+
+### Commit
+
+- `Keep empty TokenRank windows empty` (this fix round's commit)
+
+### Reviewer issue resolved
+
+- Added a page-level presentation helper shared by both personal pages. Non-`all` windows now derive tool count and input/output/cache composition exclusively from canonical events, so empty today/yesterday/N-day windows show zero tools, zero AI time, and empty composition. Only `all` may use lifetime profile counters.
+- Added a regression test that exercises the same helper consumed by the Astro pages and verifies empty-period versus all-time behavior.
+
+### Verification
+
+- `node --test scripts/tokenrank-metrics.test.mjs scripts/tokenrank-domain.test.mjs scripts/tokenrank-upload.test.mjs scripts/codex-ledger-store.test.mjs` — 47/47 passed.
+- `npx astro check` — 0 errors, 0 warnings; 15 pre-existing hints in generated/public scripts.
+- `git diff --check` — passed.

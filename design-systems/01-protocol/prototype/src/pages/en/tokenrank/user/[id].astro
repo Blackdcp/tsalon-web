@@ -3,7 +3,7 @@ import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { kv, getUserAnalytics } from '../../../../lib/kv';
 import { beijingDateString, beijingDateNDaysAgo } from '../../../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../../../lib/token-pricing.mjs';
-import { rankEventMetric, rankMetricsFromTokens, resolveRankQuery, summarizeRankWindow } from '../../../../lib/tokenrank-domain.mjs';
+import { personalRankPresentation, rankEventMetric, rankMetricsFromTokens, resolveRankQuery, summarizeRankWindow } from '../../../../lib/tokenrank-domain.mjs';
 
 export const prerender = false;
 
@@ -135,9 +135,8 @@ if (timeFilter === 'all' && userData?.tokens) {
   freshTokens = Number(profileMetrics.norm) || 0;
 }
 
-const toolsUsed = (timeFilter === 'all' && userData?.tokens)
-  ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length
-  : (events.length > 0 ? new Set(events.map(e => e.tool)).size : (userData?.tokens ? Object.keys(userData.tokens).filter(k => k !== 'total' && k !== 'history').length : 0));
+const presentation = personalRankPresentation(timeFilter, events, userData.tokens);
+const toolsUsed = presentation.toolsUsed;
 
 // Daily averages
 const effectiveDays = timeFilter === 'today' || timeFilter === 'yesterday' ? 1 : days;
@@ -166,24 +165,10 @@ for (const d of Object.keys(dailyMap)) {
 
 // Real period composition (in/out/cache) straight from events; fall back to the
 // persistent user breakdown when the timeseries window has expired (e.g. 'all').
-let periodInTokens = 0, periodOutTokens = 0, periodCacheRead = 0, periodCacheWrite = 0;
-if (events.length > 0) {
-  events.forEach(e => {
-    periodInTokens += e.inTokens || 0;
-    periodOutTokens += e.outTokens || 0;
-    periodCacheRead += e.cacheReadTokens || 0;
-    periodCacheWrite += e.cacheWriteTokens || 0;
-  });
-} else if (userData && userData.tokens) {
-  Object.entries(userData.tokens).forEach(([tool, raw]: [string, any]) => {
-    if (tool === 'total' || tool === 'history') return;
-    const o = (typeof raw === 'object' && raw !== null) ? raw : null;
-    periodInTokens += o?.in || 0;
-    periodOutTokens += o?.out || 0;
-    periodCacheRead += o?.cache_read || 0;
-    periodCacheWrite += o?.cache_write || 0;
-  });
-}
+const periodInTokens = presentation.inTokens;
+const periodOutTokens = presentation.outTokens;
+const periodCacheRead = presentation.cacheRead;
+const periodCacheWrite = presentation.cacheWrite;
 // AI time = actual generated (output) tokens / 80 tok per second, in minutes.
 const aiTimeMinutes = periodOutTokens > 0 ? Math.floor(periodOutTokens / 80 / 60) : 0;
 const totalConversations = Object.values(dailyMap).reduce((s, d) => s + (d.sessions || 0), 0);

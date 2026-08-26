@@ -317,6 +317,31 @@ export function summarizeRankWindow(events = [], metric = 'total') {
   };
 }
 
+export function personalRankPresentation(time = 'today', events = [], profileTokens = {}) {
+  const presentation = { toolsUsed: 0, inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
+  if (time === 'all') {
+    const tools = Object.entries(profileTokens || {}).filter(([tool]) => tool !== 'total' && tool !== 'history');
+    presentation.toolsUsed = tools.length;
+    for (const [, raw] of tools) {
+      if (!raw || typeof raw !== 'object') continue;
+      presentation.inTokens += Number(raw.in) || 0;
+      presentation.outTokens += Number(raw.out) || 0;
+      presentation.cacheRead += Number(raw.cache_read) || 0;
+      presentation.cacheWrite += Number(raw.cache_write) || 0;
+    }
+    return presentation;
+  }
+
+  presentation.toolsUsed = new Set((events || []).map((event) => String(event?.tool || '')).filter(Boolean)).size;
+  for (const event of events || []) {
+    presentation.inTokens += Number(event?.inTokens) || 0;
+    presentation.outTokens += Number(event?.outTokens) || 0;
+    presentation.cacheRead += Number(event?.cacheReadTokens) || 0;
+    presentation.cacheWrite += Number(event?.cacheWriteTokens) || 0;
+  }
+  return presentation;
+}
+
 const RANK_TIMES = new Set(['today', 'yesterday', '3d', '7d', '30d', '90d', 'all']);
 const RANK_METRICS = new Set(['total', 'norm', 'cost']);
 

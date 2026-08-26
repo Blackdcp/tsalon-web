@@ -85,3 +85,25 @@ test('an empty event window reports no activity instead of fabricating a day', (
     hasEvents: false,
   });
 });
+
+test('personal page presentation never leaks lifetime tools or composition into an empty period', () => {
+  const profileTokens = {
+    total: 1_000,
+    claude: { total: 1_000, in: 900, out: 100, cache_read: 400, cache_write: 0 },
+  };
+
+  assert.deepEqual(domain.personalRankPresentation('today', [], profileTokens), {
+    toolsUsed: 0,
+    inTokens: 0,
+    outTokens: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  });
+  assert.deepEqual(domain.personalRankPresentation('all', [], profileTokens), {
+    toolsUsed: 1,
+    inTokens: 900,
+    outTokens: 100,
+    cacheRead: 400,
+    cacheWrite: 0,
+  });
+});
