@@ -1,6 +1,6 @@
 #!/bin/bash
 # T Salon Token Agent bootstrap for macOS/Linux.
-# Installs a login/background scheduler and runs one upload immediately.
+# Installs login/startup and daily schedulers, then runs one upload immediately.
 
 set -u
 
@@ -84,7 +84,7 @@ install_macos_launch_agent() {
   mkdir -p "$launch_dir"
   cat > "$runner" <<EOF
 #!/bin/bash
-exec /bin/bash -c "\$(/usr/bin/curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=5')" -- --token='$TOKEN' --host='$HOST' --scheduled-run
+exec /bin/bash -c "\$(/usr/bin/curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=8')" -- --token='$TOKEN' --host='$HOST' --scheduled-run
 EOF
   chmod 700 "$runner"
 
@@ -97,7 +97,11 @@ EOF
   <key>ProgramArguments</key>
   <array><string>/bin/bash</string><string>$runner</string></array>
   <key>RunAtLoad</key><true/>
-  <key>StartInterval</key><integer>1800</integer>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>17</integer>
+  </dict>
   <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>$TSALON_DIR/agent.log</string>
   <key>StandardErrorPath</key><string>$TSALON_DIR/agent.log</string>
@@ -108,7 +112,7 @@ EOF
 
   launchctl bootout "gui/$uid" "$plist" >/dev/null 2>&1 || true
   if launchctl bootstrap "gui/$uid" "$plist" >/dev/null 2>&1 || launchctl load "$plist" >/dev/null 2>&1; then
-    echo "✓ macOS login agent installed (at login + every 30 minutes)."
+    echo "✓ macOS login agent installed (at login + daily at 09:17)."
     # Remove only our legacy cron entry after launchd is confirmed working.
     if command -v crontab >/dev/null 2>&1; then
       local old filtered
@@ -124,10 +128,11 @@ EOF
 }
 
 install_linux_cron() {
-  local line
-  line="*/30 * * * * /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=5')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
-  (crontab -l 2>/dev/null | grep -v 'tsalon.tech/scripts/token-agent.sh'; printf '%s\n' "$line") | crontab -
-  echo "✓ Linux background upload installed (every 30 minutes)."
+  local reboot_line line
+  reboot_line="@reboot /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=8')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
+  line="17 9 * * * /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=8')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
+  (crontab -l 2>/dev/null | grep -v 'tsalon.tech/scripts/token-agent.sh'; printf '%s\n' "$reboot_line" "$line") | crontab -
+  echo "✓ Linux background upload installed (at startup + daily at 09:17)."
 }
 
 OS_NAME="$(uname -s 2>/dev/null || true)"

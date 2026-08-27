@@ -13,6 +13,7 @@ function unixInstallerHarness(t, osName = 'Darwin') {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tsalon-installer-test-'));
   const bin = path.join(home, 'bin');
   const runs = path.join(home, 'runs.log');
+  const crontab = path.join(home, 'crontab');
   fs.mkdirSync(bin, { recursive: true });
   fs.mkdirSync(path.join(home, '.tsalon'), { recursive: true });
   fs.writeFileSync(path.join(home, '.tsalon', 'sql-wasm.cjs'), 'fixture');
@@ -33,7 +34,13 @@ sleep 1
 if [ "$1" = "bootstrap" ]; then echo launchd >> "$TSALON_TEST_RUNS"; fi
 exit 0
 `);
-  writeExecutable(path.join(bin, 'crontab'), '#!/bin/bash\nexit 0\n');
+  writeExecutable(path.join(bin, 'crontab'), `#!/bin/bash
+if [ "\${1:-}" = "-l" ]; then
+  if [ -f "$TSALON_TEST_CRONTAB" ]; then cat "$TSALON_TEST_CRONTAB"; fi
+  exit 0
+fi
+cat > "$TSALON_TEST_CRONTAB"
+`);
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   return {
     home,
@@ -43,6 +50,7 @@ exit 0
       HOME: home,
       PATH: `${bin}:/usr/bin:/bin`,
       TSALON_TEST_RUNS: runs,
+      TSALON_TEST_CRONTAB: crontab,
     },
   };
 }
@@ -78,6 +86,32 @@ test('macOS install leaves the immediate first upload exclusively to launchd Run
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.deepEqual(readRuns(harness.runs), ['launchd']);
+
+  const plist = fs.readFileSync(path.join(
+    harness.home,
+    'Library/LaunchAgents/tech.tsalon.token-agent.plist',
+  ), 'utf8');
+  assert.match(plist, /<key>RunAtLoad<\/key><true\/>/);
+  assert.match(plist, /<key>StartCalendarInterval<\/key>\s*<dict>\s*<key>Hour<\/key><integer>9<\/integer>\s*<key>Minute<\/key><integer>17<\/integer>\s*<\/dict>/);
+  assert.doesNotMatch(plist, /StartInterval|1800/);
+});
+
+test('Linux install schedules one startup upload and one daily upload at 09:17 local time', (t) => {
+  const harness = unixInstallerHarness(t, 'Linux');
+
+  const result = runUnixInstaller([
+    '--token=test-token', '--host=http://localhost', '--install',
+  ], harness.env);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.deepEqual(fs.readFileSync(harness.env.TSALON_TEST_CRONTAB, 'utf8').trim().split('\n').map((line) => line.split(' ')[0]), [
+    '@reboot',
+    '17',
+  ]);
+  const installed = fs.readFileSync(harness.env.TSALON_TEST_CRONTAB, 'utf8');
+  assert.match(installed, /^@reboot .*--scheduled-run/m);
+  assert.match(installed, /^17 9 \* \* \* .*--scheduled-run/m);
+  assert.doesNotMatch(installed, /\*\/30|1800/);
 });
 
 test('Unix runner lock allows only one agent process during overlapping scheduled runs', async (t) => {
@@ -156,6 +190,20 @@ test('Windows scheduled task launches wscript and never PowerShell directly', ()
   assert.match(source, /\.Run\([^,]+,\s*0,\s*True\)/i);
 });
 
+test('Windows scheduled task runs at login and once daily at 09:17 local time', () => {
+  const source = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
+  assert.match(source, /New-ScheduledTaskTrigger -AtLogOn -User \$env:USERNAME/);
+  assert.match(source, /New-ScheduledTaskTrigger -Daily -At "09:17"/);
+  assert.doesNotMatch(source, /RepetitionInterval|AddMinutes\(30\)|every 30 minutes/i);
+});
+
+test('installers contain no 30-minute polling schedules or copy', () => {
+  for (const file of ['public/scripts/token-agent.sh', 'public/scripts/token-agent.ps1']) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(source, /<key>StartInterval<\/key>|<integer>1800<\/integer>|\*\/30|RepetitionInterval|every 30 minutes/i, file);
+  }
+});
+
 function assertLedgerDownloadBeforeAgent(source, downloadPattern) {
   const ledgerIndex = source.indexOf('codex-ledger.mjs');
   const agentIndex = source.lastIndexOf('agent.mjs');
@@ -181,24 +229,34 @@ test('both installers download codex-ledger.mjs before agent execution', () => {
   }
 });
 
-test('connect-page bootstrap commands pin token-agent schema version 7', () => {
+test('connect-page bootstrap commands pin token-agent schema version 8', () => {
   for (const file of ['src/pages/tokenrank/connect.astro', 'src/pages/en/tokenrank/connect.astro']) {
     const source = fs.readFileSync(file, 'utf8');
-    assert.match(source, /https':'\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\\\?v=7/);
-    assert.match(source, /token-agent\.sh\\\?v=7/);
-    assert.match(source, /'https' \+ ':\/\/www\.tsalon\.tech\/scripts\/token-agent\.ps1\?v=7'/);
+    assert.match(source, /https':'\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\\\?v=8/);
+    assert.match(source, /token-agent\.sh\\\?v=8/);
+    assert.match(source, /'https' \+ ':\/\/www\.tsalon\.tech\/scripts\/token-agent\.ps1\?v=8'/);
   }
+});
+
+test('connect pages describe login sync plus one daily 09:17 sync', () => {
+  const chinese = fs.readFileSync('src/pages/tokenrank/connect.astro', 'utf8');
+  assert.match(chinese, /登录即同步 \+ 每天 09:17/);
+  assert.doesNotMatch(chinese, /每 30 分钟/);
+
+  const english = fs.readFileSync('src/pages/en/tokenrank/connect.astro', 'utf8');
+  assert.match(english, /at login \+ daily at 09:17/);
+  assert.doesNotMatch(english, /every 30 min/);
 });
 
 test('scheduled self-updaters request versioned installers with cache revalidation', () => {
   const windows = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
-  assert.match(windows, /irm '\$safeHost\/scripts\/token-agent\.ps1\?v=5' -Headers @\{ 'Cache-Control' = 'no-cache' \}/i);
+  assert.match(windows, /irm '\$safeHost\/scripts\/token-agent\.ps1\?v=8' -Headers @\{ 'Cache-Control' = 'no-cache' \}/i);
 
   const unix = fs.readFileSync('public/scripts/token-agent.sh', 'utf8');
   const macRunner = unix.split('\n').find((line) => line.includes('/usr/bin/curl -fsSL'));
   const linuxCron = unix.split('\n').find((line) => line.trimStart().startsWith('line='));
-  assert.match(macRunner, /\/usr\/bin\/curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=5'/);
-  assert.match(linuxCron, /curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=5'/);
+  assert.match(macRunner, /\/usr\/bin\/curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=8'/);
+  assert.match(linuxCron, /curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=8'/);
 });
 
 test('root Vercel configuration disables caching for scripts while preserving API protection', () => {

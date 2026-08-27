@@ -57,21 +57,21 @@ if (session?.user?.id) {
                 
                 <div id="mac-linux" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    自动守护（登录即同步 + 每 30 分钟）
+                    自动守护（登录即同步 + 每天 09:17）
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端运行一次，将立即同步，并安装开机登录自动启动的后台任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=7)" -- --token="{uploadToken}" --install
+                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=8)" -- --token="{uploadToken}" --install
                   </code>
                 </div>
 
                 <div id="windows" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    自动守护（登录即同步 + 每 30 分钟）
+                    自动守护（登录即同步 + 每天 09:17）
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell（普通用户即可）中运行一次，将立即同步，并安装登录自动启动的后台任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm ('https' + '://www.tsalon.tech/scripts/token-agent.ps1?v=7')))) -token '{uploadToken}'"
+                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm ('https' + '://www.tsalon.tech/scripts/token-agent.ps1?v=8')))) -token '{uploadToken}'"
                   </code>
                 </div>
               </div>

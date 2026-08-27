@@ -129,7 +129,7 @@ if (-not $scheduledRun) {
     $taskName = "TSalonTokenAgent"
     $safeToken = $token -replace "'", "''"
     $safeHost = $host_url -replace "'", "''"
-    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1?v=5' -Headers @{ 'Cache-Control' = 'no-cache' }))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
+    $bootstrapCmd = "& ([ScriptBlock]::Create((irm '$safeHost/scripts/token-agent.ps1?v=8' -Headers @{ 'Cache-Control' = 'no-cache' }))) -token '$safeToken' -host_url '$safeHost' -scheduledRun"
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrapCmd))
     $runnerPath = Join-Path $tsalonDir 'run-agent-hidden.vbs'
     $vbsCommand = 'powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + $encodedCommand
@@ -141,13 +141,13 @@ WScript.Quit exitCode
 "@
     [System.IO.File]::WriteAllText($runnerPath, $vbs, [Text.Encoding]::ASCII)
     $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument ('"' + $runnerPath + '"')
-    $triggerTimer = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(30)) -RepetitionInterval (New-TimeSpan -Minutes 30)
     $triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $triggerDaily = New-ScheduledTaskTrigger -Daily -At "09:17"
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
     try {
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerTimer, $triggerLogon) -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
-        Write-Host "✓ Scheduled task '$taskName' registered (at login + every 30 minutes)." -ForegroundColor Green
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerLogon, $triggerDaily) -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+        Write-Host "✓ Scheduled task '$taskName' registered (at login + daily at 09:17)." -ForegroundColor Green
     } catch {
         Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow
         Write-Host "   The scan will continue; re-run this command to retry auto-start setup." -ForegroundColor Yellow
