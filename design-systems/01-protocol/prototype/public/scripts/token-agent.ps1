@@ -67,6 +67,37 @@ $agentPath   = Join-Path $tsalonDir "agent.mjs"
 $sqlJsPath   = Join-Path $tsalonDir "sql-wasm.cjs"
 $sqlWasmPath = Join-Path $tsalonDir "sql-wasm.wasm"
 $logPath     = Join-Path $tsalonDir "agent.log"
+$runLockPath = Join-Path $tsalonDir "agent-run.lock"
+$runLockOwnerPath = Join-Path $runLockPath "pid"
+
+function Acquire-RunLock {
+    try {
+        New-Item -ItemType Directory -Path $runLockPath -ErrorAction Stop | Out-Null
+    } catch {
+        $ownerPid = $null
+        try { $ownerPid = [int](Get-Content -LiteralPath $runLockOwnerPath -TotalCount 1 -ErrorAction Stop) } catch {}
+        if ($ownerPid -and (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue)) { return $false }
+        if (-not $ownerPid) {
+            $lockAge = (Get-Date) - (Get-Item -LiteralPath $runLockPath -ErrorAction SilentlyContinue).LastWriteTime
+            if (-not $lockAge -or $lockAge.TotalMinutes -lt 15) { return $false }
+        }
+        Remove-Item -LiteralPath $runLockPath -Recurse -Force -ErrorAction SilentlyContinue
+        try {
+            New-Item -ItemType Directory -Path $runLockPath -ErrorAction Stop | Out-Null
+        } catch {
+            return $false
+        }
+    }
+    [System.IO.File]::WriteAllText($runLockOwnerPath, [string]$PID, [Text.Encoding]::ASCII)
+    return $true
+}
+
+if (-not (Acquire-RunLock)) {
+    Write-Host "⏭️ Token Agent is already running; skipping this overlapping run." -ForegroundColor Yellow
+    exit 0
+}
+
+try {
 
 # ---------- download agent + ledger + sqlite assets ----------
 Write-Host "⬇️  Downloading Token Agent (Node.js)..." -ForegroundColor Cyan
@@ -158,3 +189,6 @@ if ($exitCode -ne 0) {
 }
 
 Write-Host "Done. Refresh the leaderboard in a moment to see your data." -ForegroundColor Cyan
+} finally {
+    Remove-Item -LiteralPath $runLockPath -Recurse -Force -ErrorAction SilentlyContinue
+}

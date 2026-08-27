@@ -116,8 +116,10 @@ EOF
       filtered="$(printf '%s\n' "$old" | grep -v 'tsalon.tech/scripts/token-agent.sh' || true)"
       if [ "$old" != "$filtered" ]; then printf '%s\n' "$filtered" | crontab -; fi
     fi
+    return 0
   else
     echo "⚠️ Could not load the macOS login agent; the immediate upload will still run."
+    return 1
   fi
 }
 
@@ -133,11 +135,64 @@ if [ "$SCHEDULED_RUN" -eq 0 ]; then
   # Existing Mac cron installations automatically migrate the next time they
   # fetch this script, even if the user does not revisit the connect page.
   if [ "$OS_NAME" = "Darwin" ]; then
-    install_macos_launch_agent
+    # RunAtLoad starts the first upload. Do not also continue into the manual
+    # path, or a single install command submits two concurrent full ledgers.
+    if install_macos_launch_agent; then exit 0; fi
   elif [ "$INSTALL" -eq 1 ] && command -v crontab >/dev/null 2>&1; then
     install_linux_cron
   fi
 fi
+
+RUN_LOCK_DIR="$TSALON_DIR/agent-run.lock"
+RUN_LOCK_PID="$RUN_LOCK_DIR/pid"
+
+release_run_lock() {
+  rm -f "$RUN_LOCK_PID" 2>/dev/null || true
+  rmdir "$RUN_LOCK_DIR" 2>/dev/null || true
+}
+
+acquire_run_lock() {
+  if mkdir "$RUN_LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$RUN_LOCK_PID"
+    return 0
+  fi
+
+  local owner=""
+  if [ -f "$RUN_LOCK_PID" ]; then owner="$(sed -n '1p' "$RUN_LOCK_PID" 2>/dev/null || true)"; fi
+  if printf '%s' "$owner" | grep -Eq '^[0-9]+$' && kill -0 "$owner" 2>/dev/null; then
+    return 1
+  fi
+
+  # mkdir is atomic, but publishing the PID is a second filesystem operation.
+  # During that tiny window an empty/missing marker still belongs to a live run.
+  if ! printf '%s' "$owner" | grep -Eq '^[0-9]+$'; then
+    local now lock_mtime
+    now="$(date +%s)"
+    lock_mtime="$(stat -f '%m' "$RUN_LOCK_DIR" 2>/dev/null || stat -c '%Y' "$RUN_LOCK_DIR" 2>/dev/null || true)"
+    if ! printf '%s' "$lock_mtime" | grep -Eq '^[0-9]+$' || [ $((now - lock_mtime)) -lt 900 ]; then
+      return 1
+    fi
+  fi
+
+  # The previous process died without running its trap. Reclaim only this
+  # fixed, user-private lock directory, then race once to acquire it.
+  rm -f "$RUN_LOCK_PID" 2>/dev/null || true
+  rmdir "$RUN_LOCK_DIR" 2>/dev/null || true
+  if mkdir "$RUN_LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$RUN_LOCK_PID"
+    return 0
+  fi
+  return 1
+}
+
+if ! acquire_run_lock; then
+  echo "⏭️ Token Agent is already running; skipping this overlapping run."
+  exit 0
+fi
+trap release_run_lock EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 NODE_CMD="$(find_node || true)"
 if [ -z "$NODE_CMD" ]; then

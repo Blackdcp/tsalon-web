@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 import { storeAccountAuditWithTimeout } from '../../../lib/codex-ledger.ts';
 import { readUploadJson, UploadBodyError } from '../../../lib/upload-body.ts';
+import { classifyUploadError } from '../../../lib/upload-error.ts';
 
 export const prerender = false;
 
@@ -107,11 +108,15 @@ export const POST: APIRoute = async ({ request }) => {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const invalidLedger = error instanceof Error && /^Invalid Codex ledger/.test(error.message);
+    const classified = classifyUploadError(error);
     return new Response(JSON.stringify({
       success: false,
-      message: invalidLedger ? error.message : 'Server error',
+      message: classified.message,
+      retryable: classified.retryable,
       schema_version: 5,
-    }), { status: invalidLedger ? 400 : 500 });
+    }), {
+      status: classified.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };

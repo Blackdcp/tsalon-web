@@ -7,6 +7,16 @@ import { normalizeDeviceUpload, normalizeToolTokens } from '../src/lib/tokenrank
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
 
+test('busy token updates return a retryable conflict instead of a generic server error', async () => {
+  const uploadErrors = await import('../src/lib/upload-error.ts').catch(() => ({}));
+  assert.equal(typeof uploadErrors.classifyUploadError, 'function');
+  assert.deepEqual(uploadErrors.classifyUploadError(new Error('Token update is busy; retry on the next agent run')), {
+    status: 409,
+    message: 'Another token upload is already running; retry shortly.',
+    retryable: true,
+  });
+});
+
 test('legacy Codex raw_total becomes main total instead of cache-subtracted total', () => {
   const normalized = normalizeToolTokens('codex', {
     total: 6_089_897,
