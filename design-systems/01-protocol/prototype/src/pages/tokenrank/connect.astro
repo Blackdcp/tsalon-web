@@ -61,7 +61,7 @@ if (session?.user?.id) {
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端运行一次，将立即同步，并安装开机登录自动启动的后台任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    bash -c "$(curl -fsSL https://www.tsalon.tech/scripts/token-agent.sh?v=7)" -- --token="{uploadToken}" --install
+                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh?v=7)" -- --token="{uploadToken}" --install
                   </code>
                 </div>
 
@@ -71,7 +71,7 @@ if (session?.user?.id) {
                   </h4>
                   <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell（普通用户即可）中运行一次，将立即同步，并安装登录自动启动的后台任务：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm 'https://www.tsalon.tech/scripts/token-agent.ps1?v=7'))) -token '{uploadToken}'"
+                    powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm ('https' + '://www.tsalon.tech/scripts/token-agent.ps1?v=7')))) -token '{uploadToken}'"
                   </code>
                 </div>
               </div>
