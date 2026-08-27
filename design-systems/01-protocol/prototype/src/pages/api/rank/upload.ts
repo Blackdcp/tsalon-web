@@ -1,12 +1,13 @@
 import type { APIRoute } from 'astro';
 import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 import { storeAccountAuditWithTimeout } from '../../../lib/codex-ledger.ts';
+import { readUploadJson, UploadBodyError } from '../../../lib/upload-body.ts';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = await readUploadJson(request);
     const { token, data, device_id, reset, history_complete_tools } = body;
     const codexLedger = body.codex_ledger?.version === 5 ? body.codex_ledger : null;
 
@@ -100,6 +101,12 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (error) {
     console.error(error);
+    if (error instanceof UploadBodyError) {
+      return new Response(JSON.stringify({ success: false, message: error.message, schema_version: 5 }), {
+        status: error.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const invalidLedger = error instanceof Error && /^Invalid Codex ledger/.test(error.message);
     return new Response(JSON.stringify({
       success: false,

@@ -17,7 +17,7 @@
     "site:headings": "node scripts/site-heading-check.mjs",
     "site:links": "node scripts/site-link-check.mjs",
     "events:sync": "node scripts/sync-huodongxing-events.mjs",
-    "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs scripts/token-agent-installers.test.mjs scripts/tokenrank-domain.test.mjs scripts/codex-ledger-store.test.mjs scripts/redis-generation.test.mjs scripts/tokenrank-metrics.test.mjs scripts/tokenrank-upload.test.mjs",
+    "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs scripts/token-agent-installers.test.mjs scripts/tokenrank-domain.test.mjs scripts/codex-ledger-store.test.mjs scripts/redis-generation.test.mjs scripts/tokenrank-metrics.test.mjs scripts/tokenrank-upload.test.mjs scripts/upload-body.test.mjs",
     "test:tokenrank-domain": "node --test scripts/tokenrank-domain.test.mjs",
     "test:tokenrank-store": "node --test scripts/codex-ledger-store.test.mjs scripts/tokenrank-domain.test.mjs"
   },

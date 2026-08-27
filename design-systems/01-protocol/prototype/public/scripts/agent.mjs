@@ -8,6 +8,7 @@ import os from 'os';
 import path from 'path';
 import readline from 'readline';
 import { createHash } from 'crypto';
+import { gzipSync } from 'zlib';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
@@ -736,10 +737,15 @@ async function main() {
   }
 
   try {
+    const payloadJson = JSON.stringify(payload);
+    const compressedPayload = gzipSync(payloadJson);
     const resp = await fetch(`${host}/api/rank/upload/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Encoding': 'gzip',
+      },
+      body: compressedPayload,
     });
     const result = await resp.json();
     if (result && result.success) {
