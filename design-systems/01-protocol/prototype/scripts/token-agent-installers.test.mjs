@@ -133,13 +133,19 @@ test('Windows bootstrap locks the whole download and agent run against manual ov
   const source = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
   const lockIndex = source.indexOf('New-Item -ItemType Directory -Path $runLockPath');
   const downloadIndex = source.indexOf('Invoke-WebRequest -Uri "$host_url/scripts/codex-ledger.mjs"');
-  const agentIndex = source.indexOf('& $nodeExe $agentPath');
+  const agentIndex = source.indexOf('& $nodeExe --no-warnings $agentPath');
   const unlockIndex = source.lastIndexOf('Remove-Item -LiteralPath $runLockPath');
 
   assert.ok(lockIndex >= 0, 'Windows bootstrap must acquire an atomic directory lock');
   assert.ok(lockIndex < downloadIndex, 'lock must cover shared-file downloads');
   assert.ok(downloadIndex < agentIndex, 'lock must remain held through agent execution');
   assert.ok(agentIndex < unlockIndex, 'lock must be released only after the agent exits');
+});
+
+test('Windows bootstrap emits UTF-8 output and suppresses harmless Node warnings', () => {
+  const source = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
+  assert.match(source, /\[Console\]::OutputEncoding\s*=\s*\[System\.Text\.UTF8Encoding\]::new\(\$false\)/);
+  assert.match(source, /& \$nodeExe --no-warnings \$agentPath/);
 });
 
 test('Windows scheduled task launches wscript and never PowerShell directly', () => {

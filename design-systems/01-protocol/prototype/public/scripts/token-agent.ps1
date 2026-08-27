@@ -9,6 +9,11 @@ param(
     [switch]$scheduledRun
 )
 
+# Windows PowerShell otherwise decodes Node's UTF-8 output through the active
+# legacy code page, producing mojibake for the agent's Chinese/emoji status.
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
+
 # token: prefer -token, then env (so the one-liner above works)
 if (-not $token) { $token = $env:TSALON_TOKEN }
 if (-not $token) {
@@ -173,7 +178,7 @@ $logStream = Open-LogStream
 $actualLogPath = $logStream.Name
 $logWriter = New-Object System.IO.StreamWriter($logStream)
 try {
-    & $nodeExe $agentPath --token=$token --host=$host_url 2>&1 | ForEach-Object {
+    & $nodeExe --no-warnings $agentPath --token=$token --host=$host_url 2>&1 | ForEach-Object {
         $logWriter.WriteLine($_)
         $_   # also echo live to this window
     }
