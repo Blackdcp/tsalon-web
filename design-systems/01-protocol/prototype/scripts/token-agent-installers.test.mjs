@@ -38,7 +38,8 @@ test('both installers download codex-ledger.mjs before agent execution', () => {
 test('connect-page bootstrap commands pin token-agent schema version 7', () => {
   for (const file of ['src/pages/tokenrank/connect.astro', 'src/pages/en/tokenrank/connect.astro']) {
     const source = fs.readFileSync(file, 'utf8');
-    assert.match(source, /https':'\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\?v=7/);
+    assert.match(source, /https':'\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\\\?v=7/);
+    assert.match(source, /token-agent\.sh\\\?v=7/);
     assert.match(source, /'https' \+ ':\/\/www\.tsalon\.tech\/scripts\/token-agent\.ps1\?v=7'/);
   }
 });
