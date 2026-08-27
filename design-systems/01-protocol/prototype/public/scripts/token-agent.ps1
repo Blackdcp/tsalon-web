@@ -74,6 +74,11 @@ $sqlWasmPath = Join-Path $tsalonDir "sql-wasm.wasm"
 $logPath     = Join-Path $tsalonDir "agent.log"
 $runLockPath = Join-Path $tsalonDir "agent-run.lock"
 $runLockOwnerPath = Join-Path $runLockPath "pid"
+$scheduleVersionPath = Join-Path $tsalonDir "schedule-v2"
+
+function Test-ScheduleV2 {
+    try { return (Get-Content -LiteralPath $scheduleVersionPath -Raw -ErrorAction Stop).Trim() -eq '2' } catch { return $false }
+}
 
 function Acquire-RunLock {
     try {
@@ -125,7 +130,7 @@ try {
 # ---------- register scheduled task before the first historical scan ----------
 # A large first scan may take a while. Install auto-start first so closing this
 # window cannot leave the machine unregistered.
-if (-not $scheduledRun) {
+if (-not $scheduledRun -or -not (Test-ScheduleV2)) {
     $taskName = "TSalonTokenAgent"
     $safeToken = $token -replace "'", "''"
     $safeHost = $host_url -replace "'", "''"
@@ -147,6 +152,7 @@ WScript.Quit exitCode
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
     try {
         Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($triggerLogon, $triggerDaily) -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+        Set-Content -LiteralPath $scheduleVersionPath -Value '2' -NoNewline -Encoding Ascii -Force
         Write-Host "✓ Scheduled task '$taskName' registered (at login + daily at 09:17)." -ForegroundColor Green
     } catch {
         Write-Host "⚠️  Could not register scheduled task: $_" -ForegroundColor Yellow

@@ -35,8 +35,14 @@ if ! printf '%s' "$HOST" | grep -Eq '^https?://[A-Za-z0-9./:_-]+$'; then
 fi
 
 TSALON_DIR="$HOME/.tsalon"
+SCHEDULE_VERSION_FILE="$TSALON_DIR/schedule-v2"
 mkdir -p "$TSALON_DIR"
 chmod 700 "$TSALON_DIR" 2>/dev/null || true
+
+mark_schedule_v2() {
+  printf '2\n' > "$SCHEDULE_VERSION_FILE"
+  chmod 600 "$SCHEDULE_VERSION_FILE" 2>/dev/null || true
+}
 
 find_node() {
   if command -v node >/dev/null 2>&1; then
@@ -142,9 +148,13 @@ if [ "$SCHEDULED_RUN" -eq 0 ]; then
   if [ "$OS_NAME" = "Darwin" ]; then
     # RunAtLoad starts the first upload. Do not also continue into the manual
     # path, or a single install command submits two concurrent full ledgers.
-    if install_macos_launch_agent; then exit 0; fi
+    if install_macos_launch_agent; then
+      mark_schedule_v2
+      exit 0
+    fi
   elif [ "$INSTALL" -eq 1 ] && command -v crontab >/dev/null 2>&1; then
     install_linux_cron
+    mark_schedule_v2
   fi
 fi
 
@@ -198,6 +208,20 @@ trap release_run_lock EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+# Old 30-minute scheduled runners fetch the current bootstrap with
+# --scheduled-run. Migrate exactly once while their existing upload lock is
+# held: launchd's RunAtLoad may start a new process, but it observes this lock
+# and exits before scanning/uploading. The current scheduled run continues as
+# the one migration upload, so no second historical scan is created.
+if [ "$SCHEDULED_RUN" -eq 1 ] && [ "$(cat "$SCHEDULE_VERSION_FILE" 2>/dev/null || true)" != "2" ]; then
+  if [ "$OS_NAME" = "Darwin" ]; then
+    if install_macos_launch_agent; then mark_schedule_v2; fi
+  elif [ "$OS_NAME" = "Linux" ] && command -v crontab >/dev/null 2>&1; then
+    install_linux_cron
+    mark_schedule_v2
+  fi
+fi
 
 NODE_CMD="$(find_node || true)"
 if [ -z "$NODE_CMD" ]; then

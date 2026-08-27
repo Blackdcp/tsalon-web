@@ -114,6 +114,22 @@ test('Linux install schedules one startup upload and one daily upload at 09:17 l
   assert.doesNotMatch(installed, /\*\/30|1800/);
 });
 
+test('a legacy Linux scheduled run migrates its own 30-minute cron entry once', (t) => {
+  const harness = unixInstallerHarness(t, 'Linux');
+  fs.writeFileSync(harness.env.TSALON_TEST_CRONTAB, '*/30 * * * * legacy tsalon.tech/scripts/token-agent.sh --scheduled-run\n');
+
+  const result = runUnixInstaller([
+    '--token=test-token', '--host=http://localhost', '--scheduled-run',
+  ], harness.env);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const installed = fs.readFileSync(harness.env.TSALON_TEST_CRONTAB, 'utf8');
+  assert.match(installed, /^@reboot .*--scheduled-run/m);
+  assert.match(installed, /^17 9 \* \* \* .*--scheduled-run/m);
+  assert.doesNotMatch(installed, /\*\/30/);
+  assert.equal(fs.readFileSync(path.join(harness.home, '.tsalon', 'schedule-v2'), 'utf8').trim(), '2');
+});
+
 test('Unix runner lock allows only one agent process during overlapping scheduled runs', async (t) => {
   const harness = unixInstallerHarness(t, 'Linux');
   const args = ['public/scripts/token-agent.sh', '--token=test-token', '--host=http://localhost', '--scheduled-run'];
@@ -195,6 +211,17 @@ test('Windows scheduled task runs at login and once daily at 09:17 local time', 
   assert.match(source, /New-ScheduledTaskTrigger -AtLogOn -User \$env:USERNAME/);
   assert.match(source, /New-ScheduledTaskTrigger -Daily -At "09:17"/);
   assert.doesNotMatch(source, /RepetitionInterval|AddMinutes\(30\)|every 30 minutes/i);
+});
+
+test('scheduled runs self-migrate old schedules exactly once before continuing the upload', () => {
+  const unix = fs.readFileSync('public/scripts/token-agent.sh', 'utf8');
+  const windows = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
+  assert.match(unix, /SCHEDULE_VERSION_FILE=.*schedule-v2/);
+  assert.match(unix, /\[ "\$SCHEDULED_RUN" -eq 1 \].*SCHEDULE_VERSION_FILE/s);
+  assert.match(unix, /install_macos_launch_agent|install_linux_cron/);
+  assert.match(windows, /\$scheduleVersionPath\s*=\s*Join-Path \$tsalonDir "schedule-v2"/);
+  assert.match(windows, /\$scheduledRun\s+-or\s+-not \(Test-ScheduleV2\)/);
+  assert.match(windows, /Set-Content -LiteralPath \$scheduleVersionPath .*'2'/);
 });
 
 test('installers contain no 30-minute polling schedules or copy', () => {
