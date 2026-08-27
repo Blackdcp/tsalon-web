@@ -44,6 +44,31 @@ const CODEX_LEDGER_TURNS_BLOB_SUFFIX = ':turns:gzip-base64-v1';
 const MAX_CODEX_LEDGER_TURNS_JSON_BYTES = 128 * 1024 * 1024;
 const MAX_CODEX_LEDGER_TURNS_BASE64_LENGTH = Math.ceil(MAX_CODEX_LEDGER_TURNS_JSON_BYTES * 4 / 3) + 4;
 const CANONICAL_TURN_KEY = /^[a-f0-9]{64}$/;
+const BEGIN_ACTIVE_COMPACTION_SCRIPT = `
+-- codex-ledger-active-compaction-begin-v1
+if redis.call('get', KEYS[1]) ~= ARGV[1] then return -1 end
+if redis.call('exists', KEYS[2]) ~= 1 then return 0 end
+if redis.call('exists', KEYS[3]) == 1 then return 2 end
+local stored = redis.call('set', KEYS[3], ARGV[2], 'EX', ARGV[3], 'NX')
+if stored then return 1 end
+return 2
+`;
+const FINALIZE_ACTIVE_COMPACTION_SCRIPT = `
+-- codex-ledger-active-compaction-finalize-v1
+if redis.call('get', KEYS[1]) ~= ARGV[1] then return -1 end
+if redis.call('get', KEYS[3]) ~= ARGV[2] then return 0 end
+redis.call('persist', KEYS[3])
+redis.call('del', KEYS[2])
+return 1
+`;
+const CLEANUP_ACTIVE_COMPACTION_SCRIPT = `
+-- codex-ledger-active-compaction-cleanup-v1
+if redis.call('get', KEYS[1]) == ARGV[1]
+  and redis.call('get', KEYS[3]) == ARGV[2] then
+  return redis.call('del', KEYS[3])
+end
+return 0
+`;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
@@ -336,8 +361,8 @@ async function readLegacyGenerationState(redis: RedisLike, userId: string): Prom
 }
 
 export async function readCodexLedgerView(redis: RedisLike, userId: string): Promise<CodexLedgerView> {
-  // Resolve the pointer exactly once. Generation keys are immutable after
-  // publication, so every value below necessarily belongs to the same view.
+  // Resolve the pointer exactly once. Published generation keys are immutable
+  // except for the one-time legacy turns compaction handled below.
   const generation = await redis.get(generationPointerKey(userId));
   if (generation) {
     const prefix = generationPrefix(userId, generation);
@@ -346,9 +371,16 @@ export async function readCodexLedgerView(redis: RedisLike, userId: string): Pro
       redis.get(`${prefix}:summary`),
       redis.get(`${prefix}:state`),
     ]);
-    const turns = rawTurnsBlob === null
-      ? parseTurns(await redis.hgetall(`${prefix}:turns`))
-      : parseTurnsBlob(rawTurnsBlob);
+    let turns: CanonicalTurns;
+    if (rawTurnsBlob !== null) {
+      turns = parseTurnsBlob(rawTurnsBlob);
+    } else {
+      const rawTurns = await redis.hgetall(`${prefix}:turns`);
+      // Compaction publishes the blob before deleting the Hash. Re-read after
+      // HGETALL so a reader spanning that transition cannot observe no turns.
+      const compactedBlob = await redis.get(generationTurnsBlobKey(prefix));
+      turns = compactedBlob === null ? parseTurns(rawTurns) : parseTurnsBlob(compactedBlob);
+    }
     return {
       generation,
       prefix,
@@ -487,6 +519,78 @@ async function expireInactiveGenerations(redis: RedisLike, userId: string, activ
   }
 }
 
+async function compactActiveLegacyGeneration(redis: RedisLike, userId: string, view: CodexLedgerView) {
+  if (!view.generation || !view.prefix) return;
+  const pointerKey = generationPointerKey(userId);
+  const turnsHashKey = `${view.prefix}:turns`;
+  const turnsBlobKey = generationTurnsBlobKey(view.prefix);
+  const existingBlob = await redis.get(turnsBlobKey);
+  if (existingBlob !== null) {
+    parseTurnsBlob(existingBlob);
+    return;
+  }
+  if (await redis.exists(turnsHashKey) !== 1) return;
+
+  const serialized = serializeTurnsBlob(view.turns);
+  const started = await redis.eval(
+    BEGIN_ACTIVE_COMPACTION_SCRIPT,
+    3,
+    pointerKey,
+    turnsHashKey,
+    turnsBlobKey,
+    view.generation,
+    serialized,
+    GENERATION_STAGING_TTL_SECONDS,
+  );
+  if (started === -1) throw new Error('Codex ledger active generation changed during compaction');
+  if (started === 0) {
+    const completedBlob = await redis.get(turnsBlobKey);
+    if (completedBlob !== null) {
+      parseTurnsBlob(completedBlob);
+      return;
+    }
+    throw new Error('Codex ledger active generation storage changed during compaction');
+  }
+  if (started === 2) {
+    const winningBlob = await redis.get(turnsBlobKey);
+    if (winningBlob === null) throw new Error('Codex ledger active generation storage changed during compaction');
+    parseTurnsBlob(winningBlob);
+    return;
+  }
+  if (started !== 1) throw new Error('Failed to begin active Codex ledger compaction');
+
+  const stored = await redis.get(turnsBlobKey);
+  try {
+    if (stored !== serialized) throw new Error('blob mismatch');
+    parseTurnsBlob(stored);
+  } catch {
+    try {
+      await redis.eval(
+        CLEANUP_ACTIVE_COMPACTION_SCRIPT,
+        3,
+        pointerKey,
+        turnsHashKey,
+        turnsBlobKey,
+        view.generation,
+        serialized,
+      );
+    } catch { /* the legacy hash remains authoritative */ }
+    throw new Error('Failed to verify active Codex ledger compaction');
+  }
+
+  const finalized = await redis.eval(
+    FINALIZE_ACTIVE_COMPACTION_SCRIPT,
+    3,
+    pointerKey,
+    turnsHashKey,
+    turnsBlobKey,
+    view.generation,
+    serialized,
+  );
+  if (finalized === -1) throw new Error('Codex ledger active generation changed during compaction');
+  if (finalized !== 1) throw new Error('Failed to persist active Codex ledger compaction');
+}
+
 export async function syncCodexLedger(
   redis: RedisLike,
   userId: string,
@@ -514,6 +618,8 @@ export async function syncCodexLedger(
   const incoming = payload.records.map(validateTurnRecord);
   if (incoming.some((record) => !record)) throw new Error('Invalid Codex ledger record');
   const validIncoming = incoming as Record<string, any>[];
+
+  await compactActiveLegacyGeneration(redis, userId, previousView);
 
   const canonical = reconcileDeviceTurns(existing, deviceId, validIncoming);
   const manifest = {

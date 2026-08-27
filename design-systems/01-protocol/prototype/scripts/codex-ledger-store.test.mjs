@@ -14,6 +14,31 @@ import * as kvModule from '../src/lib/kv.ts';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 import { FakeRedis } from './helpers/fake-redis.mjs';
 
+async function seedLegacyHashGeneration(redis, generation, record) {
+  const prefix = `user:u1:codex:generation:${generation}`;
+  const envelope = {
+    record,
+    device_versions: { mac: record },
+    source_devices: ['mac'],
+  };
+  await redis.set('user:u1:codex:active-generation', generation);
+  redis.seedHash(`${prefix}:turns`, [[record.turn_key, JSON.stringify(envelope)]]);
+  await redis.set(`${prefix}:summary`, JSON.stringify({ lifetime: { total: record.total }, daily: {}, models: {} }));
+  await redis.set(`${prefix}:state`, JSON.stringify({
+    devices: {
+      mac: {
+        version: 5,
+        manifest: {
+          manifest_hash: ledgerPayload([record]).manifest_hash,
+          turn_keys: [record.turn_key],
+        },
+      },
+    },
+    dates: ['2026-08-18'],
+  }));
+  return { prefix, envelope };
+}
+
 test('account audit storage keeps only a sanitized latest snapshot outside canonical ranking data', async () => {
   const redis = new FakeRedis();
   const summaryKey = 'user:u1:codex:summary';
@@ -196,6 +221,285 @@ test('generation reader remains compatible with legacy turns hashes', async () =
 
   assert.equal(view.turns[record.turn_key].record.total, 42);
   assert.deepEqual(view.turns[record.turn_key].source_devices, ['mac']);
+});
+
+test('active legacy generation compacts before new staging without changing its visible view', async () => {
+  class FailNewGenerationBlobRedis extends FakeRedis {
+    activePrefix = '';
+    compactedBeforeNewStaging = false;
+
+    async set(key, ...args) {
+      if (key.endsWith(':turns:gzip-base64-v1')
+        && key !== `${this.activePrefix}:turns:gzip-base64-v1`) {
+        this.compactedBeforeNewStaging = !this.hashes.has(`${this.activePrefix}:turns`)
+          && typeof await this.get(`${this.activePrefix}:turns:gzip-base64-v1`) === 'string';
+        throw new Error('Injected new generation staging failure');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new FailNewGenerationBlobRedis();
+  const generation = 'legacy-hash-compaction';
+  const record = turnRecord('legacy-hash-compaction-turn', 42);
+  const { prefix } = await seedLegacyHashGeneration(redis, generation, record);
+  redis.activePrefix = prefix;
+  const before = await readCodexLedgerView(redis, 'u1');
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Injected new generation staging failure/,
+  );
+
+  assert.equal(redis.compactedBeforeNewStaging, true);
+  assert.deepEqual(await redis.hgetall(`${prefix}:turns`), {});
+  assert.equal(typeof await redis.get(`${prefix}:turns:gzip-base64-v1`), 'string');
+  assert.equal(redis.expirations.has(`${prefix}:turns:gzip-base64-v1`), false);
+  assert.deepEqual(await readCodexLedgerView(redis, 'u1'), before);
+});
+
+test('generation reader recovers when compaction deletes the hash after its first blob read', async () => {
+  class CompactionDuringHashReadRedis extends FakeRedis {
+    activeHashKey = '';
+    activeBlobKey = '';
+    compactionBlob = '';
+    interleave = false;
+
+    async hgetall(key) {
+      if (this.interleave && key === this.activeHashKey) {
+        this.interleave = false;
+        await super.set(this.activeBlobKey, this.compactionBlob, 'EX', 86_400);
+        await super.persist(this.activeBlobKey);
+        await super.del(this.activeHashKey);
+      }
+      return super.hgetall(key);
+    }
+  }
+  const redis = new CompactionDuringHashReadRedis();
+  const generation = 'reader-compaction-race';
+  const record = turnRecord('reader-compaction-race-turn', 42);
+  const { prefix, envelope } = await seedLegacyHashGeneration(redis, generation, record);
+  redis.activeHashKey = `${prefix}:turns`;
+  redis.activeBlobKey = `${prefix}:turns:gzip-base64-v1`;
+  redis.compactionBlob = gzipSync(JSON.stringify({
+    schema: 'codex-ledger-turns-v1',
+    turns: { [record.turn_key]: envelope },
+  }), { level: 1 }).toString('base64');
+  redis.interleave = true;
+
+  const view = await readCodexLedgerView(redis, 'u1');
+
+  assert.equal(view.turns[record.turn_key].record.total, 42);
+  assert.deepEqual(view.turns[record.turn_key].source_devices, ['mac']);
+});
+
+test('failed active legacy blob write retains the hash and active pointer', async () => {
+  class FailActiveBlobRedis extends FakeRedis {
+    activeBlobKey = '';
+    failActiveBlobWrite = false;
+
+    async set(key, ...args) {
+      if (this.failActiveBlobWrite && key === this.activeBlobKey) {
+        throw new Error('Injected active legacy blob write failure');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new FailActiveBlobRedis();
+  const generation = 'failed-legacy-hash-compaction';
+  const record = turnRecord('failed-legacy-hash-compaction-turn', 42);
+  const { prefix } = await seedLegacyHashGeneration(redis, generation, record);
+  const hashBefore = await redis.hgetall(`${prefix}:turns`);
+  redis.activeBlobKey = `${prefix}:turns:gzip-base64-v1`;
+  redis.failActiveBlobWrite = true;
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Injected active legacy blob write failure/,
+  );
+
+  assert.equal(await redis.get('user:u1:codex:active-generation'), generation);
+  assert.equal(await redis.get(redis.activeBlobKey), null);
+  assert.deepEqual(await redis.hgetall(`${prefix}:turns`), hashBefore);
+});
+
+test('active generation with an existing valid blob is not compacted again', async () => {
+  class FailNewGenerationBlobRedis extends FakeRedis {
+    activeBlobKey = '';
+    activeBlobWrites = 0;
+
+    async set(key, ...args) {
+      if (key === this.activeBlobKey) this.activeBlobWrites += 1;
+      else if (this.activeBlobKey && key.endsWith(':turns:gzip-base64-v1')) {
+        throw new Error('Injected new generation staging failure');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new FailNewGenerationBlobRedis();
+  const generation = 'already-compacted-generation';
+  const record = turnRecord('already-compacted-turn', 42);
+  const { prefix, envelope } = await seedLegacyHashGeneration(redis, generation, record);
+  const blobKey = `${prefix}:turns:gzip-base64-v1`;
+  const rawBlob = gzipSync(JSON.stringify({
+    schema: 'codex-ledger-turns-v1',
+    turns: { [record.turn_key]: envelope },
+  }), { level: 1 }).toString('base64');
+  await redis.set(blobKey, rawBlob);
+  redis.activeBlobKey = blobKey;
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Injected new generation staging failure/,
+  );
+
+  assert.equal(redis.activeBlobWrites, 0);
+  assert.equal(await redis.get(blobKey), rawBlob);
+  assert.equal(Object.keys(await redis.hgetall(`${prefix}:turns`)).length, 1);
+  assert.equal(await redis.get('user:u1:codex:active-generation'), generation);
+});
+
+test('concurrent valid active blob wins compaction without being overwritten', async () => {
+  class ConcurrentActiveBlobRedis extends FakeRedis {
+    activeBlobKey = '';
+    concurrentBlob = '';
+    injectConcurrentBlob = false;
+
+    async set(key, ...args) {
+      if (this.injectConcurrentBlob && key === this.activeBlobKey) {
+        this.injectConcurrentBlob = false;
+        await super.set(key, this.concurrentBlob);
+      } else if (this.activeBlobKey && key.endsWith(':turns:gzip-base64-v1') && key !== this.activeBlobKey) {
+        throw new Error('Injected new generation staging failure');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new ConcurrentActiveBlobRedis();
+  const generation = 'concurrent-valid-blob-generation';
+  const record = turnRecord('concurrent-valid-blob-turn', 42);
+  const { prefix, envelope } = await seedLegacyHashGeneration(redis, generation, record);
+  redis.activeBlobKey = `${prefix}:turns:gzip-base64-v1`;
+  redis.concurrentBlob = gzipSync(JSON.stringify({
+    schema: 'codex-ledger-turns-v1',
+    turns: { [record.turn_key]: envelope },
+  }), { level: 9 }).toString('base64');
+  redis.injectConcurrentBlob = true;
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Injected new generation staging failure/,
+  );
+
+  assert.equal(await redis.get(redis.activeBlobKey), redis.concurrentBlob);
+  assert.equal(Object.keys(await redis.hgetall(`${prefix}:turns`)).length, 1);
+  assert.equal(await redis.get('user:u1:codex:active-generation'), generation);
+});
+
+test('concurrent corrupt active blob is retained and stops compaction', async () => {
+  class ConcurrentCorruptBlobRedis extends FakeRedis {
+    activeBlobKey = '';
+    injectConcurrentBlob = false;
+
+    async set(key, ...args) {
+      if (this.injectConcurrentBlob && key === this.activeBlobKey) {
+        this.injectConcurrentBlob = false;
+        await super.set(key, 'concurrent-corrupt-blob');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new ConcurrentCorruptBlobRedis();
+  const generation = 'concurrent-corrupt-blob-generation';
+  const record = turnRecord('concurrent-corrupt-blob-turn', 42);
+  const { prefix } = await seedLegacyHashGeneration(redis, generation, record);
+  redis.activeBlobKey = `${prefix}:turns:gzip-base64-v1`;
+  redis.injectConcurrentBlob = true;
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Invalid Codex ledger turns blob/,
+  );
+
+  assert.equal(await redis.get(redis.activeBlobKey), 'concurrent-corrupt-blob');
+  assert.equal(Object.keys(await redis.hgetall(`${prefix}:turns`)).length, 1);
+  assert.equal(await redis.get('user:u1:codex:active-generation'), generation);
+});
+
+test('pointer change during compaction keeps the old hash and aborts new staging', async () => {
+  class PointerChangeRedis extends FakeRedis {
+    activeBlobKey = '';
+    changePointer = false;
+
+    async set(key, ...args) {
+      const result = await super.set(key, ...args);
+      if (this.changePointer && key === this.activeBlobKey) {
+        this.changePointer = false;
+        await super.set('user:u1:codex:active-generation', 'concurrent-generation');
+      }
+      return result;
+    }
+  }
+  const redis = new PointerChangeRedis();
+  const generation = 'pointer-race-generation';
+  const record = turnRecord('pointer-race-turn', 42);
+  const { prefix } = await seedLegacyHashGeneration(redis, generation, record);
+  redis.activeBlobKey = `${prefix}:turns:gzip-base64-v1`;
+  redis.changePointer = true;
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /active generation changed during compaction/,
+  );
+
+  assert.equal(await redis.get('user:u1:codex:active-generation'), 'concurrent-generation');
+  assert.equal(Object.keys(await redis.hgetall(`${prefix}:turns`)).length, 1);
+  assert.equal(typeof await redis.get(redis.activeBlobKey), 'string');
+  assert.equal(redis.expirations.has(redis.activeBlobKey), true);
+});
+
+test('sync never overwrites a corrupt active blob or deletes its legacy hash', async () => {
+  const redis = new FakeRedis();
+  const generation = 'corrupt-active-blob-generation';
+  const record = turnRecord('corrupt-active-blob-turn', 42);
+  const { prefix } = await seedLegacyHashGeneration(redis, generation, record);
+  const blobKey = `${prefix}:turns:gzip-base64-v1`;
+  await redis.set(blobKey, 'corrupt-blob');
+  const hashBefore = await redis.hgetall(`${prefix}:turns`);
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Invalid Codex ledger turns blob/,
+  );
+
+  assert.equal(await redis.get(blobKey), 'corrupt-blob');
+  assert.deepEqual(await redis.hgetall(`${prefix}:turns`), hashBefore);
+  assert.equal(await redis.get('user:u1:codex:active-generation'), generation);
+});
+
+test('sync does not compact unpointed legacy ledger storage', async () => {
+  class FailNewGenerationBlobRedis extends FakeRedis {
+    async set(key, ...args) {
+      if (key.endsWith(':turns:gzip-base64-v1')) throw new Error('Injected new generation staging failure');
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new FailNewGenerationBlobRedis();
+  const record = turnRecord('unpointed-legacy-turn', 42);
+  const legacyKey = 'user:u1:codex:turns';
+  redis.seedHash(legacyKey, [[record.turn_key, JSON.stringify({
+    record,
+    device_versions: { mac: record },
+    source_devices: ['mac'],
+  })]]);
+  const hashBefore = await redis.hgetall(legacyKey);
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record])),
+    /Injected new generation staging failure/,
+  );
+
+  assert.deepEqual(await redis.hgetall(legacyKey), hashBefore);
+  assert.equal(await redis.get('user:u1:codex:active-generation'), null);
 });
 
 test('generation reader rejects malformed turns blobs without falling back to a legacy hash', async () => {

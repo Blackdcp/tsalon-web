@@ -47,6 +47,10 @@ export class FakeRedis {
     return this.strings.get(key) ?? null;
   }
 
+  async exists(key) {
+    return this.hasKey(key) ? 1 : 0;
+  }
+
   async set(key, value, ...args) {
     if (args.includes('NX') && this.hasKey(key)) return null;
     this.strings.set(key, String(value));
@@ -166,6 +170,30 @@ export class FakeRedis {
   }
 
   async eval(script, numberOfKeys, ...args) {
+    if (script.includes('codex-ledger-active-compaction-begin-v1')) {
+      if (numberOfKeys !== 3) throw new Error('FakeRedis expected three compaction keys');
+      const [pointerKey, hashKey, blobKey, generation, value, ttl] = args;
+      if (await this.get(pointerKey) !== String(generation)) return -1;
+      if (await this.exists(hashKey) !== 1) return 0;
+      if (await this.exists(blobKey) === 1) return 2;
+      return await this.set(blobKey, value, 'EX', ttl, 'NX') === 'OK' ? 1 : 2;
+    }
+    if (script.includes('codex-ledger-active-compaction-finalize-v1')) {
+      if (numberOfKeys !== 3) throw new Error('FakeRedis expected three compaction keys');
+      const [pointerKey, hashKey, blobKey, generation, value] = args;
+      if (await this.get(pointerKey) !== String(generation)) return -1;
+      if (await this.get(blobKey) !== String(value)) return 0;
+      await this.persist(blobKey);
+      await this.del(hashKey);
+      return 1;
+    }
+    if (script.includes('codex-ledger-active-compaction-cleanup-v1')) {
+      if (numberOfKeys !== 3) throw new Error('FakeRedis expected three compaction keys');
+      const [pointerKey, _hashKey, blobKey, generation, value] = args;
+      if (await this.get(pointerKey) === String(generation)
+        && await this.get(blobKey) === String(value)) return this.del(blobKey);
+      return 0;
+    }
     const key = args[0];
     if (!script.includes("redis.call('get', KEYS[1])")) throw new Error('Unsupported FakeRedis EVAL script');
     if (numberOfKeys !== 1) throw new Error('FakeRedis expected one EVAL key');

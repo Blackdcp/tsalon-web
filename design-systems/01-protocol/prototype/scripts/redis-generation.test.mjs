@@ -7,7 +7,7 @@ import test from 'node:test';
 
 import Redis from 'ioredis';
 
-import { syncCodexLedger } from '../src/lib/codex-ledger.ts';
+import { readCodexLedgerView, syncCodexLedger } from '../src/lib/codex-ledger.ts';
 import { ledgerPayload, turnRecord } from './helpers/codex-fixtures.mjs';
 
 const REDIS_SERVER_CANDIDATES = [
@@ -116,6 +116,32 @@ test('real Redis runtime errors do not roll back prior MULTI or Lua writes, whil
   `, 4, 'lua:source', 'lua:live', 'lua:wrongtype', 'lua:after'), /WRONGTYPE/);
   assert.equal(await redis.get('lua:live'), 'old');
   assert.equal(await redis.get('lua:after'), null);
+
+  await redis.flushdb();
+  const legacyGeneration = 'real-redis-legacy-hash';
+  const legacyPrefix = `user:u1:codex:generation:${legacyGeneration}`;
+  const legacyRecord = turnRecord('real-redis-legacy-hash-turn', 7);
+  await redis.set('user:u1:codex:active-generation', legacyGeneration);
+  await redis.hset(`${legacyPrefix}:turns`, legacyRecord.turn_key, JSON.stringify({
+    record: legacyRecord,
+    device_versions: { mac: legacyRecord },
+    source_devices: ['mac'],
+  }));
+  await redis.set(`${legacyPrefix}:summary`, JSON.stringify({ lifetime: { total: 7 }, daily: {}, models: {} }));
+  await redis.set(`${legacyPrefix}:state`, JSON.stringify({ devices: {}, dates: [] }));
+  const legacyView = await readCodexLedgerView(redis, 'u1');
+
+  await assert.rejects(
+    syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([legacyRecord]), {
+      commit: async () => { throw new Error('Injected publication stop after compaction'); },
+    }),
+    /Injected publication stop after compaction/,
+  );
+  assert.equal(await redis.get('user:u1:codex:active-generation'), legacyGeneration);
+  assert.deepEqual(await redis.hgetall(`${legacyPrefix}:turns`), {});
+  assert.equal(typeof await redis.get(`${legacyPrefix}:turns:gzip-base64-v1`), 'string');
+  assert.equal(await redis.ttl(`${legacyPrefix}:turns:gzip-base64-v1`), -1);
+  assert.deepEqual(await readCodexLedgerView(redis, 'u1'), legacyView);
 
   await redis.flushdb();
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('old', 7)]));
