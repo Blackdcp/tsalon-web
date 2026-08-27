@@ -80,6 +80,12 @@ export class FakeRedis {
     return this.expirations.delete(key) ? 1 : 0;
   }
 
+  async ttl(key) {
+    if (!this.hasKey(key)) return -2;
+    const deadline = this.expirations.get(key);
+    return deadline === undefined ? -1 : Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  }
+
   async del(...keys) {
     let removed = 0;
     for (const key of keys) {
@@ -156,8 +162,11 @@ export class FakeRedis {
     }
     if (!store) throw new Error('ERR no such key');
     await this.del(destination);
+    const expiration = this.expirations.get(source);
+    this.expirations.delete(source);
     store.delete(source);
     store.set(destination, value);
+    if (expiration !== undefined) this.expirations.set(destination, expiration);
     return 'OK';
   }
 

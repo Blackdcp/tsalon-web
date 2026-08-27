@@ -1003,3 +1003,53 @@ test('a list replacement is fenced when ownership changes after temp staging', a
   assert.deepEqual(await redis.lrange(liveKey, 0, -1), ['old-generation']);
   assert.deepEqual((await redis.scan('0', 'MATCH', `${liveKey}:tmp:*`))[1], []);
 });
+
+test('list replacement stages have a bounded expiry before they are published', async () => {
+  const liveKey = 'user:u1:timeseries:2026-08-18';
+  class ObserveStagingExpiryRedis extends FakeRedis {
+    pipeline() {
+      const pipeline = super.pipeline();
+      const exec = pipeline.exec;
+      pipeline.exec = async () => {
+        const replies = await exec();
+        const tempKey = (await this.scan('0', 'MATCH', `${liveKey}:tmp:*`))[1][0];
+        if (tempKey && this.stagingTtl === undefined) this.stagingTtl = await this.ttl(tempKey);
+        return replies;
+      };
+      return pipeline;
+    }
+  }
+  const redis = new ObserveStagingExpiryRedis();
+  await replaceRedisList(redis, liveKey, ['next-generation']);
+  assert.ok(redis.stagingTtl > 0);
+  assert.deepEqual(await redis.lrange(liveKey, 0, -1), ['next-generation']);
+  assert.equal(await redis.ttl(liveKey), -1);
+});
+
+test('successful generation publication removes only equivalent pre-generation Codex copies', async () => {
+  const redis = new FakeRedis();
+  const record = turnRecord('old-layout', 42);
+  const turnsKey = 'user:u1:codex:turns';
+  redis.seedHash(turnsKey, [[record.turn_key, JSON.stringify({
+    record, device_versions: { mac: record }, source_devices: ['mac'],
+  })]]);
+  await redis.set('user:u1:codex:summary', JSON.stringify({ lifetime: { total: 42 } }));
+  await redis.set('user:u1:device:mac:codex-ledger-version', '5');
+  await redis.set('user:u1:device:mac:codex-manifest', JSON.stringify({
+    manifest_hash: ledgerPayload([record]).manifest_hash,
+    turn_keys: [record.turn_key],
+  }));
+  await redis.set('user:u1:device:bad:codex-ledger-version', 'not-v5');
+  await redis.set('user:u1:device:bad:codex-manifest', '{bad-json');
+
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([record]));
+
+  assert.deepEqual(await redis.hgetall(turnsKey), {});
+  // The legacy summary had a different shape, so it is retained rather than
+  // being deleted on an assumption.
+  assert.notEqual(await redis.get('user:u1:codex:summary'), null);
+  assert.equal(await redis.get('user:u1:device:mac:codex-ledger-version'), null);
+  assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), null);
+  assert.equal(await redis.get('user:u1:device:bad:codex-ledger-version'), 'not-v5');
+  assert.equal(await redis.get('user:u1:device:bad:codex-manifest'), '{bad-json');
+});

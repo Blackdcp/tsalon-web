@@ -197,17 +197,17 @@ export const POST: APIRoute = async ({ request }) => {
           orphanTotal: orphan.tokens?.total || 0
         });
         if (action === 'confirm') {
-          const devKeys = await scanKeys(`user:${orphan.userId}:device:*`);
-          const tsKeys = await scanKeys(`user:${orphan.userId}:timeseries:*`);
-          const delKeys = [
-            `user:${orphan.userId}:data`,
-            `user:${orphan.userId}:token`,
-            `user:${orphan.userId}:info`,
-            ...devKeys,
-            ...tsKeys
-          ];
-          if (delKeys.length) await kv.del(...delKeys);
+          // A proven duplicate must not retain invisible Codex generations,
+          // audit snapshots, temporary lists, or any future user namespace.
+          // The subset proof above is deliberately completed before this broad
+          // namespace delete.
+          const delKeys = await scanKeys(`user:${orphan.userId}:*`);
+          for (let start = 0; start < delKeys.length; start += 500) {
+            await kv.del(...delKeys.slice(start, start + 500));
+          }
           await kv.zrem('leaderboard:total', orphan.userId);
+          await kv.zrem('leaderboard:norm', orphan.userId);
+          await kv.zrem('leaderboard:cost', orphan.userId);
         }
       } else {
         warnings.push(

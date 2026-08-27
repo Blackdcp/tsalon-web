@@ -507,10 +507,17 @@ export async function replaceRedisList(
     for (let start = 0; start < values.length; start += REDIS_CHUNK_SIZE) {
       const pipeline = redis.pipeline();
       pipeline.rpush(tempKey, ...values.slice(start, start + REDIS_CHUNK_SIZE));
+      // A failed/abandoned replacement must not leave an unbounded staging
+      // list behind.  The successful publish explicitly PERSISTs the renamed
+      // live key below, so historical data does not inherit this staging TTL.
+      pipeline.expire(tempKey, GENERATION_STAGING_TTL_SECONDS);
       await executePipeline(pipeline);
     }
-    if (commit) await commit({ renames: [[tempKey, key]] });
-    else await redis.rename(tempKey, key);
+    if (commit) await commit({ renames: [[tempKey, key]], persists: [key] });
+    else {
+      await redis.rename(tempKey, key);
+      await redis.persist(key);
+    }
   } catch (error) {
     try { await redis.del(tempKey); } catch { /* best effort */ }
     throw error;
@@ -655,6 +662,55 @@ async function compactActiveLegacyGeneration(redis: RedisLike, userId: string, v
   if (finalized !== 1) throw new Error('Failed to persist active Codex ledger compaction');
 }
 
+function jsonEquivalent(left: unknown, right: unknown): boolean {
+  try { return JSON.stringify(left) === JSON.stringify(right); } catch { return false; }
+}
+
+// The pre-generation v5 layout is only a compatibility reader.  It can be
+// removed after a successful generation publish, but never merely because a
+// new pointer exists: malformed or unparsed legacy values stay untouched for
+// manual recovery.  This keeps migration lossless while reclaiming the old
+// hash/summary and per-device manifest copies.
+async function cleanMigratedLegacyCodexStorage(
+  redis: RedisLike,
+  userId: string,
+  canonical: CanonicalTurns,
+  state: CodexLedgerGenerationState,
+  summary: CodexLedgerSummary,
+) {
+  const deletes: string[] = [];
+  const turnsKey = `user:${userId}:codex:turns`;
+  const rawTurns = await redis.hgetall(turnsKey);
+  const parsedTurns = parseTurns(rawTurns);
+  const rawTurnKeys = Object.keys(rawTurns);
+  // parseTurns intentionally drops malformed records.  Only delete a legacy
+  // hash when every stored field was parsed and represented in the new view.
+  if (rawTurnKeys.length > 0 && Object.keys(parsedTurns).length === rawTurnKeys.length
+    && rawTurnKeys.every((turnKey) => canonical[turnKey] !== undefined)) {
+    deletes.push(turnsKey);
+  }
+
+  const summaryKey = `user:${userId}:codex:summary`;
+  const rawSummary = await redis.get(summaryKey);
+  if (rawSummary !== null && jsonEquivalent(parseJsonObject(rawSummary), summary)) deletes.push(summaryKey);
+
+  const devicePrefix = `user:${userId}:device:`;
+  const versionSuffix = ':codex-ledger-version';
+  const versionKeys = await scanKeys(redis, `${devicePrefix}*${versionSuffix}`);
+  for (const versionKey of versionKeys) {
+    const deviceId = versionKey.slice(devicePrefix.length, -versionSuffix.length);
+    const manifestKey = `${devicePrefix}${deviceId}:codex-manifest`;
+    const rawVersion = await redis.get(versionKey);
+    const rawManifest = await redis.get(manifestKey);
+    const manifest = parseJsonObject(rawManifest);
+    if (rawVersion === '5' && manifest !== null
+      && jsonEquivalent(manifest, state.devices[deviceId]?.manifest)) {
+      deletes.push(versionKey, manifestKey);
+    }
+  }
+  if (deletes.length) await redis.del(...deletes);
+}
+
 export async function syncCodexLedger(
   redis: RedisLike,
   userId: string,
@@ -737,5 +793,6 @@ export async function syncCodexLedger(
     throw error;
   }
   try { await expireInactiveGenerations(redis, userId, prefix); } catch { /* best-effort generation GC */ }
+  try { await cleanMigratedLegacyCodexStorage(redis, userId, canonical, nextState, summary); } catch { /* migration cleanup is best-effort */ }
   return summary;
 }
