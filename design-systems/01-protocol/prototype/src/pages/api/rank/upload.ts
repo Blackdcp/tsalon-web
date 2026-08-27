@@ -112,6 +112,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({
       success: false,
       message: classified.message,
+      ...(classified.code ? { code: classified.code } : {}),
       retryable: classified.retryable,
       schema_version: 5,
     }), {

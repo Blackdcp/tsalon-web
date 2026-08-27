@@ -17,6 +17,19 @@ test('busy token updates return a retryable conflict instead of a generic server
   });
 });
 
+test('Redis maxmemory OOM returns a retryable 503 with a readable agent message', async () => {
+  const { classifyUploadError } = await import('../src/lib/upload-error.ts');
+  const cause = new Error("OOM command not allowed when used memory > 'maxmemory'.");
+  const error = new Error('Redis pipeline failed', { cause });
+
+  assert.deepEqual(classifyUploadError(error), {
+    status: 503,
+    message: 'Token storage is temporarily full; retry shortly',
+    code: 'redis_oom',
+    retryable: true,
+  });
+});
+
 test('legacy Codex raw_total becomes main total instead of cache-subtracted total', () => {
   const normalized = normalizeToolTokens('codex', {
     total: 6_089_897,

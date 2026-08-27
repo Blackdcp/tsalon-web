@@ -539,6 +539,76 @@ test('new generations write the turns blob without creating a turns hash', async
   assert.deepEqual(await redis.hgetall(`${prefix}:turns`), {});
 });
 
+test('large generations store one compressed timeseries blob without generation list pushes', async () => {
+  class GenerationListTrackingRedis extends FakeRedis {
+    generationListPushes = 0;
+    timeseriesBlobGets = 0;
+
+    async get(key) {
+      if (key.endsWith(':timeseries:gzip-base64-v1')) this.timeseriesBlobGets += 1;
+      return super.get(key);
+    }
+
+    async rpush(key, ...values) {
+      if (/^user:u1:codex:generation:[^:]+:timeseries:/.test(key)) {
+        this.generationListPushes += values.length;
+      }
+      return super.rpush(key, ...values);
+    }
+  }
+
+  const redis = new GenerationListTrackingRedis();
+  const fixtures = Array.from({ length: 800 }, (_, index) => {
+    const date = new Date(Date.UTC(2023, 0, index + 1)).toISOString().slice(0, 10);
+    const tokens = (index % 9) + 1;
+    const record = turnRecord(`large-timeseries-${index}`, tokens);
+    record.daily = { [date]: record.daily['2026-08-18'] };
+    return { date, tokens, record };
+  });
+
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(fixtures.map(({ record }) => record)));
+
+  const generation = await redis.get('user:u1:codex:active-generation');
+  const prefix = `user:u1:codex:generation:${generation}`;
+  const blob = await redis.get(`${prefix}:timeseries:gzip-base64-v1`);
+  assert.equal(redis.generationListPushes, 0);
+  assert.equal(typeof blob, 'string');
+  const compressed = Buffer.from(blob, 'base64');
+  const decoded = gunzipSync(compressed);
+  assert.ok(compressed.byteLength * 5 < decoded.byteLength,
+    `expected compressed ${compressed.byteLength} bytes to be less than one fifth of ${decoded.byteLength}`);
+  assert.deepEqual((await redis.scan('0', 'MATCH', `${prefix}:timeseries:????-??-??`))[1], []);
+
+  redis.timeseriesBlobGets = 0;
+  const view = await readCodexLedgerView(redis, 'u1');
+  const visible = await Promise.all(fixtures.map(({ date }) => readCodexLedgerTimeseries(redis, 'u1', date, view)));
+  assert.equal(redis.timeseriesBlobGets, 1);
+  assert.equal(visible.every((events) => events.length === 1), true);
+  assert.deepEqual(visible.map(([raw]) => {
+    const event = JSON.parse(raw);
+    return { timestamp: event.timestamp, tokens: event.tokens, source: event.source };
+  }), fixtures.map(({ date, tokens }) => ({
+    timestamp: new Date(`${date}T00:00:00.000Z`).getTime(),
+    tokens,
+    source: 'codex-ledger-v5',
+  })));
+});
+
+test('generation timeseries reader remains compatible with pre-compression lists', async () => {
+  const redis = new FakeRedis();
+  const record = turnRecord('legacy-generation-timeseries', 42);
+  const { prefix } = await seedLegacyHashGeneration(redis, 'legacy-timeseries-list', record);
+  const oldEvent = JSON.stringify({
+    timestamp: 1_787_011_200_000,
+    tool: 'codex',
+    tokens: 42,
+    source: 'codex-ledger-v5',
+  });
+  await redis.rpush(`${prefix}:timeseries:2026-08-18`, oldEvent);
+
+  assert.deepEqual(await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18'), [oldEvent]);
+});
+
 test('generation state safely retains prototype-shaped device ids', async () => {
   const redis = new FakeRedis();
   await syncCodexLedger(redis, 'u1', '__proto__', ledgerPayload([turnRecord('prototype-device', 10)]));
@@ -698,8 +768,19 @@ test('sync rejects non-canonical and duplicate manifest turn keys before Redis m
   }
 });
 
-test('a failed generation-list write leaves the active generation and legacy list intact', async () => {
-  const redis = new FakeRedis();
+test('a failed generation timeseries blob write leaves the active generation and legacy list intact', async () => {
+  class FailingTimeseriesBlobRedis extends FakeRedis {
+    failTimeseriesBlobWrite = false;
+
+    async set(key, ...args) {
+      if (this.failTimeseriesBlobWrite && key.endsWith(':timeseries:gzip-base64-v1')) {
+        this.failTimeseriesBlobWrite = false;
+        throw new Error('Injected generation timeseries blob write failure');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new FailingTimeseriesBlobRedis();
   const key = 'user:u1:timeseries:2026-08-18';
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('original', 7)]));
   const original = Array.from({ length: 501 }, (_, index) => JSON.stringify({
@@ -711,11 +792,11 @@ test('a failed generation-list write leaves the active generation and legacy lis
   const before = await readCodexLedgerView(redis, 'u1');
   const legacyBefore = await redis.lrange(key, 0, -1);
   const generationKeysBefore = (await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1];
-  redis.failPipelineAfter('replace-list', 0);
+  redis.failTimeseriesBlobWrite = true;
 
   await assert.rejects(
     syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('replacement', 110)])),
-    /Injected replace-list pipeline failure/,
+    /Injected generation timeseries blob write failure/,
   );
   assert.deepEqual(await readCodexLedgerView(redis, 'u1'), before);
   assert.deepEqual(await redis.lrange(key, 0, -1), legacyBefore);

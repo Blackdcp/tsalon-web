@@ -41,8 +41,12 @@ const MAX_ACCOUNT_AUDIT_BYTES = 192 * 1024;
 const MAX_ACCOUNT_AUDIT_USER_ID_LENGTH = 128;
 const CODEX_LEDGER_TURNS_BLOB_SCHEMA = 'codex-ledger-turns-v1';
 const CODEX_LEDGER_TURNS_BLOB_SUFFIX = ':turns:gzip-base64-v1';
+const CODEX_LEDGER_TIMESERIES_BLOB_SCHEMA = 'codex-ledger-timeseries-v1';
+const CODEX_LEDGER_TIMESERIES_BLOB_SUFFIX = ':timeseries:gzip-base64-v1';
 const MAX_CODEX_LEDGER_TURNS_JSON_BYTES = 128 * 1024 * 1024;
 const MAX_CODEX_LEDGER_TURNS_BASE64_LENGTH = Math.ceil(MAX_CODEX_LEDGER_TURNS_JSON_BYTES * 4 / 3) + 4;
+const MAX_CODEX_LEDGER_TIMESERIES_JSON_BYTES = 128 * 1024 * 1024;
+const MAX_CODEX_LEDGER_TIMESERIES_BASE64_LENGTH = Math.ceil(MAX_CODEX_LEDGER_TIMESERIES_JSON_BYTES * 4 / 3) + 4;
 const CANONICAL_TURN_KEY = /^[a-f0-9]{64}$/;
 const BEGIN_ACTIVE_COMPACTION_SCRIPT = `
 -- codex-ledger-active-compaction-begin-v1
@@ -88,6 +92,8 @@ export interface CodexLedgerView {
   summary: CodexLedgerSummary | null;
   state: CodexLedgerGenerationState;
 }
+
+const generationTimeseriesByView = new WeakMap<CodexLedgerView, Promise<Record<string, string[]> | null>>();
 
 export interface CodexAccountAudit {
   account_audit_key: string;
@@ -267,6 +273,10 @@ function generationTurnsBlobKey(prefix: string) {
   return `${prefix}${CODEX_LEDGER_TURNS_BLOB_SUFFIX}`;
 }
 
+function generationTimeseriesBlobKey(prefix: string) {
+  return `${prefix}${CODEX_LEDGER_TIMESERIES_BLOB_SUFFIX}`;
+}
+
 function serializeTurnsBlob(turns: CanonicalTurns): string {
   const serialized = JSON.stringify({ schema: CODEX_LEDGER_TURNS_BLOB_SCHEMA, turns });
   if (Buffer.byteLength(serialized) > MAX_CODEX_LEDGER_TURNS_JSON_BYTES) {
@@ -312,6 +322,52 @@ function parseTurnsBlob(raw: string): CanonicalTurns {
   } catch {
     throw new Error('Invalid Codex ledger turns blob');
   }
+}
+
+function serializeTimeseriesBlob(timeseries: Map<string, string[]>): string {
+  const dates = Object.fromEntries(timeseries);
+  const serialized = JSON.stringify({ schema: CODEX_LEDGER_TIMESERIES_BLOB_SCHEMA, dates });
+  if (Buffer.byteLength(serialized) > MAX_CODEX_LEDGER_TIMESERIES_JSON_BYTES) {
+    throw new Error('Codex ledger timeseries blob is too large');
+  }
+  return gzipSync(serialized, { level: 1 }).toString('base64');
+}
+
+function parseTimeseriesBlob(raw: string): Record<string, string[]> {
+  try {
+    if (!raw || raw.length > MAX_CODEX_LEDGER_TIMESERIES_BASE64_LENGTH
+      || !isStrictBase64(raw)) throw new Error('invalid base64');
+    const compressed = Buffer.from(raw, 'base64');
+    if (compressed.toString('base64') !== raw) throw new Error('non-canonical base64');
+    const decoded = gunzipSync(compressed, { maxOutputLength: MAX_CODEX_LEDGER_TIMESERIES_JSON_BYTES });
+    const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(decoded));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+      || Object.keys(parsed).length !== 2
+      || parsed.schema !== CODEX_LEDGER_TIMESERIES_BLOB_SCHEMA
+      || !parsed.dates || typeof parsed.dates !== 'object' || Array.isArray(parsed.dates)) {
+      throw new Error('invalid schema');
+    }
+    const dates: Record<string, string[]> = Object.create(null);
+    for (const [date, events] of Object.entries(parsed.dates as Record<string, unknown>)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)
+        || !Array.isArray(events)
+        || events.some((event) => typeof event !== 'string')) {
+        throw new Error('invalid timeseries events');
+      }
+      dates[date] = events;
+    }
+    return dates;
+  } catch {
+    throw new Error('Invalid Codex ledger timeseries blob');
+  }
+}
+
+async function loadGenerationTimeseries(
+  redis: RedisLike,
+  prefix: string,
+): Promise<Record<string, string[]> | null> {
+  const rawBlob = await redis.get(generationTimeseriesBlobKey(prefix)) as string | null;
+  return rawBlob === null ? null : parseTimeseriesBlob(rawBlob);
 }
 
 function parseGenerationState(raw: string | null): CodexLedgerGenerationState {
@@ -422,7 +478,15 @@ export async function readCodexLedgerTimeseries(
     return !(migratedDevices.has(String(event.deviceId || ''))
       && (event.tool === 'codex' || event.tool === 'codex_proxy'));
   });
-  const canonical = await redis.lrange(`${resolved.prefix}:timeseries:${date}`, 0, -1) as string[];
+  let pendingTimeseries = generationTimeseriesByView.get(resolved);
+  if (!pendingTimeseries) {
+    pendingTimeseries = loadGenerationTimeseries(redis, resolved.prefix);
+    generationTimeseriesByView.set(resolved, pendingTimeseries);
+  }
+  const generationTimeseries = await pendingTimeseries;
+  const canonical = generationTimeseries === null
+    ? await redis.lrange(`${resolved.prefix}:timeseries:${date}`, 0, -1) as string[]
+    : generationTimeseries[date] ?? [];
   return [...kept, ...canonical];
 }
 
@@ -639,22 +703,14 @@ export async function syncCodexLedger(
   const generation = randomUUID();
   const prefix = generationPrefix(userId, generation);
   const turnsBlobKey = generationTurnsBlobKey(prefix);
+  const timeseriesBlobKey = generationTimeseriesBlobKey(prefix);
   const summaryKey = `${prefix}:summary`;
   const stateKey = `${prefix}:state`;
-  const stagedKeys = [turnsBlobKey, summaryKey, stateKey,
-    ...[...timeseries.keys()].map((date) => `${prefix}:timeseries:${date}`)];
+  const stagedKeys = [turnsBlobKey, timeseriesBlobKey, summaryKey, stateKey];
   let activationStarted = false;
   try {
     await redis.set(turnsBlobKey, serializeTurnsBlob(canonical), 'EX', GENERATION_STAGING_TTL_SECONDS);
-    for (const [date, events] of timeseries) {
-      const timeseriesKey = `${prefix}:timeseries:${date}`;
-      for (let start = 0; start < events.length; start += REDIS_CHUNK_SIZE) {
-        const pipeline = redis.pipeline();
-        pipeline.rpush(timeseriesKey, ...events.slice(start, start + REDIS_CHUNK_SIZE));
-        pipeline.expire(timeseriesKey, GENERATION_STAGING_TTL_SECONDS);
-        await executePipeline(pipeline);
-      }
-    }
+    await redis.set(timeseriesBlobKey, serializeTimeseriesBlob(timeseries), 'EX', GENERATION_STAGING_TTL_SECONDS);
     await redis.set(summaryKey, JSON.stringify(summary), 'EX', GENERATION_STAGING_TTL_SECONDS);
     await redis.set(stateKey, JSON.stringify(nextState), 'EX', GENERATION_STAGING_TTL_SECONDS);
 
