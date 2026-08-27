@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { gunzipSync, gzipSync } from 'node:zlib';
 
 import {
   readCodexLedgerTimeseries,
@@ -157,6 +158,81 @@ test('canonical hashes retain device versions and a sorted device manifest', asy
     turn_keys: [alpha.turn_key, beta.turn_key].sort(),
   });
   assert.equal(view.state.devices.windows.version, 5);
+});
+
+test('generation turns blob round-trips canonical envelopes with the versioned gzip schema', async () => {
+  const redis = new FakeRedis();
+  const beta = turnRecord('blob-beta', 200);
+  const alpha = turnRecord('blob-alpha', 100);
+
+  await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([beta, alpha]));
+
+  const view = await readCodexLedgerView(redis, 'u1');
+  const rawBlob = await redis.get(`${view.prefix}:turns:gzip-base64-v1`);
+  assert.equal(typeof rawBlob, 'string');
+  const decoded = JSON.parse(gunzipSync(Buffer.from(rawBlob, 'base64')).toString('utf8'));
+  assert.equal(decoded.schema, 'codex-ledger-turns-v1');
+  assert.deepEqual(Object.keys(decoded.turns), [alpha.turn_key, beta.turn_key].sort());
+  assert.deepEqual(Object.keys(view.turns), [alpha.turn_key, beta.turn_key].sort());
+  assert.deepEqual(view.turns[alpha.turn_key].source_devices, ['windows']);
+});
+
+test('generation reader remains compatible with legacy turns hashes', async () => {
+  const redis = new FakeRedis();
+  const generation = 'legacy-hash-generation';
+  const prefix = `user:u1:codex:generation:${generation}`;
+  const record = turnRecord('legacy-hash-turn', 42);
+  const envelope = {
+    record,
+    device_versions: { mac: record },
+    source_devices: ['mac'],
+  };
+  await redis.set('user:u1:codex:active-generation', generation);
+  redis.seedHash(`${prefix}:turns`, [[record.turn_key, JSON.stringify(envelope)]]);
+  await redis.set(`${prefix}:summary`, JSON.stringify({ lifetime: { total: 42 }, daily: {}, models: {} }));
+  await redis.set(`${prefix}:state`, JSON.stringify({ devices: {}, dates: [] }));
+
+  const view = await readCodexLedgerView(redis, 'u1');
+
+  assert.equal(view.turns[record.turn_key].record.total, 42);
+  assert.deepEqual(view.turns[record.turn_key].source_devices, ['mac']);
+});
+
+test('generation reader rejects malformed turns blobs without falling back to a legacy hash', async () => {
+  const record = turnRecord('malformed-blob-fallback', 42);
+  const legacyEnvelope = JSON.stringify({
+    record,
+    device_versions: { mac: record },
+    source_devices: ['mac'],
+  });
+  const malformedBlobs = [
+    'not-valid-base64!',
+    gzipSync('not-json', { level: 1 }).toString('base64'),
+    gzipSync(JSON.stringify({ schema: 'wrong-schema', turns: {} }), { level: 1 }).toString('base64'),
+    gzipSync(JSON.stringify({ schema: 'codex-ledger-turns-v1', turns: [] }), { level: 1 }).toString('base64'),
+  ];
+
+  for (const blob of malformedBlobs) {
+    const redis = new FakeRedis();
+    const generation = 'malformed-blob-generation';
+    const prefix = `user:u1:codex:generation:${generation}`;
+    await redis.set('user:u1:codex:active-generation', generation);
+    await redis.set(`${prefix}:turns:gzip-base64-v1`, blob);
+    redis.seedHash(`${prefix}:turns`, [[record.turn_key, legacyEnvelope]]);
+
+    await assert.rejects(readCodexLedgerView(redis, 'u1'), /Invalid Codex ledger turns blob/);
+  }
+});
+
+test('new generations write the turns blob without creating a turns hash', async () => {
+  const redis = new FakeRedis();
+
+  await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('blob-only-generation', 10)]));
+
+  const generation = await redis.get('user:u1:codex:active-generation');
+  const prefix = `user:u1:codex:generation:${generation}`;
+  assert.equal(typeof await redis.get(`${prefix}:turns:gzip-base64-v1`), 'string');
+  assert.deepEqual(await redis.hgetall(`${prefix}:turns`), {});
 });
 
 test('generation state safely retains prototype-shaped device ids', async () => {
@@ -342,17 +418,28 @@ test('a failed generation-list write leaves the active generation and legacy lis
   assert.deepEqual((await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1], generationKeysBefore);
 });
 
-test('a failed second generation-hash chunk leaves the active generation intact', async () => {
-  const redis = new FakeRedis();
+test('a failed generation blob write leaves the active generation intact', async () => {
+  class FailingBlobRedis extends FakeRedis {
+    failBlobWrite = false;
+
+    async set(key, ...args) {
+      if (this.failBlobWrite && key.endsWith(':turns:gzip-base64-v1')) {
+        this.failBlobWrite = false;
+        throw new Error('Injected generation blob write failure');
+      }
+      return super.set(key, ...args);
+    }
+  }
+  const redis = new FailingBlobRedis();
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload([turnRecord('original', 7)]));
   const original = await readCodexLedgerView(redis, 'u1');
   const generationKeysBefore = (await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1];
   const records = Array.from({ length: 501 }, (_, index) => turnRecord(`replacement-${index}`, 1));
-  redis.failPipelineAfter('replace-hash', 1);
+  redis.failBlobWrite = true;
 
   await assert.rejects(
     syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(records)),
-    /Injected replace-hash pipeline failure/,
+    /Injected generation blob write failure/,
   );
   assert.deepEqual(await readCodexLedgerView(redis, 'u1'), original);
   assert.deepEqual((await redis.scan('0', 'MATCH', 'user:u1:codex:generation:*'))[1], generationKeysBefore);

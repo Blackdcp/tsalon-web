@@ -72,7 +72,8 @@ async function visibleLedgerState(redis, userId, date, deviceId) {
     const prefix = `user:${userId}:codex:generation:${generation}`;
     return {
       generation,
-      turns: await redis.hgetall(`${prefix}:turns`),
+      turnsBlob: await redis.get(`${prefix}:turns:gzip-base64-v1`),
+      legacyTurns: await redis.hgetall(`${prefix}:turns`),
       summary: await redis.get(`${prefix}:summary`),
       state: await redis.get(`${prefix}:state`),
       timeseries: await redis.lrange(`${prefix}:timeseries:${date}`, 0, -1),

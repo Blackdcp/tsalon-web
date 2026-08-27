@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { gunzipSync, gzipSync } from 'node:zlib';
 
 import { PRICING_SNAPSHOT_DATE, normalizeModelId, priceUsage } from './token-pricing.mjs';
 import { aggregateCanonicalTurns, reconcileDeviceTurns, validateTurnRecord } from './tokenrank-domain.mjs';
@@ -38,6 +39,11 @@ const ACCOUNT_AUDIT_TTL_SECONDS = 120 * 24 * 60 * 60;
 const ACCOUNT_AUDIT_WRITE_TIMEOUT_MS = 250;
 const MAX_ACCOUNT_AUDIT_BYTES = 192 * 1024;
 const MAX_ACCOUNT_AUDIT_USER_ID_LENGTH = 128;
+const CODEX_LEDGER_TURNS_BLOB_SCHEMA = 'codex-ledger-turns-v1';
+const CODEX_LEDGER_TURNS_BLOB_SUFFIX = ':turns:gzip-base64-v1';
+const MAX_CODEX_LEDGER_TURNS_JSON_BYTES = 128 * 1024 * 1024;
+const MAX_CODEX_LEDGER_TURNS_BASE64_LENGTH = Math.ceil(MAX_CODEX_LEDGER_TURNS_JSON_BYTES * 4 / 3) + 4;
+const CANONICAL_TURN_KEY = /^[a-f0-9]{64}$/;
 type RedisLike = any;
 type CanonicalTurns = Record<string, any>;
 type UsageAggregate = Record<string, any>;
@@ -232,6 +238,57 @@ function parseTurns(raw: Record<string, string>): CanonicalTurns {
   return turns;
 }
 
+function generationTurnsBlobKey(prefix: string) {
+  return `${prefix}${CODEX_LEDGER_TURNS_BLOB_SUFFIX}`;
+}
+
+function serializeTurnsBlob(turns: CanonicalTurns): string {
+  const serialized = JSON.stringify({ schema: CODEX_LEDGER_TURNS_BLOB_SCHEMA, turns });
+  if (Buffer.byteLength(serialized) > MAX_CODEX_LEDGER_TURNS_JSON_BYTES) {
+    throw new Error('Codex ledger turns blob is too large');
+  }
+  return gzipSync(serialized, { level: 1 }).toString('base64');
+}
+
+function isStrictBase64(raw: string): boolean {
+  if (!raw || raw.length % 4 !== 0) return false;
+  const padding = raw.endsWith('==') ? 2 : raw.endsWith('=') ? 1 : 0;
+  for (let index = 0; index < raw.length - padding; index += 1) {
+    const code = raw.charCodeAt(index);
+    if (!((code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+      || (code >= 48 && code <= 57) || code === 43 || code === 47)) return false;
+  }
+  return true;
+}
+
+function parseTurnsBlob(raw: string): CanonicalTurns {
+  try {
+    if (!raw || raw.length > MAX_CODEX_LEDGER_TURNS_BASE64_LENGTH
+      || !isStrictBase64(raw)) throw new Error('invalid base64');
+    const compressed = Buffer.from(raw, 'base64');
+    if (compressed.toString('base64') !== raw) throw new Error('non-canonical base64');
+    const decoded = gunzipSync(compressed, { maxOutputLength: MAX_CODEX_LEDGER_TURNS_JSON_BYTES });
+    const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(decoded));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+      || Object.keys(parsed).length !== 2
+      || parsed.schema !== CODEX_LEDGER_TURNS_BLOB_SCHEMA
+      || !parsed.turns || typeof parsed.turns !== 'object' || Array.isArray(parsed.turns)) {
+      throw new Error('invalid schema');
+    }
+    const turns: CanonicalTurns = Object.create(null);
+    for (const [turnKey, envelope] of Object.entries(parsed.turns as Record<string, unknown>)) {
+      if (!CANONICAL_TURN_KEY.test(turnKey)
+        || !envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
+        throw new Error('invalid turn envelope');
+      }
+      turns[turnKey] = envelope;
+    }
+    return turns;
+  } catch {
+    throw new Error('Invalid Codex ledger turns blob');
+  }
+}
+
 function parseGenerationState(raw: string | null): CodexLedgerGenerationState {
   const parsed = parseJsonObject(raw);
   const state = emptyGenerationState();
@@ -284,15 +341,18 @@ export async function readCodexLedgerView(redis: RedisLike, userId: string): Pro
   const generation = await redis.get(generationPointerKey(userId));
   if (generation) {
     const prefix = generationPrefix(userId, generation);
-    const [rawTurns, rawSummary, rawState] = await Promise.all([
-      redis.hgetall(`${prefix}:turns`),
+    const [rawTurnsBlob, rawSummary, rawState] = await Promise.all([
+      redis.get(generationTurnsBlobKey(prefix)),
       redis.get(`${prefix}:summary`),
       redis.get(`${prefix}:state`),
     ]);
+    const turns = rawTurnsBlob === null
+      ? parseTurns(await redis.hgetall(`${prefix}:turns`))
+      : parseTurnsBlob(rawTurnsBlob);
     return {
       generation,
       prefix,
-      turns: parseTurns(rawTurns),
+      turns,
       summary: parseJsonObject(rawSummary) as CodexLedgerSummary | null,
       state: parseGenerationState(rawState),
     };
@@ -472,22 +532,14 @@ export async function syncCodexLedger(
 
   const generation = randomUUID();
   const prefix = generationPrefix(userId, generation);
-  const turnsKey = `${prefix}:turns`;
+  const turnsBlobKey = generationTurnsBlobKey(prefix);
   const summaryKey = `${prefix}:summary`;
   const stateKey = `${prefix}:state`;
-  const stagedKeys = [turnsKey, summaryKey, stateKey,
+  const stagedKeys = [turnsBlobKey, summaryKey, stateKey,
     ...[...timeseries.keys()].map((date) => `${prefix}:timeseries:${date}`)];
   let activationStarted = false;
   try {
-    const entries = Object.entries(canonical);
-    for (let start = 0; start < entries.length; start += REDIS_CHUNK_SIZE) {
-      const pipeline = redis.pipeline();
-      for (const [field, envelope] of entries.slice(start, start + REDIS_CHUNK_SIZE)) {
-        pipeline.hset(turnsKey, field, JSON.stringify(envelope));
-      }
-      pipeline.expire(turnsKey, GENERATION_STAGING_TTL_SECONDS);
-      await executePipeline(pipeline);
-    }
+    await redis.set(turnsBlobKey, serializeTurnsBlob(canonical), 'EX', GENERATION_STAGING_TTL_SECONDS);
     for (const [date, events] of timeseries) {
       const timeseriesKey = `${prefix}:timeseries:${date}`;
       for (let start = 0; start < events.length; start += REDIS_CHUNK_SIZE) {
