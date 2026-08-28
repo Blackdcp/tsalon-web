@@ -62,6 +62,13 @@ export const POST: APIRoute = async ({ request }) => {
       ? history_complete_tools.filter((t: unknown): t is string => typeof t === 'string')
       : [];
 
+    // The official account snapshot must exist before the v5 ledger rebuild so
+    // that its authoritative daily/lifetime totals are published atomically
+    // with this upload. A Redis failure or timeout remains non-blocking.
+    const accountAudit = body.account_audit !== undefined && body.account_audit !== null
+      ? await storeAccountAuditWithTimeout(kv, userId, body.account_audit)
+      : null;
+
     const result = await updateTokenUsage(
       userId,
       name,
@@ -76,17 +83,14 @@ export const POST: APIRoute = async ({ request }) => {
     );
 
     let officialDelta = null;
-    if (body.account_audit !== undefined && body.account_audit !== null) {
-      const audit = await storeAccountAuditWithTimeout(kv, userId, body.account_audit);
-      if (audit) {
-        const ledgerLifetimeTokens = Number(result?.codex?.total) || 0;
-        officialDelta = {
-          account_audit_key: audit.account_audit_key,
-          official_lifetime_tokens: audit.lifetime_tokens,
-          ledger_lifetime_tokens: ledgerLifetimeTokens,
-          difference_tokens: ledgerLifetimeTokens - audit.lifetime_tokens,
-        };
-      }
+    if (accountAudit) {
+      const ledgerLifetimeTokens = Number(result?.codex?.total) || 0;
+      officialDelta = {
+        account_audit_key: accountAudit.account_audit_key,
+        official_lifetime_tokens: accountAudit.lifetime_tokens,
+        ledger_lifetime_tokens: ledgerLifetimeTokens,
+        difference_tokens: ledgerLifetimeTokens - accountAudit.lifetime_tokens,
+      };
     }
 
     return new Response(JSON.stringify({
