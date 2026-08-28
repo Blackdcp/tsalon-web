@@ -9,10 +9,10 @@ export default defineConfig({
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      // GitHub includes `iss=https://github.com` in the authorization
+      // GitHub includes `iss=https://github.com/login/oauth` in the authorization
       // response. Auth.js otherwise uses its placeholder issuer here and
       // rejects the callback before exchanging the code.
-      issuer: 'https://github.com',
+      issuer: 'https://github.com/login/oauth',
     }),
   ],
   callbacks: {
