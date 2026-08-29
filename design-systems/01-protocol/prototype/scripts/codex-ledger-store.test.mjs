@@ -65,7 +65,7 @@ test('account audit storage keeps only a sanitized latest snapshot outside canon
   assert.equal(serialized.includes('upload-secret'), false);
 });
 
-test('official account audit overrides an inflated local Codex daily total', async () => {
+test('a single-account audit cannot reduce the cross-account local Codex daily total', async () => {
   const redis = new FakeRedis();
   const auditKey = 'b'.repeat(64);
   await storeAccountAudit(redis, 'u1', {
@@ -80,12 +80,12 @@ test('official account audit overrides an inflated local Codex daily total', asy
   ]));
 
   const [event] = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
-  assert.equal(JSON.parse(event).rawTokens, 200);
-  assert.equal(summary.daily['2026-08-18'].total, 200);
+  assert.equal(JSON.parse(event).rawTokens, 500);
+  assert.equal(summary.daily['2026-08-18'].total, 500);
   assert.equal(summary.lifetime.total, 2_000);
 });
 
-test('official audits add distinct Codex accounts before replacing the local total', async () => {
+test('official audits cannot reduce the locally aggregated multi-account daily total', async () => {
   const redis = new FakeRedis();
   await storeAccountAudit(redis, 'u1', {
     account_audit_key: 'c'.repeat(64),
@@ -105,9 +105,27 @@ test('official audits add distinct Codex accounts before replacing the local tot
   ]));
 
   const [event] = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
+  assert.equal(JSON.parse(event).rawTokens, 900);
+  assert.equal(summary.daily['2026-08-18'].total, 900);
+  assert.equal(summary.lifetime.total, 5_000);
+});
+
+test('official account audit raises a lower local Codex daily total', async () => {
+  const redis = new FakeRedis();
+  await storeAccountAudit(redis, 'u1', {
+    account_audit_key: 'e'.repeat(64),
+    lifetime_tokens: 2_000,
+    daily_buckets: [{ date: '2026-08-18', tokens: 500 }],
+    observed_at: '2026-08-19T00:00:00.000Z',
+  });
+
+  const summary = await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([
+    turnRecord('partial-local', 200),
+  ]));
+
+  const [event] = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
   assert.equal(JSON.parse(event).rawTokens, 500);
   assert.equal(summary.daily['2026-08-18'].total, 500);
-  assert.equal(summary.lifetime.total, 5_000);
 });
 
 test('account audit storage rejects email, malformed keys, and invalid daily buckets', async () => {

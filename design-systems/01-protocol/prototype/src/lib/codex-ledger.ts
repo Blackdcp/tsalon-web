@@ -577,7 +577,12 @@ function buildCodexLedgerTimeseries(
     const usages = Object.entries(models);
     const officialTotal = auditDaily[date];
     const localTotal = usages.reduce((total, [, usage]) => total + Number(usage.total || 0), 0);
-    let remainingOfficialTotal = Number.isSafeInteger(officialTotal) ? officialTotal : null;
+    // An app-server audit covers only the account currently signed in there.
+    // It must not make a cross-device, cross-account local ledger smaller.
+    const reconciledTotal = Number.isSafeInteger(officialTotal)
+      ? Math.max(officialTotal, localTotal)
+      : null;
+    let remainingOfficialTotal = reconciledTotal;
     for (let index = 0; index < usages.length; index++) {
       const [model, usage] = usages[index];
       const rawTokens = remainingOfficialTotal === null
@@ -585,7 +590,7 @@ function buildCodexLedgerTimeseries(
         : index === usages.length - 1
           ? remainingOfficialTotal
           : localTotal > 0
-            ? Math.floor(officialTotal * (Number(usage.total || 0) / localTotal))
+            ? Math.floor((reconciledTotal ?? 0) * (Number(usage.total || 0) / localTotal))
             : 0;
       if (remainingOfficialTotal !== null) remainingOfficialTotal -= rawTokens;
       events.push(JSON.stringify({
@@ -593,8 +598,8 @@ function buildCodexLedgerTimeseries(
         tool: 'codex',
         model,
         tokens: usage.norm,
-        // The official account audit is authoritative for raw Codex use. The
-        // local model mix remains useful only for norm and cost estimates.
+        // The audit is a lower-bound check for one active account; local model
+        // data preserves the aggregate across devices and accounts.
         rawTokens,
         normTokens: usage.norm,
         inTokens: usage.net_new_input,
@@ -638,7 +643,7 @@ function applyAccountAuditTotals(summary: CodexLedgerSummary, audit: CodexAccoun
   const daily = structuredClone(summary.daily);
   for (const [date, total] of Object.entries(audit.daily)) {
     daily[date] ||= emptyAggregate();
-    daily[date].total = total;
+    daily[date].total = Math.max(Number(daily[date].total) || 0, total);
   }
   return {
     ...summary,
