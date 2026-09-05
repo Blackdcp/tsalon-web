@@ -127,7 +127,7 @@ test('a legacy Linux scheduled run migrates its own 30-minute cron entry once', 
   assert.match(installed, /^@reboot .*--scheduled-run/m);
   assert.match(installed, /^17 9 \* \* \* .*--scheduled-run/m);
   assert.doesNotMatch(installed, /\*\/30/);
-  assert.equal(fs.readFileSync(path.join(harness.home, '.tsalon', 'schedule-v2'), 'utf8').trim(), '2');
+  assert.equal(fs.readFileSync(path.join(harness.home, '.tsalon', 'schedule-v3'), 'utf8').trim(), '3');
 });
 
 test('Unix runner lock allows only one agent process during overlapping scheduled runs', async (t) => {
@@ -216,12 +216,12 @@ test('Windows scheduled task runs at login and once daily at 09:17 local time', 
 test('scheduled runs self-migrate old schedules exactly once before continuing the upload', () => {
   const unix = fs.readFileSync('public/scripts/token-agent.sh', 'utf8');
   const windows = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
-  assert.match(unix, /SCHEDULE_VERSION_FILE=.*schedule-v2/);
+  assert.match(unix, /SCHEDULE_VERSION_FILE=.*schedule-v3/);
   assert.match(unix, /\[ "\$SCHEDULED_RUN" -eq 1 \].*SCHEDULE_VERSION_FILE/s);
   assert.match(unix, /install_macos_launch_agent|install_linux_cron/);
-  assert.match(windows, /\$scheduleVersionPath\s*=\s*Join-Path \$tsalonDir "schedule-v2"/);
-  assert.match(windows, /\$scheduledRun\s+-or\s+-not \(Test-ScheduleV2\)/);
-  assert.match(windows, /Set-Content -LiteralPath \$scheduleVersionPath .*'2'/);
+  assert.match(windows, /\$scheduleVersionPath\s*=\s*Join-Path \$tsalonDir "schedule-v3"/);
+  assert.match(windows, /\$scheduledRun\s+-or\s+-not \(Test-ScheduleV3\)/);
+  assert.match(windows, /Set-Content -LiteralPath \$scheduleVersionPath .*'3'/);
 });
 
 test('installers contain no 30-minute polling schedules or copy', () => {
@@ -256,12 +256,12 @@ test('both installers download codex-ledger.mjs before agent execution', () => {
   }
 });
 
-test('connect-page bootstrap commands pin token-agent schema version 8', () => {
+test('connect-page bootstrap commands pin token-agent schema version 9', () => {
   for (const file of ['src/pages/tokenrank/connect.astro', 'src/pages/en/tokenrank/connect.astro']) {
     const source = fs.readFileSync(file, 'utf8');
-    assert.match(source, /https':'\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\\\?v=8/);
-    assert.match(source, /token-agent\.sh\\\?v=8/);
-    assert.match(source, /'https' \+ ':\/\/www\.tsalon\.tech\/scripts\/token-agent\.ps1\?v=8'/);
+    assert.match(source, /https':'\/\/www\.tsalon\.tech\/scripts\/token-agent\.sh\\\?v=9/);
+    assert.match(source, /token-agent\.sh\\\?v=9/);
+    assert.match(source, /'https' \+ ':\/\/www\.tsalon\.tech\/scripts\/token-agent\.ps1\?v=9'/);
   }
 });
 
@@ -277,13 +277,13 @@ test('connect pages describe login sync plus one daily 09:17 sync', () => {
 
 test('scheduled self-updaters request versioned installers with cache revalidation', () => {
   const windows = fs.readFileSync('public/scripts/token-agent.ps1', 'utf8');
-  assert.match(windows, /irm '\$safeHost\/scripts\/token-agent\.ps1\?v=8' -Headers @\{ 'Cache-Control' = 'no-cache' \}/i);
+  assert.match(windows, /irm '\$safeHost\/scripts\/token-agent\.ps1\?v=9' -Headers @\{ 'Cache-Control' = 'no-cache' \}/i);
 
   const unix = fs.readFileSync('public/scripts/token-agent.sh', 'utf8');
   const macRunner = unix.split('\n').find((line) => line.includes('/usr/bin/curl -fsSL'));
   const linuxCron = unix.split('\n').find((line) => line.trimStart().startsWith('line='));
-  assert.match(macRunner, /\/usr\/bin\/curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=8'/);
-  assert.match(linuxCron, /curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=8'/);
+  assert.match(macRunner, /\/usr\/bin\/curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=9'/);
+  assert.match(linuxCron, /curl -fsSL -H 'Cache-Control: no-cache' '\$HOST\/scripts\/token-agent\.sh\?v=9'/);
 });
 
 test('root Vercel configuration disables caching for scripts while preserving API protection', () => {

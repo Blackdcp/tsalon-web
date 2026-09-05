@@ -3,6 +3,9 @@ import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 import { storeAccountAuditWithTimeout } from '../../../lib/codex-ledger.ts';
 import { readUploadJson, UploadBodyError } from '../../../lib/upload-body.ts';
 import { classifyUploadError } from '../../../lib/upload-error.ts';
+import { claimDeviceUploadWindow, completeDeviceUploadWindow, normalizeUploadDeviceId } from '../../../lib/upload-cadence.ts';
+
+const REQUIRED_SCHEDULE_VERSION = 3;
 
 export const prerender = false;
 
@@ -17,7 +20,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     
     // Fallback if older agent is used
-    const actualDeviceId = device_id || 'default_device';
+    const actualDeviceId = normalizeUploadDeviceId(device_id);
 
     const userId = await getUserIdByToken(token);
     if (!userId) {
@@ -32,6 +35,21 @@ export const POST: APIRoute = async ({ request }) => {
       // An upload token is stored on each device and is not an administrative
       // credential. Never allow it to erase server data if copied or leaked.
       return new Response(JSON.stringify({ success: false, message: 'Reset requires the maintenance API' }), { status: 403 });
+    }
+
+    // Full ledger uploads rewrite historical data and are intentionally daily.
+    // Claim the device window before any profile reads, audits, scans, or writes
+    // so a stale minute-level scheduler costs only auth + this atomic SET.
+    if (!await claimDeviceUploadWindow(kv, userId, actualDeviceId)) {
+      return new Response(JSON.stringify({
+        success: true,
+        skipped: true,
+        message: 'Already synchronized recently',
+        required_schedule_version: REQUIRED_SCHEDULE_VERSION,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.
@@ -81,6 +99,7 @@ export const POST: APIRoute = async ({ request }) => {
         codexLedger,
       },
     );
+    await completeDeviceUploadWindow(kv, userId, actualDeviceId);
 
     let officialDelta = null;
     if (accountAudit) {
@@ -100,6 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
       codex: result?.codex ?? null,
       pricing_snapshot_date: result?.pricing_snapshot_date ?? null,
       official_delta: officialDelta,
+      required_schedule_version: REQUIRED_SCHEDULE_VERSION,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -107,7 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (error) {
     console.error(error);
     if (error instanceof UploadBodyError) {
-      return new Response(JSON.stringify({ success: false, message: error.message, schema_version: 5 }), {
+      return new Response(JSON.stringify({ success: false, message: error.message, schema_version: 5, required_schedule_version: REQUIRED_SCHEDULE_VERSION }), {
         status: error.status,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -119,6 +139,7 @@ export const POST: APIRoute = async ({ request }) => {
       ...(classified.code ? { code: classified.code } : {}),
       retryable: classified.retryable,
       schema_version: 5,
+      required_schedule_version: REQUIRED_SCHEDULE_VERSION,
     }), {
       status: classified.status,
       headers: { 'Content-Type': 'application/json' },

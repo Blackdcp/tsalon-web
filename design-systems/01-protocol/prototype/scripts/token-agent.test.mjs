@@ -7,7 +7,17 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 
-import { getCodexTokens, mergeHistory } from '../public/scripts/agent.mjs';
+import { getCodexTokens, mergeHistory, needsScheduleUpgrade } from '../public/scripts/agent.mjs';
+
+test('server-required schedule version triggers a local scheduler repair once', (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tsalon-schedule-version-'));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  assert.equal(needsScheduleUpgrade({ required_schedule_version: 3 }, home), true);
+  fs.mkdirSync(path.join(home, '.tsalon'), { recursive: true });
+  fs.writeFileSync(path.join(home, '.tsalon', 'schedule-v3'), '3');
+  assert.equal(needsScheduleUpgrade({ required_schedule_version: 3 }, home), false);
+});
 
 function tempHome() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'tsalon-agent-test-'));

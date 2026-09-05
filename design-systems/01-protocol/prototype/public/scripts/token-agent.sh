@@ -35,12 +35,12 @@ if ! printf '%s' "$HOST" | grep -Eq '^https?://[A-Za-z0-9./:_-]+$'; then
 fi
 
 TSALON_DIR="$HOME/.tsalon"
-SCHEDULE_VERSION_FILE="$TSALON_DIR/schedule-v2"
+SCHEDULE_VERSION_FILE="$TSALON_DIR/schedule-v3"
 mkdir -p "$TSALON_DIR"
 chmod 700 "$TSALON_DIR" 2>/dev/null || true
 
-mark_schedule_v2() {
-  printf '2\n' > "$SCHEDULE_VERSION_FILE"
+mark_schedule_v3() {
+  printf '3\n' > "$SCHEDULE_VERSION_FILE"
   chmod 600 "$SCHEDULE_VERSION_FILE" 2>/dev/null || true
 }
 
@@ -90,7 +90,7 @@ install_macos_launch_agent() {
   mkdir -p "$launch_dir"
   cat > "$runner" <<EOF
 #!/bin/bash
-exec /bin/bash -c "\$(/usr/bin/curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=8')" -- --token='$TOKEN' --host='$HOST' --scheduled-run
+exec /bin/bash -c "\$(/usr/bin/curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=9')" -- --token='$TOKEN' --host='$HOST' --scheduled-run
 EOF
   chmod 700 "$runner"
 
@@ -135,8 +135,8 @@ EOF
 
 install_linux_cron() {
   local reboot_line line
-  reboot_line="@reboot /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=8')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
-  line="17 9 * * * /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=8')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
+  reboot_line="@reboot /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=9')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
+  line="17 9 * * * /bin/bash -c \"\$(curl -fsSL -H 'Cache-Control: no-cache' '$HOST/scripts/token-agent.sh?v=9')\" -- --token='$TOKEN' --host='$HOST' --scheduled-run >> '$TSALON_DIR/agent.log' 2>&1"
   (crontab -l 2>/dev/null | grep -v 'tsalon.tech/scripts/token-agent.sh'; printf '%s\n' "$reboot_line" "$line") | crontab -
   echo "✓ Linux background upload installed (at startup + daily at 09:17)."
 }
@@ -149,12 +149,12 @@ if [ "$SCHEDULED_RUN" -eq 0 ]; then
     # RunAtLoad starts the first upload. Do not also continue into the manual
     # path, or a single install command submits two concurrent full ledgers.
     if install_macos_launch_agent; then
-      mark_schedule_v2
+      mark_schedule_v3
       exit 0
     fi
   elif [ "$INSTALL" -eq 1 ] && command -v crontab >/dev/null 2>&1; then
     install_linux_cron
-    mark_schedule_v2
+    mark_schedule_v3
   fi
 fi
 
@@ -214,12 +214,12 @@ trap 'exit 143' TERM
 # held: launchd's RunAtLoad may start a new process, but it observes this lock
 # and exits before scanning/uploading. The current scheduled run continues as
 # the one migration upload, so no second historical scan is created.
-if [ "$SCHEDULED_RUN" -eq 1 ] && [ "$(cat "$SCHEDULE_VERSION_FILE" 2>/dev/null || true)" != "2" ]; then
+if [ "$SCHEDULED_RUN" -eq 1 ] && [ "$(cat "$SCHEDULE_VERSION_FILE" 2>/dev/null || true)" != "3" ]; then
   if [ "$OS_NAME" = "Darwin" ]; then
-    if install_macos_launch_agent; then mark_schedule_v2; fi
+    if install_macos_launch_agent; then mark_schedule_v3; fi
   elif [ "$OS_NAME" = "Linux" ] && command -v crontab >/dev/null 2>&1; then
     install_linux_cron
-    mark_schedule_v2
+    mark_schedule_v3
   fi
 fi
 

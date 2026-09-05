@@ -12,10 +12,59 @@ import { gzipSync } from 'zlib';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
+import { spawn } from 'child_process';
 import { normalizeCodexUsage, readOfficialCodexAudit, scanCodexLedger } from './codex-ledger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function needsScheduleUpgrade(result, home = os.homedir()) {
+  const version = Number(result?.required_schedule_version) || 0;
+  if (version < 1) return false;
+  try {
+    return fs.readFileSync(path.join(home, '.tsalon', `schedule-v${version}`), 'utf8').trim() !== String(version);
+  } catch {
+    return true;
+  }
+}
+
+async function queueScheduleUpgrade(result, { home = os.homedir(), host, token } = {}) {
+  if (!needsScheduleUpgrade(result, home)) return false;
+  const version = Number(result.required_schedule_version);
+  const windows = process.platform === 'win32';
+  const scriptName = windows ? 'token-agent.ps1' : 'token-agent.sh';
+  const response = await fetch(`${host.replace(/\/$/, '')}/scripts/${scriptName}?v=9`, {
+    headers: { 'Cache-Control': 'no-cache' },
+  });
+  if (!response.ok) throw new Error(`scheduler installer download failed (${response.status})`);
+
+  const tsalonDir = path.join(home, '.tsalon');
+  fs.mkdirSync(tsalonDir, { recursive: true, mode: 0o700 });
+  const installerPath = path.join(tsalonDir, `schedule-upgrade-v${version}.${windows ? 'ps1' : 'sh'}`);
+  fs.writeFileSync(installerPath, await response.text(), { mode: 0o700 });
+
+  let child;
+  if (windows) {
+    const psQuote = (value) => `'${String(value).replaceAll("'", "''")}'`;
+    const command = `Start-Sleep -Seconds 10; & ${psQuote(installerPath)} -token ${psQuote(token)} -host_url ${psQuote(host)} -scheduledRun`;
+    const encoded = Buffer.from(command, 'utf16le').toString('base64');
+    child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
+      detached: true,
+      stdio: 'ignore',
+    });
+  } else {
+    child = spawn('/bin/bash', [
+      '-c',
+      'sleep 10; exec /bin/bash "$1" --token="$2" --host="$3" --scheduled-run',
+      'tsalon-schedule-upgrade',
+      installerPath,
+      token,
+      host,
+    ], { detached: true, stdio: 'ignore' });
+  }
+  child.unref();
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // SQLite via sql.js (WASM). Lazily initialized, wasm located next to this file.
@@ -748,6 +797,13 @@ async function main() {
       body: compressedPayload,
     });
     const result = await resp.json();
+    try {
+      if (await queueScheduleUpgrade(result, { home, host, token })) {
+        console.log('Scheduler repair queued; future uploads will run once daily.');
+      }
+    } catch (error) {
+      console.log(`Could not queue scheduler repair; the server-side upload guard remains active: ${error}`);
+    }
     if (result && result.success) {
       console.log('✅ Successfully uploaded token data to T Salon Leaderboard!');
       if (result.official_delta) {
@@ -769,4 +825,4 @@ if (path.resolve(process.argv[1] || '') === __filename) {
   });
 }
 
-export { getCodexTokens, getClaudeTokens, mergeHistory, usageDelta, usageStats };
+export { getCodexTokens, getClaudeTokens, mergeHistory, needsScheduleUpgrade, queueScheduleUpgrade, usageDelta, usageStats };
