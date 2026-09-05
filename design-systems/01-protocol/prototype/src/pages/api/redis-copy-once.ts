@@ -25,6 +25,37 @@ async function scanAll(redis: any): Promise<string[]> {
   return keys;
 }
 
+type RedisValue =
+  | { type: 'string'; value: string }
+  | { type: 'hash'; value: Record<string, string> }
+  | { type: 'list' | 'set' | 'zset'; value: string[] };
+
+async function readValue(redis: any, key: string): Promise<RedisValue> {
+  const type = await redis.type(key);
+  if (type === 'string') return { type, value: await redis.get(key) };
+  if (type === 'hash') return { type, value: await redis.hgetall(key) };
+  if (type === 'list') return { type, value: await redis.lrange(key, 0, -1) };
+  if (type === 'set') return { type, value: (await redis.smembers(key)).sort() };
+  if (type === 'zset') return { type, value: await redis.zrange(key, 0, -1, 'WITHSCORES') };
+  throw new Error(`unsupported Redis type: ${type}`);
+}
+
+async function writeValue(redis: any, key: string, entry: RedisValue, ttl: number): Promise<void> {
+  if (entry.type === 'string') await redis.set(key, entry.value);
+  if (entry.type === 'hash' && Object.keys(entry.value).length) await redis.hset(key, entry.value);
+  if (entry.type === 'list' && entry.value.length) await redis.rpush(key, ...entry.value);
+  if (entry.type === 'set' && entry.value.length) await redis.sadd(key, ...entry.value);
+  if (entry.type === 'zset' && entry.value.length) await redis.zadd(key, ...entry.value.flatMap((value, index) => index % 2 ? [] : [entry.value[index + 1], value]));
+  if (ttl > 0) await redis.pexpire(key, ttl);
+}
+
+function digest(entry: RedisValue): string {
+  const normalized = entry.type === 'hash'
+    ? Object.entries(entry.value).sort(([left], [right]) => left.localeCompare(right))
+    : entry.value;
+  return createHash('sha256').update(JSON.stringify([entry.type, normalized])).digest('hex');
+}
+
 export const POST: APIRoute = async ({ request }) => {
   if (!authorized(request)) return new Response('Not found', { status: 404 });
   if (!kv) return new Response(JSON.stringify({ success: false, error: 'source unavailable' }), { status: 503 });
@@ -38,45 +69,24 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     target = new Redis(targetUrl, { maxRetriesPerRequest: 2 });
-    if (await target.dbsize() !== 0) throw new Error('target database is not empty');
+    await target.flushdb();
     const keys = await scanAll(kv);
     const expected = new Map<string, string>();
 
-    for (let offset = 0; offset < keys.length; offset += 100) {
-      const batch = keys.slice(offset, offset + 100);
-      const reads = kv.pipeline();
-      for (const key of batch) {
-        reads.pttl(key);
-        reads.dump(key);
-      }
-      const values = await reads.exec();
-      const writes = target.pipeline();
-      for (let index = 0; index < batch.length; index++) {
-        const ttl = values?.[index * 2]?.[1] as number;
-        const dump = values?.[index * 2 + 1]?.[1] as Buffer | null;
-        if (!dump) continue;
-        expected.set(batch[index], createHash('sha256').update(dump).digest('hex'));
-        writes.restore(batch[index], ttl > 0 ? ttl : 0, dump, 'REPLACE');
-      }
-      const results = await writes.exec();
-      const failed = results?.find(([error]) => error);
-      if (failed) throw failed[0];
+    for (const key of keys) {
+      const ttl = await kv.pttl(key);
+      const entry = await readValue(kv, key);
+      expected.set(key, digest(entry));
+      await writeValue(target, key, entry, ttl);
     }
 
     const targetKeys = await scanAll(target);
     let verified = 0;
     let mismatch = 0;
-    for (let offset = 0; offset < targetKeys.length; offset += 100) {
-      const batch = targetKeys.slice(offset, offset + 100);
-      const reads = target.pipeline();
-      for (const key of batch) reads.dump(key);
-      const values = await reads.exec();
-      for (let index = 0; index < batch.length; index++) {
-        const dump = values?.[index]?.[1] as Buffer | null;
-        const digest = dump ? createHash('sha256').update(dump).digest('hex') : '';
-        if (expected.get(batch[index]) === digest) verified++;
+    for (const key of targetKeys) {
+        const actual = digest(await readValue(target, key));
+        if (expected.get(key) === actual) verified++;
         else mismatch++;
-      }
     }
     const missing = [...expected.keys()].filter((key) => !targetKeys.includes(key)).length;
     const summary = { sourceKeys: keys.length, migrated: expected.size, targetKeys: targetKeys.length, verified, missing, mismatch };
