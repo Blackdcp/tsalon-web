@@ -18,6 +18,9 @@ featured: true
 draft: false
 translationOf: memory-poisoning
 translationStatus: reviewed
+seo:
+  title: "Memory Poisoning: Six Long-Term Memory Controls Enterprise Agents Must Establish"
+  description: "If a system records a fake contact from a web page as a \"trusted supplier,\" the impact extends beyond the current conversation. Memory Poisoning refers to untrusted, incorrect, or manipulated information entering persistent memory and being recalled in subsequent sessions."
 ---
 ![Cover](https://segmentfault.com/img/remote/1460000048255406)
 

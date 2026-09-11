@@ -17,6 +17,9 @@ featured: true
 draft: false
 translationOf: dreaming-ai-memory
 translationStatus: reviewed
+seo:
+  title: "Dreaming Update: AI Memory Requires Annual Management"
+  description: "With the Dreaming update, AI memory management has become a longer-term concern, requiring at least annual maintenance and evaluation."
 ---
 
 This article explains the new challenges in long-term memory management for AI agents following the Dreaming update, focusing on annual memory cycles and maintenance strategies.

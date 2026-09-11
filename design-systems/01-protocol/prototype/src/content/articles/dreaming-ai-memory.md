@@ -15,6 +15,9 @@ citations:
     url: https://segmentfault.com/a/1190000048267587
 featured: true
 draft: false
+seo:
+  title: "Dreaming 升级之后，AI 记忆需要按年管理"
+  description: "2025 年 4 月，OpenAI 为 ChatGPT 引入了 Dreaming 的早期版本，让系统可以在后台参考聊天记录，持续整理用户相关信息。今年 6 月，OpenAI 又升级了 Dreaming..."
 ---
 
 2025 年 4 月，OpenAI 为 ChatGPT 引入了 Dreaming 的早期版本，让系统可以在后台参考聊天记录，持续整理用户相关信息。今年 6 月，OpenAI 又升级了 Dreaming 架构，重点处理记忆过时、信息正确性和大规模长期使用中的成本问题。

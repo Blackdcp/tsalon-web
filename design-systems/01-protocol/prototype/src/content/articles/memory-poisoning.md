@@ -16,6 +16,9 @@ citations:
     url: https://segmentfault.com/a/1190000048255404
 featured: true
 draft: false
+seo:
+  title: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
+  description: "如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话、任务和多 Agent 协作中被再次调用。"
 ---
 ![封面](https://segmentfault.com/img/remote/1460000048255406)
 
