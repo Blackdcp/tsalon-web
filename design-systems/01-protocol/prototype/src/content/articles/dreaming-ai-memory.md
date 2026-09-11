@@ -8,7 +8,7 @@ author: editorial-team
 topics:
   - AI
   - Agent
-cover: "/images/articles/dreaming-ai-memory-0.png"
+cover: "/images/articles/dreaming-ai-memory-cover.jpg"
 coverAlt: "Dreaming 升级之后，AI 记忆需要按年管理"
 citations:
   - label: SegmentFault 原文
