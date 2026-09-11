@@ -9,7 +9,7 @@ topics:
   - AI
   - Agent
 cover: https://segmentfault.com/img/bVdqGLu?spec=cover
-coverAlt: Dreaming Update: AI Memory Requires Annual Management
+coverAlt: "Dreaming Update: AI Memory Requires Annual Management"
 citations:
   - label: SegmentFault Original
     url: https://segmentfault.com/a/1190000048267587
