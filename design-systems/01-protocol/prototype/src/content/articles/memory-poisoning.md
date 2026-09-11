@@ -1,6 +1,6 @@
 ---
-title: "人工智能"
-summary: ""
+title: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
+summary: "如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话中被再次调用。"
 type: news
 publishedAt: 2026-09-01
 readingMinutes: 3
@@ -8,16 +8,17 @@ author: editorial-team
 topics:
   - AI
   - Agent
-cover: ""
-coverAlt: "人工智能"
+  - Security
+cover: "/images/articles/memory-poisoning-cover.jpg"
+coverAlt: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
 citations:
   - label: SegmentFault 原文
     url: https://segmentfault.com/a/1190000048255404
 featured: true
 draft: false
 seo:
-  title: "人工智能"
-  description: ""
+  title: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
+  description: "如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话中被再次调用。"
 ---
 ![1.png](/images/articles/memory-poisoning-0.png "1.png")
 
