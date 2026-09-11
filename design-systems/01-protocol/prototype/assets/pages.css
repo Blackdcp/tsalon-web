@@ -920,3 +920,24 @@ html[lang="en"] .content-detail-header h1 { max-width: 920px; font-size: clamp(3
   .connect-grid figure { max-width: 360px; }
   .join-expectations li { grid-template-columns: 1fr; gap: var(--space-3); }
 }
+
+/* Article Markdown Table Styles */
+.content-detail-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-8) 0;
+  font-size: var(--text-12);
+}
+.content-detail-prose th,
+.content-detail-prose td {
+  border: 1px solid var(--border-default);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+}
+.content-detail-prose th {
+  background-color: var(--background-subtle);
+  font-weight: var(--font-weight-medium);
+}
+.content-detail-prose tr:nth-child(even) {
+  background-color: var(--background-subtle);
+}
