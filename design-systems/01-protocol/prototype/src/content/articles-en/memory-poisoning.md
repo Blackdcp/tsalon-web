@@ -9,7 +9,7 @@ topics:
   - AI
   - Agent
   - Security
-cover: "/images/articles/memory-poisoning-cover.jpg"
+cover: "/images/articles/memory-poisoning-0.png"
 coverAlt: "Memory Poisoning"
 citations:
   - label: SegmentFault Original

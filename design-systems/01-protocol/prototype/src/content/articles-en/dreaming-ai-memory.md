@@ -8,7 +8,7 @@ author: editorial-team
 topics:
   - AI
   - Agent
-cover: "/images/articles/dreaming-ai-memory-cover.jpg"
+cover: "/images/articles/dreaming-ai-memory-0.png"
 coverAlt: "Dreaming Update: AI Memory Requires Annual Management"
 citations:
   - label: SegmentFault Original

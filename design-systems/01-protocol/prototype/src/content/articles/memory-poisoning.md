@@ -9,7 +9,7 @@ topics:
   - AI
   - Agent
   - Security
-cover: "/images/articles/memory-poisoning-cover.jpg"
+cover: "/images/articles/memory-poisoning-0.png"
 coverAlt: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
 citations:
   - label: SegmentFault 原文
