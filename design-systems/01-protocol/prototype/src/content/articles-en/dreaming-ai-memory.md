@@ -1,6 +1,6 @@
 ---
 title: "Dreaming Update: AI Memory Requires Annual Management"
-summary: "With the Dreaming update, AI memory management has become a longer-term concern, requiring at least annual maintenance and evaluation."
+summary: ""
 type: news
 publishedAt: 2026-09-11
 readingMinutes: 3
@@ -8,7 +8,7 @@ author: editorial-team
 topics:
   - AI
   - Agent
-cover: https://segmentfault.com/img/bVdqGLu?spec=cover
+cover: ""
 coverAlt: "Dreaming Update: AI Memory Requires Annual Management"
 citations:
   - label: SegmentFault Original
@@ -19,9 +19,9 @@ translationOf: dreaming-ai-memory
 translationStatus: reviewed
 seo:
   title: "Dreaming Update: AI Memory Requires Annual Management"
-  description: "With the Dreaming update, AI memory management has become a longer-term concern, requiring at least annual maintenance and evaluation."
+  description: ""
 ---
 
-This article explains the new challenges in long-term memory management for AI agents following the Dreaming update, focusing on annual memory cycles and maintenance strategies.
+This article explains the details originally posted on SegmentFault. 
 
 (Full English translation pending)

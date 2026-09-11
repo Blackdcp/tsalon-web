@@ -1,6 +1,6 @@
 ---
-title: Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制
-summary: 如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话、任务和多 Agent 协作中被再次调用。
+title: "人工智能"
+summary: ""
 type: news
 publishedAt: 2026-09-01
 readingMinutes: 3
@@ -8,19 +8,18 @@ author: editorial-team
 topics:
   - AI
   - Agent
-  - Security
-cover: https://segmentfault.com/img/bVdqDAZ?spec=cover
-coverAlt: Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制
+cover: ""
+coverAlt: "人工智能"
 citations:
   - label: SegmentFault 原文
     url: https://segmentfault.com/a/1190000048255404
 featured: true
 draft: false
 seo:
-  title: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
-  description: "如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话、任务和多 Agent 协作中被再次调用。"
+  title: "人工智能"
+  description: ""
 ---
-![封面](https://segmentfault.com/img/remote/1460000048255406)
+![1.png](/images/articles/memory-poisoning-0.png "1.png")
 
 如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。下一次采购时，任务可能会召回这条信息，其他 Agent 也可能沿用它继续执行。
 
@@ -142,13 +141,13 @@ Agent 能够长期工作，记忆就会开始影响后续任务的质量与安�
 
 ## 相关链接
 
-MemOS 官网：[memos.openmem.net](https://memos.openmem.net)
+MemOS 官网：[memos.openmem.net](https://link.segmentfault.com/?enc=2JRmzJg9KeCZOYniuZwRsA%3D%3D.pqxoiJgtJzCJuVUbyPIZ2KXmywmsJBil6yuOF3s3l9I%3D)
 
-GitHub：[github.com/MemTensor/MemOS](https://github.com/MemTensor/MemOS)
+GitHub：[github.com/MemTensor/MemOS](https://link.segmentfault.com/?enc=Kiw%2Baipv5uF2Hap2t8MxQQ%3D%3D.EEQWPubDXN44WcLWBFSGIRwtUDFiIZ3jMPIEM%2FPIpDca5o%2BsSeIL8MVZeTkuP6t%2F)
 
-文档：[memos-docs.openmem.net](https://memos-docs.openmem.net)
+文档：[memos-docs.openmem.net](https://link.segmentfault.com/?enc=ZC36cdyj8Ei5%2Fls9UgHwdg%3D%3D.V6BpxZnKCSqFQOR6lCRA6EFjmE06PyPMOnRNObpWjJ0%3D)
 
----
+* * *
 
 ## 关于记忆张量 MemTensor
 
@@ -157,4 +156,3 @@ GitHub：[github.com/MemTensor/MemOS](https://github.com/MemTensor/MemOS)
 公司以“低幻觉、个性化、自我学习进化”为核心，长期聚焦大模型长期记忆与持续学习问题，围绕 Memory³ 相关记忆机制研究、MemOS 记忆操作系统、Agent 和记忆基础设施产品化，以及记忆原生通用基座模型，构建从理论探索、系统工程化到模型层探索的递进式技术路线，推动 AI 从一次性生成走向长期智能。
 
 公司已与招商、海诚、荣耀等重要合作伙伴建立深度协同关系，并在 AI 陪伴、游戏、端侧智能硬件、金融及工业等多个重点行业实现商业化落地，先后累计完成近两亿元融资，由中金、孚腾、华为哈勃、商汤、和玉等众多知名投资机构参投。
-

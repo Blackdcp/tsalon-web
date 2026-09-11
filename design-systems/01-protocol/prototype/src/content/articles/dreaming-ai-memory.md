@@ -1,6 +1,6 @@
 ---
-title: Dreaming 升级之后，AI 记忆需要按年管理
-summary: 2025 年 4 月，OpenAI 为 ChatGPT 引入了 Dreaming 的早期版本，让系统可以在后台参考聊天记录，持续整理用户相关信息。今年 6 月，OpenAI 又升级了 Dreaming...
+title: "人工智能"
+summary: ""
 type: news
 publishedAt: 2026-09-11
 readingMinutes: 3
@@ -8,21 +8,20 @@ author: editorial-team
 topics:
   - AI
   - Agent
-cover: https://segmentfault.com/img/bVdqGLu?spec=cover
-coverAlt: Dreaming 升级之后，AI 记忆需要按年管理
+cover: ""
+coverAlt: "人工智能"
 citations:
   - label: SegmentFault 原文
     url: https://segmentfault.com/a/1190000048267587
 featured: true
 draft: false
 seo:
-  title: "Dreaming 升级之后，AI 记忆需要按年管理"
-  description: "2025 年 4 月，OpenAI 为 ChatGPT 引入了 Dreaming 的早期版本，让系统可以在后台参考聊天记录，持续整理用户相关信息。今年 6 月，OpenAI 又升级了 Dreaming..."
+  title: "人工智能"
+  description: ""
 ---
-
 2025 年 4 月，OpenAI 为 ChatGPT 引入了 Dreaming 的早期版本，让系统可以在后台参考聊天记录，持续整理用户相关信息。今年 6 月，OpenAI 又升级了 Dreaming 架构，重点处理记忆过时、信息正确性和大规模长期使用中的成本问题。
 
-这次升级讨论的并非某一条偏好能否被保存。用户说过“下周去新加坡”，行程结束后，系统应当知道这段计划已经变成过去；用户曾经不吃辣，后来口味发生变化，旧偏好也需要被更新。长期使用下来，系统还要从大量历史信息中找出当前任务真正需要的部分。
+这次升级讨论的并非某一条偏好能否被保存。用户说过“下周去新加坡”，行程结束后，系统应当知道这段计划已经变成过去；用户曾经不吃辣，后来口味发生变化，旧偏好也需要被更新。长期使用下来，系统还要**从大量历史信息中找出当前任务真正需要的部分。**
 
 AI 记忆开始按“年”管理，竞争重点也随之变化。系统需要持续合成、更新和调用正确的信息，并让用户与企业能够查看、修正和删除这些信息。
 
@@ -36,13 +35,13 @@ AI 记忆开始按“年”管理，竞争重点也随之变化。系统需要�
 
 用户提出修改或删除请求时，系统还需要检查相关副本、索引和派生信息。这些工作超出了“多放一些历史文本”的范围。
 
-![640 (3)_副本.png](/img/remote/1460000048267589)
+![640 (3)\_副本.png](/images/articles/dreaming-ai-memory-0.png "640 (3)_副本.png")
 
-企业采购或自建的，最终是一套能够长期运行的记忆系统。它需要回答五个连续的问题：信息怎样进入记忆，当前任务怎样找回合适的信息，新旧内容怎样更新，错误记忆怎样修正，不再需要的信息怎样删除。
+企业采购或自建的，最终是一套能够长期运行的记忆系统。它需要回答五个连续的问题：**信息怎样进入记忆，当前任务怎样找回合适的信息，新旧内容怎样更新，错误记忆怎样修正，不再需要的信息怎样删除。**
 
 ## Dreaming 指向的三项长期能力
 
-OpenAI 将新版 Dreaming 的目标概括为 freshness、continuity 和 relevance，也就是时效性、连续性与相关性。
+OpenAI 将新版 Dreaming 的目标概括为 **freshness、continuity** 和 **relevance**，也就是时效性、连续性与相关性。
 
 时效性处理的是记忆过期的问题。旅行会结束，任务会完成，用户偏好会改变，企业规则也会更新。长期记忆系统需要识别新旧信息之间的关系，对记忆进行更新、降权、归档或遗忘，因此需要保留时间信息、版本关系、反馈入口和生命周期策略。
 
@@ -60,21 +59,21 @@ MemOS 已提供 Dreaming 能力，用于对已写入的对话和记忆进行后�
 
 在 MemOS 中，Add Message 提供信息写入入口，Dreaming 负责后台整合，Search Memory 负责按任务召回，Add Feedback 与 Delete Memory 则支持后续纠正和清理。由此，记忆从一次对话中的原始记录，逐步进入可持续更新、检索和治理的长期状态。
 
-模型负责理解、推理与生成，Agent 负责规划任务、调用工具和执行操作，MemOS 则负责处理跨时间的信息，把记忆的生产、组织、调度、治理和演化放进独立的系统层。
+模型负责理解、推理与生成，Agent 负责规划任务、调用工具和执行操作，MemOS 则负责处理跨时间的信息，把**记忆的生产、组织、调度、治理和演化**放进独立的系统层。
 
 MemOS 位于 Agentic AI 与大语言模型之间，将原本分散在应用代码、数据库和对话历史里的记忆能力组织起来。它可以从对话、文档、任务和业务事件中识别长期有效的信息，按用途与形态管理不同类型的记忆，再结合用户、任务、场景、时间和权限选择当前需要的信息。同时，来源、日志、版本、权限、隐私、删除和遗忘等问题也可以进入同一套记忆治理流程。
 
 MemOS Cloud 已提供覆盖写入、检索、反馈与删除的公开接口。
 
-![640 (4)_副本.png](/img/remote/1460000048267590)
+![640 (4)\_副本.png](/images/articles/dreaming-ai-memory-1.png "640 (4)_副本.png")
 
-以 add/message 为例，应用可以把消息交给 MemOS 处理。公开文档说明，该过程可对内容进行信息抽取、冲突检查与记忆存储；应用也可以通过 info、标签、用户标识和 Agent 标识补充业务范围与隔离信息。
+以 `add/message` 为例，应用可以把消息交给 MemOS 处理。公开文档说明，该过程可对内容进行信息抽取、冲突检查与记忆存储；应用也可以通过 `info`、标签、用户标识和 Agent 标识补充业务范围与隔离信息。
 
-这些接口让写入、检索、反馈和删除成为应用可管理的动作。企业仍需在自身架构中配置权限模型、审批规则、日志留存、数据隔离与合规策略。
+这些接口**让写入、检索、反馈和删除成为应用可管理的动作**。企业仍需在自身架构中配置权限模型、审批规则、日志留存、数据隔离与合规策略。
 
 ## 为什么需要分层记忆
 
-不同信息的保存与调用方式并不相同。MemOS 将记忆划分为明文记忆、激活记忆和参数记忆。
+不同信息的保存与调用方式并不相同。MemOS 将记忆划分为**明文记忆、激活记忆和参数记忆**。
 
 明文记忆适合查看、更新、修订和溯源；激活记忆可以在推理过程中高效复用；参数记忆承载经过训练或长期积累形成的稳定能力。MemOS 将三类记忆组织在同一套调度体系中，系统可以按照任务与运行条件，在不同记忆形态之间进行管理和转换。
 
@@ -120,24 +119,30 @@ MemOS 是 MemTensor 推进的记忆操作系统，目标是将模型上下文、
 
 当 AI 开始长期参与个人生活与企业流程，记忆会直接影响任务质量、用户体验和生产可信度。
 
-系统需要知道哪些信息值得保存，哪些内容已经过时，当前任务应当调用什么，以及错误记忆如何被修正或删除。
+**系统需要知道哪些信息值得保存，哪些内容已经过时，当前任务应当调用什么，以及错误记忆如何被修正或删除。**
 
 MemTensor 从 Memory³ 相关记忆机制研究出发，通过 MemOS 推进记忆系统工程化，并继续探索 Agent 和记忆基础设施、记忆原生通用基座模型等方向。目标是让 AI 在更长的时间里保持连续、准确并且可管理的理解。
 
 ## 相关链接
 
-MemOS 官网：
+**MemOS 官网**：
 
-[memos.openmem.net](https://link.segmentfault.com/?enc=tCTwJjkMtdFTAyV%2Fcxd3iA%3D%3D.ZmxmNea2RvvIaZDivVlCZegQF11PfPqmPE3OrJXQkjA%3D)
-GitHub：
+-   [memos.openmem.net](https://link.segmentfault.com/?enc=GFfRfAhe9vt7fDTkhrHFtg%3D%3D.oWu%2F3TzrOn7E%2BuBZiYFvn4UIgdtEtpHgrVbT4zKVTNs%3D)
 
-[github.com/MemTensor/MemOS](https://link.segmentfault.com/?enc=H%2FEgbhZeTXREAUF67oFezw%3D%3D.zO6kOD%2BRLiR1gw%2F328zOOBIoATgL5PlscFzwktMAmKfpQYQ%2BPHKlG70BVHBAOyhn)
-文档：
+**GitHub**：
 
-[memos-docs.openmem.net](https://link.segmentfault.com/?enc=S9zGl%2BmttPMBHr2%2BNi%2BWBg%3D%3D.9c886tipL9kJNszhy%2Bv8cKNQJpsbsoGbFoWnwVxOGK4%3D)关于记忆张量 MemTensor
+-   [github.com/MemTensor/MemOS](https://link.segmentfault.com/?enc=vVhso9Ct7ya9%2FPkAHeqh6g%3D%3D.NHnrfbNrw9%2BjFPRy%2FlpocrBDVM5ZHlJdi8v3Jqh%2B2Tw%2F%2FQdwzxayYGf6VhyvNHa0)
+
+**文档**：
+
+-   [memos-docs.openmem.net](https://link.segmentfault.com/?enc=PxM9X8dbdd0YfqK01%2B%2BmNw%3D%3D.3x3pLBysLYl8%2F4yTuaS4iaJhYFBranBSi7pM%2Fbujh%2Bg%3D)
+
+* * *
+
+#### 关于记忆张量 MemTensor
+
 记忆张量（上海）科技有限公司（以下简称“记忆张量 MemTensor”）是由上海算法创新研究院孵化，并由中国科学院院士担任首席顾问的新一代大模型与长期智能基础设施企业。
 
 公司以“低幻觉、个性化、自我学习进化”为核心，长期聚焦大模型长期记忆与持续学习问题，围绕 Memory³ 相关记忆机制研究、MemOS 记忆操作系统、Agent 和记忆基础设施产品化，以及记忆原生通用基座模型，构建从理论探索、系统工程化到模型层探索的递进式技术路线，推动 AI 从一次性生成走向长期智能。
 
 公司已与招商、海诚、荣耀等重要合作伙伴建立深度协同关系，并在 AI 陪伴、游戏、端侧智能硬件、金融及工业等多个重点行业实现商业化落地，先后累计完成近两亿元融资，由中金、孚腾、华为哈勃、商汤、和玉等众多知名投资机构参投。
-
