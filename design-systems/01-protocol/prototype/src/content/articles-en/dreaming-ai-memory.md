@@ -1,6 +1,6 @@
 ---
 title: "Dreaming Update: AI Memory Requires Annual Management"
-summary: "In April 2025, OpenAI introduced an early version of Dreaming to ChatGPT, allowing the system to reference chat logs in the background and continuously organize user-related information. In June this year, OpenAI upgraded the Dreaming architecture."
+summary: "In April 2025, OpenAI introduced an early version of Dreaming to ChatGPT, allowing it to reference chat logs. In June, OpenAI upgraded the Dreaming architecture."
 type: news
 publishedAt: 2026-09-11
 readingMinutes: 3
@@ -19,7 +19,7 @@ translationOf: dreaming-ai-memory
 translationStatus: reviewed
 seo:
   title: "Dreaming Update: AI Memory Requires Annual Management"
-  description: "In April 2025, OpenAI introduced an early version of Dreaming to ChatGPT, allowing the system to reference chat logs in the background and continuously organize user-related information. In June this year, OpenAI upgraded the Dreaming architecture."
+  description: "In April 2025, OpenAI introduced an early version of Dreaming to ChatGPT, allowing it to reference chat logs. In June, OpenAI upgraded the Dreaming architecture."
 ---
 
 This article explains the details originally posted on SegmentFault. 
