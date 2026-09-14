@@ -3,7 +3,6 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { localeFromPath, localizedPath, type SiteLocale } from '../lib/i18n';
 import '../../assets/pages.css';
-import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title: string;
@@ -59,7 +58,6 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />
     <meta name="twitter:card" content="summary_large_image" />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
-    <ClientRouter />
   </head>
   <body>
     <a class="skip-link" href="#main-content">{locale === 'zh' ? '跳到主要内容' : 'Skip to main content'}</a>
@@ -69,10 +67,16 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <script is:inline define:vars={{ autoDetectLocale, locale }}>
       (() => {
         const preferenceKey = 'tsalon-locale';
+        const readPreference = () => {
+          try { return localStorage.getItem(preferenceKey); } catch { return null; }
+        };
+        const writePreference = (value) => {
+          try { localStorage.setItem(preferenceKey, value); } catch { /* Storage can be unavailable in embedded WebViews. */ }
+        };
         document.querySelectorAll('[data-locale-choice]').forEach((link) => {
-          link.addEventListener('click', () => localStorage.setItem(preferenceKey, link.dataset.localeChoice));
+          link.addEventListener('click', () => writePreference(link.dataset.localeChoice));
         });
-        if (!autoDetectLocale || locale !== 'zh' || localStorage.getItem(preferenceKey)) return;
+        if (!autoDetectLocale || locale !== 'zh' || readPreference()) return;
         const preferred = (navigator.languages?.[0] || navigator.language || '').toLowerCase();
         if (preferred.startsWith('en')) location.replace('/en/');
       })();
