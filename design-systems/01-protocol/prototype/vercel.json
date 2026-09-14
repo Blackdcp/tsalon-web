@@ -25,14 +25,14 @@
       "permanent": true
     },
     {
-      "source": "/whenreset",
-      "destination": "/reset/",
-      "permanent": false
+      "source": "/reset",
+      "destination": "/whenreset/",
+      "permanent": true
     },
     {
       "source": "/whenrest",
-      "destination": "/reset/",
-      "permanent": false
+      "destination": "/whenreset/",
+      "permanent": true
     },
     {
       "source": "/archives",

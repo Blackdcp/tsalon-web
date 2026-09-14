@@ -24,7 +24,7 @@ const languageHref = hasTranslation ? alternatePath : (locale === 'zh' ? '/en/' 
       <a href={route('/articles/')} aria-current={isActive('/articles/') ? 'page' : undefined}>{copy.articles}</a>
       <a href={route('/about/')} aria-current={isActive('/about/') ? 'page' : undefined}>{copy.about}</a>
       <a href={route('/tokenrank/')} aria-current={isActive('/tokenrank/') ? 'page' : undefined}>{locale === 'zh' ? 'Token 排行榜' : 'Token Rank'}</a>
-      <a href={route('/reset/')} aria-current={isActive('/reset/') ? 'page' : undefined}>{locale === 'zh' ? '重置雷达' : 'Reset Radar'}</a>
+      <a href={route('/whenreset/')} aria-current={isActive('/whenreset/') ? 'page' : undefined}>{locale === 'zh' ? '重置雷达' : 'Reset Radar'}</a>
     </nav>
     <a class="btn btn-dark header-action" href={`${route('/about/')}#join`}>{copy.join} <span>↗</span></a>
     <a class="language-switch" href={languageHref} hreflang={locale === 'zh' ? 'en' : 'zh-Hans'} lang={locale === 'zh' ? 'en' : 'zh-CN'} title={copy.languageTitle} aria-label={copy.languageTitle} data-locale-choice={locale === 'zh' ? 'en' : 'zh'}>{copy.language}</a>
@@ -35,7 +35,7 @@ const languageHref = hasTranslation ? alternatePath : (locale === 'zh' ? '/en/' 
         <a href={route('/articles/')}>{copy.articles} <span>→</span></a>
         <a href={route('/about/')}>{copy.about} <span>→</span></a>
         <a href={route('/tokenrank/')}>{locale === 'zh' ? 'Token 排行榜' : 'Token Rank'} <span>→</span></a>
-        <a href={route('/reset/')}>{locale === 'zh' ? '重置雷达' : 'Reset Radar'} <span>→</span></a>
+        <a href={route('/whenreset/')}>{locale === 'zh' ? '重置雷达' : 'Reset Radar'} <span>→</span></a>
         <a class="mobile-menu-action" href={`${route('/about/')}#join`}>{copy.join} <span>↗</span></a>
         <a class="mobile-menu-language" href={languageHref} hreflang={locale === 'zh' ? 'en' : 'zh-Hans'} lang={locale === 'zh' ? 'en' : 'zh-CN'} aria-label={copy.languageTitle} data-locale-choice={locale === 'zh' ? 'en' : 'zh'}>{copy.language} <span>→</span></a>
       </nav>

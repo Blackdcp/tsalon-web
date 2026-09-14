@@ -1,3 +1,1099 @@
 ---
-return Astro.redirect('/en/reset/', 302);
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getResetRadarData } from '../../../lib/reset-radar';
+
+export const prerender = false;
+
+const radarData = await getResetRadarData();
+const { codex, claude, updatedAtBeijing } = radarData;
 ---
+
+<BaseLayout
+  title="AI Quota Reset Radar — Real-time Usage Reset Tracker | T Salon"
+  description="Track official OpenAI Codex and Anthropic Claude usage resets, bonus reset cards, typical cadences, and Beijing time countdowns in real time."
+  alternatePath="/whenreset/"
+  locale="en"
+>
+  <main class="reset-page">
+    <div class="container">
+      <!-- Top Title & Live Status -->
+      <section class="reset-hero">
+        <div class="hero-top-badge">
+          <span class="pulse-dot"></span>
+          <span>Radar Active — Updated {updatedAtBeijing} (UTC+8)</span>
+        </div>
+        <h1 class="hero-title">AI Quota Reset Radar</h1>
+        <p class="hero-desc">
+          Continuous tracking of officially announced usage resets and bonus cards for OpenAI Codex and Anthropic Claude. Automatic timezone conversion into Beijing Time (UTC+8).
+        </p>
+
+        <!-- Provider Switcher Tabs -->
+        <div class="provider-tabs">
+          <button class="tab-btn active" data-provider="codex">
+            <span class="tab-icon">⚡️</span>
+            <span class="tab-name">OpenAI Codex</span>
+            <span class="tab-badge">Frequent</span>
+          </button>
+          <button class="tab-btn" data-provider="claude">
+            <span class="tab-icon">🧠</span>
+            <span class="tab-name">Anthropic Claude</span>
+            <span class="tab-badge">Weekly</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Codex Section -->
+      <div id="section-codex" class="provider-section active">
+        {codex.watchNotice?.isOpen && (
+          <div class="alert-banner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+              <div class="alert-title">{codex.watchNotice.titleEn || "Official Reset Notice"}</div>
+              <p class="alert-text">{codex.watchNotice.text}</p>
+              {codex.watchNotice.scheduledAtBeijing && (
+                <div class="alert-meta">Expected landing: {codex.watchNotice.scheduledAtBeijing} (UTC+8)</div>
+              )}
+            </div>
+            {codex.watchNotice.tweetUrl && (
+              <a href={codex.watchNotice.tweetUrl} target="_blank" rel="noreferrer" class="btn btn-dark alert-btn">
+                View Post <span>↗</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        <!-- 4 Stats Cards Bento -->
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">Since last usage reset</div>
+            <div class="card-value highlight">{codex.sinceLastReset.textEn}</div>
+            <div class="card-sub">Applies to: {codex.lastReset.scopeEn}</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="card-label">Last reset landed</div>
+            <div class="card-value">{codex.lastReset.dateBeijing} <span class="time-sub">{codex.lastReset.timeBeijing}</span></div>
+            <div class="card-sub text-truncate">Reason: {codex.lastReset.reasonEn}</div>
+            {codex.lastReset.postUrl && (
+              <a href={codex.lastReset.postUrl} target="_blank" rel="noreferrer" class="card-link">Official Source ↗</a>
+            )}
+          </div>
+
+          <div class="bento-card">
+            <div class="card-label">Next estimated reset</div>
+            <div class={`card-value ${codex.nextEstimated.isOverdue ? 'warn' : 'accent'}`}>
+              {codex.nextEstimated.dateBeijing} <span class="time-sub">{codex.nextEstimated.timeBeijing}</span>
+            </div>
+            <div class="card-sub">{codex.nextEstimated.relativeTextEn}</div>
+            <div class="card-hint">Estimated from past 10 intervals</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="card-label">Historical cadence</div>
+            <div class="card-value">{codex.typicalGapDays} <span class="unit">days</span></div>
+            <div class="card-sub">Last 30 days: {codex.resets30d} resets, {codex.cards30d} bonus cards</div>
+            <div class="card-hint">Source: {codex.sourceAccount}</div>
+          </div>
+        </div>
+
+        <!-- 5-Hour Rolling Window Calculator -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">Personal 5-Hour Window Calculator</h2>
+              <p class="tool-sub">Official resets apply globally. Personal rate limits follow a 5-hour rolling window. Enter your limit timestamp to compute recovery</p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for="codex-limit-time">Rate limited at (Local time)</label>
+              <input type="time" id="codex-limit-time" class="time-input" />
+            </div>
+            <div class="calc-arrow">➔</div>
+            <div class="calc-result-box">
+              <div class="result-label">First quota recovery arrives at</div>
+              <div class="result-time" id="codex-calc-result">--:--</div>
+              <div class="result-tips" id="codex-calc-tips">Pick a time to calculate</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Notification Community Card (Hidden for now) */}
+        {false && (
+          <div class="community-banner">
+            <div class="community-content">
+              <span class="community-tag">Instant Alerts</span>
+              <h2 class="community-title">Instant notification when Tibo announces a reset</h2>
+              <p class="community-desc">
+                Do not spend your day refreshing timelines. Join the developer notification channels to get notified immediately when bonus cards or quota resets drop.
+              </p>
+              <div class="community-action">
+                <button class="btn btn-primary join-group-btn" data-group="codex">Join Notification Channel ↗</button>
+                <span class="free-badge">Free Community Tool</span>
+              </div>
+            </div>
+            <div class="community-mock-radar">
+              <div class="radar-scan"></div>
+              <div class="radar-icon">⚡️</div>
+              <div class="radar-text">24h Radar Active</div>
+            </div>
+          </div>
+        )}
+
+        <!-- Events Table -->
+        <div class="history-section">
+          <div class="history-header">
+            <h2 class="history-title">Codex Reset and Bonus Card History</h2>
+            <span class="history-count">Latest 30 events in Beijing Time</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="radar-table">
+              <thead>
+                <tr>
+                  <th>Date (UTC+8)</th>
+                  <th>Type</th>
+                  <th>Applies to</th>
+                  <th>Reason / Context</th>
+                  <th>Age</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {codex.events.map((e) => (
+                  <tr>
+                    <td class="cell-date">{e.landedAtBeijing}</td>
+                    <td>
+                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>
+                        {e.typeLabelEn}
+                      </span>
+                    </td>
+                    <td class="cell-scope">{e.scopeEn}</td>
+                    <td class="cell-reason">{e.reasonEn}</td>
+                    <td class="cell-timeago">{e.timeAgoEn}</td>
+                    <td class="cell-src">
+                      {e.postUrl ? (
+                        <a href={e.postUrl} target="_blank" rel="noreferrer" class="src-link">
+                          Post ↗
+                        </a>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Claude Section -->
+      <div id="section-claude" class="provider-section">
+        <!-- 4 Stats Cards Bento -->
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">Since last weekly reset</div>
+            <div class="card-value highlight">{claude.sinceLastReset.textEn}</div>
+            <div class="card-sub">Applies to: {claude.lastReset.scopeEn}</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="card-label">Last reset landed</div>
+            <div class="card-value">{claude.lastReset.dateBeijing} <span class="time-sub">{claude.lastReset.timeBeijing}</span></div>
+            <div class="card-sub text-truncate">Reason: {claude.lastReset.reasonEn}</div>
+            {claude.lastReset.postUrl && (
+              <a href={claude.lastReset.postUrl} target="_blank" rel="noreferrer" class="card-link">Official Source ↗</a>
+            )}
+          </div>
+
+          <div class="bento-card">
+            <div class="card-label">Next estimated reset</div>
+            <div class={`card-value ${claude.nextEstimated.isOverdue ? 'warn' : 'accent'}`}>
+              {claude.nextEstimated.dateBeijing} <span class="time-sub">{claude.nextEstimated.timeBeijing}</span>
+            </div>
+            <div class="card-sub">{claude.nextEstimated.relativeTextEn}</div>
+            <div class="card-hint">Estimated from median cadence (~7.1 days)</div>
+          </div>
+
+          <div class="bento-card">
+            <div class="card-label">30-day cadence</div>
+            <div class="card-value">{claude.typicalGapDays} <span class="unit">days</span></div>
+            <div class="card-sub">Last 30 days: {claude.resets30d} resets</div>
+            <div class="card-hint">Source: {claude.sourceAccount}</div>
+          </div>
+        </div>
+
+        <!-- 5-Hour Rolling Window Calculator for Claude -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">Claude 5-Hour Dynamic Window Calculator</h2>
+              <p class="tool-sub">Claude Pro and Max plans enforce 5-hour rolling limits. Enter your limit timestamp to calculate quota recovery</p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for="claude-limit-time">Rate limited at (Local time)</label>
+              <input type="time" id="claude-limit-time" class="time-input" />
+            </div>
+            <div class="calc-arrow">➔</div>
+            <div class="calc-result-box">
+              <div class="result-label">First quota recovery arrives at</div>
+              <div class="result-time" id="claude-calc-result">--:--</div>
+              <div class="result-tips" id="claude-calc-tips">Pick a time to calculate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Events Table -->
+        <div class="history-section">
+          <div class="history-header">
+            <h2 class="history-title">Claude Usage Reset History</h2>
+            <span class="history-count">All converted to Beijing Time</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="radar-table">
+              <thead>
+                <tr>
+                  <th>Date (UTC+8)</th>
+                  <th>Type</th>
+                  <th>Applies to</th>
+                  <th>Reason / Context</th>
+                  <th>Age</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {claude.events.map((e) => (
+                  <tr>
+                    <td class="cell-date">{e.landedAtBeijing}</td>
+                    <td>
+                      <span class="badge badge-reset">{e.typeLabelEn}</span>
+                    </td>
+                    <td class="cell-scope">{e.scopeEn}</td>
+                    <td class="cell-reason">{e.reasonEn}</td>
+                    <td class="cell-timeago">{e.timeAgoEn}</td>
+                    <td class="cell-src">
+                      {e.postUrl ? (
+                        <a href={e.postUrl} target="_blank" rel="noreferrer" class="src-link">
+                          Post ↗
+                        </a>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAQ & Strategy Section -->
+      <section class="faq-section">
+        <h2 class="faq-main-title">Frequently Asked Questions</h2>
+        <div class="faq-grid">
+          <div class="faq-item">
+            <h3 class="faq-q">What is the difference between global resets and rolling windows</h3>
+            <p class="faq-a">
+              <strong>Global resets</strong> are platform-wide promotional or compensatory events announced on X by leadership. <strong>5-hour rolling windows</strong> are automatic individual limits that refresh continuously starting 5 hours after your earliest usage burst.
+            </p>
+          </div>
+          <div class="faq-item">
+            <h3 class="faq-q">What are bonus reset cards</h3>
+            <p class="faq-a">
+              Reset cards are emergency coupons dropped to certain subscribers. When you hit your quota, you can consume a card to instantly refresh your usage. They can expire or be tied to specific tiers.
+            </p>
+          </div>
+          <div class="faq-item">
+            <h3 class="faq-q">How is the estimated next reset calculated</h3>
+            <p class="faq-a">
+              Estimates are computed as the <strong>median gap</strong> between the previous 10 official resets. It serves as a community baseline rather than an official scheduled commitment.
+            </p>
+          </div>
+          <div class="faq-item">
+            <h3 class="faq-q">How to stay productive during quota cooldowns</h3>
+            <p class="faq-a">
+              Maintain a dual-tool setup across Codex and Claude Code. Toggle prompt caching and reasoning levels prudently. You can also monitor your consumption patterns on T Salon TokenRank.
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Modal for Joining Group -->
+  <div id="join-modal" class="modal-backdrop" hidden>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <h3 class="modal-title">Join Notification Channel</h3>
+        <button id="close-modal-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="qr-placeholder">
+          <div class="qr-box">
+            <img src="/images/logo-dark.png" alt="T Salon" class="qr-logo" />
+            <p class="qr-hint">Scan or contact T Salon assistant to join</p>
+            <div class="wechat-id-badge">WeChat ID: <code>tsalon_helper</code></div>
+          </div>
+        </div>
+        <p class="modal-desc">
+          Our automated monitors track official OpenAI and Claude announcements 24/7. When a reset or bonus card is confirmed, notifications are broadcast immediately.
+        </p>
+        <button id="copy-wechat-btn" class="btn btn-dark copy-btn">Copy Assistant ID</button>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  // Tab Switcher
+  const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
+  const sections = document.querySelectorAll<HTMLElement>('.provider-section');
+
+  tabBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const provider = btn.dataset.provider;
+      tabBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      sections.forEach((sec) => {
+        if (sec.id === `section-${provider}`) {
+          sec.classList.add('active');
+        } else {
+          sec.classList.remove('active');
+        }
+      });
+    });
+  });
+
+  // 5-Hour Calculator Helper
+  function initCalculator(inputId: string, resultId: string, tipsId: string) {
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    const result = document.getElementById(resultId);
+    const tips = document.getElementById(tipsId);
+    if (!input || !result || !tips) return;
+
+    const now = new Date();
+    const curH = String(now.getHours()).padStart(2, '0');
+    const curM = String(now.getMinutes()).padStart(2, '0');
+    input.value = `${curH}:${curM}`;
+
+    const calculate = () => {
+      const val = input.value;
+      if (!val) return;
+      const [h, m] = val.split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) return;
+
+      const date = new Date();
+      date.setHours(h);
+      date.setMinutes(m);
+      date.setSeconds(0);
+
+      const recoverDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+      const rh = String(recoverDate.getHours()).padStart(2, '0');
+      const rm = String(recoverDate.getMinutes()).padStart(2, '0');
+
+      const isNextDay = recoverDate.getDate() !== date.getDate();
+      result.textContent = `${rh}:${rm} ${isNextDay ? '(Next day)' : ''}`;
+      tips.textContent = `Around ${rh}:${rm}, your earliest 5-hour rolling quota will begin recovering`;
+    };
+
+    input.addEventListener('change', calculate);
+    input.addEventListener('input', calculate);
+    calculate();
+  }
+
+  initCalculator('codex-limit-time', 'codex-calc-result', 'codex-calc-tips');
+  initCalculator('claude-limit-time', 'claude-calc-result', 'claude-calc-tips');
+
+  // Modal logic
+  const modal = document.getElementById('join-modal');
+  const closeBtn = document.getElementById('close-modal-btn');
+  const joinBtns = document.querySelectorAll('.join-group-btn');
+  const copyBtn = document.getElementById('copy-wechat-btn');
+
+  joinBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      modal?.removeAttribute('hidden');
+    });
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    modal?.setAttribute('hidden', '');
+  });
+
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) modal.setAttribute('hidden', '');
+  });
+
+  copyBtn?.addEventListener('click', () => {
+    navigator.clipboard?.writeText('tsalon_helper').then(() => {
+      if (copyBtn) {
+        copyBtn.textContent = 'ID Copied';
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy Assistant ID';
+        }, 2000);
+      }
+    });
+  });
+</script>
+
+<style>
+  .reset-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 80vh;
+  }
+
+  .reset-hero {
+    margin-bottom: var(--space-12);
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .hero-top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 12px;
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    font-size: var(--text-12);
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+    border-radius: 999px;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin: 0 0 var(--space-4);
+  }
+
+  .hero-desc {
+    max-width: 680px;
+    color: var(--text-secondary);
+    font-size: var(--text-15);
+    line-height: 1.6;
+    margin: 0 0 var(--space-8);
+  }
+
+  .provider-tabs {
+    display: flex;
+    gap: var(--space-3);
+  }
+
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-6);
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--duration-base) var(--ease-standard);
+  }
+
+  .tab-btn:hover {
+    background: #fff;
+    border-color: var(--color-ink-950);
+    color: var(--color-ink-950);
+  }
+
+  .tab-btn.active {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
+  }
+
+  .tab-badge {
+    font-size: var(--text-10);
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .tab-btn:not(.active) .tab-badge {
+    background: var(--border-default);
+    color: var(--text-secondary);
+  }
+
+  .provider-section {
+    display: none;
+  }
+
+  .provider-section.active {
+    display: block;
+  }
+
+  /* Alert Banner */
+  .alert-banner {
+    margin-bottom: var(--space-8);
+    padding: var(--space-5) var(--space-6);
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .alert-icon {
+    font-size: 1.8rem;
+  }
+
+  .alert-content {
+    flex: 1;
+  }
+
+  .alert-title {
+    font-weight: var(--font-weight-bold);
+    color: #92400e;
+    margin-bottom: 2px;
+  }
+
+  .alert-text {
+    font-size: var(--text-13);
+    color: #78350f;
+    margin: 0;
+  }
+
+  .alert-meta {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: #b45309;
+    margin-top: 4px;
+  }
+
+  .alert-btn {
+    white-space: nowrap;
+  }
+
+  /* Stats Bento Grid */
+  .stats-bento {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-10);
+  }
+
+  .bento-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .card-label {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    margin-bottom: var(--space-3);
+  }
+
+  .card-value {
+    font-size: 1.85rem;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-ink-950);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: var(--space-2);
+  }
+
+  .card-value.highlight {
+    color: #2563eb;
+  }
+
+  .card-value.accent {
+    color: #059669;
+  }
+
+  .card-value.warn {
+    color: #ea580c;
+  }
+
+  .time-sub {
+    font-size: 1.1rem;
+    font-weight: var(--font-weight-normal);
+    color: var(--text-secondary);
+  }
+
+  .unit {
+    font-size: 1.1rem;
+    font-weight: var(--font-weight-normal);
+    color: var(--text-tertiary);
+  }
+
+  .card-sub {
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .card-hint {
+    font-size: var(--text-10);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    margin-top: auto;
+    padding-top: var(--space-3);
+  }
+
+  .card-link {
+    font-size: var(--text-11);
+    color: #2563eb;
+    margin-top: var(--space-2);
+    text-decoration: underline;
+  }
+
+  .text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 5-Hour Calculator Card */
+  .tool-card {
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    padding: var(--space-8);
+    margin-bottom: var(--space-10);
+  }
+
+  .tool-header {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+    margin-bottom: var(--space-6);
+  }
+
+  .tool-icon {
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .tool-title {
+    font-size: var(--text-18);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-1);
+  }
+
+  .tool-sub {
+    font-size: var(--text-13);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .calc-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+  }
+
+  .calc-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .calc-input-group label {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+  }
+
+  .time-input {
+    font-size: 1.5rem;
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-bold);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    background: var(--background-subtle);
+  }
+
+  .calc-arrow {
+    font-size: 1.5rem;
+    color: var(--text-tertiary);
+  }
+
+  .calc-result-box {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .result-label {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+  }
+
+  .result-time {
+    font-size: 1.75rem;
+    font-weight: var(--font-weight-bold);
+    color: #059669;
+    font-family: var(--font-mono);
+  }
+
+  .result-tips {
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+  }
+
+  /* Community Notification Banner */
+  .community-banner {
+    background: var(--color-ink-950);
+    color: #fff;
+    padding: var(--space-8) var(--space-10);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+    margin-bottom: var(--space-12);
+  }
+
+  .community-tag {
+    display: inline-block;
+    font-size: var(--text-10);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    background: #2563eb;
+    color: #fff;
+    padding: 2px 8px;
+    margin-bottom: var(--space-3);
+  }
+
+  .community-title {
+    font-size: var(--text-24);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-3);
+    color: #fff;
+  }
+
+  .community-desc {
+    color: #a3a3a3;
+    font-size: var(--text-13);
+    max-width: 580px;
+    line-height: 1.6;
+    margin: 0 0 var(--space-6);
+  }
+
+  .community-action {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .free-badge {
+    font-size: var(--text-11);
+    color: #737373;
+  }
+
+  .community-mock-radar {
+    width: 140px;
+    height: 140px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .radar-icon {
+    font-size: 2rem;
+    margin-bottom: var(--space-1);
+  }
+
+  .radar-text {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: #888;
+    text-align: center;
+  }
+
+  /* Table Section */
+  .history-section {
+    margin-top: var(--space-12);
+  }
+
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 2px solid var(--color-ink-950);
+  }
+
+  .history-title {
+    font-size: var(--text-20);
+    font-weight: var(--font-weight-bold);
+    margin: 0;
+  }
+
+  .history-count {
+    font-size: var(--text-12);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .radar-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-13);
+  }
+
+  .radar-table th,
+  .radar-table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-default);
+    text-align: left;
+  }
+
+  .radar-table th {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    background: var(--background-subtle);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .radar-table tr:hover td {
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .cell-date {
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+  }
+
+  .cell-scope {
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+  }
+
+  .cell-reason {
+    max-width: 320px;
+    line-height: 1.4;
+  }
+
+  .cell-timeago {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: var(--text-11);
+    font-weight: var(--font-weight-medium);
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .badge-reset {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+  }
+
+  .badge-card {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  .src-link {
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+    text-decoration: underline;
+  }
+
+  /* FAQ Section */
+  .faq-section {
+    margin-top: var(--space-20);
+    padding-top: var(--space-12);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .faq-main-title {
+    font-size: var(--text-24);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-8);
+  }
+
+  .faq-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-8);
+  }
+
+  .faq-item {
+    background: #fff;
+    padding: var(--space-6);
+    border: 1px solid var(--border-default);
+  }
+
+  .faq-q {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-2);
+  }
+
+  .faq-a {
+    font-size: var(--text-13);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-dialog {
+    background: #fff;
+    width: 90%;
+    max-width: 440px;
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+
+  .modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+  }
+
+  .modal-title {
+    margin: 0;
+    font-size: var(--text-18);
+  }
+
+  .modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .qr-placeholder {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--space-4);
+  }
+
+  .qr-box {
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+    text-align: center;
+    width: 100%;
+  }
+
+  .qr-logo {
+    height: 40px;
+    margin: 0 auto var(--space-2);
+  }
+
+  .qr-hint {
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-3);
+  }
+
+  .wechat-id-badge {
+    font-size: var(--text-13);
+    background: #fff;
+    padding: 6px 12px;
+    border: 1px solid var(--border-default);
+    display: inline-block;
+  }
+
+  .modal-desc {
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: var(--space-6);
+  }
+
+  .copy-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  @media (max-width: 1024px) {
+    .stats-bento {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .faq-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .stats-bento {
+      grid-template-columns: 1fr;
+    }
+    .calc-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .calc-arrow {
+      display: none;
+    }
+    .community-banner {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
