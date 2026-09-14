@@ -119,28 +119,6 @@ const { codex, claude, updatedAtBeijing } = radarData;
           </div>
         </div>
 
-        {/* Notification Community Card (Hidden for now) */}
-        {false && (
-          <div class="community-banner">
-            <div class="community-content">
-              <span class="community-tag">突发通知群</span>
-              <h2 class="community-title">Tibo 一发推，群内秒 @ 所有人</h2>
-              <p class="community-desc">
-                不想每半小时刷新一次？加入 T Salon AI 编程极速重置通知群，官方发卡、全局重置、突发调整实时群广播，不错过任何一次满血复活机会。
-              </p>
-              <div class="community-action">
-                <button class="btn btn-primary join-group-btn" data-group="codex">扫码或复制入群说明 ↗</button>
-                <span class="free-badge">免费社群服务</span>
-              </div>
-            </div>
-            <div class="community-mock-radar">
-              <div class="radar-scan"></div>
-              <div class="radar-icon">⚡️</div>
-              <div class="radar-text">24h 突发监控在线</div>
-            </div>
-          </div>
-        )}
-
         <!-- Events Table -->
         <div class="history-section">
           <div class="history-header">
@@ -326,29 +304,6 @@ const { codex, claude, updatedAtBeijing } = radarData;
       </section>
     </div>
   </main>
-
-  <!-- Modal for Joining Group -->
-  <div id="join-modal" class="modal-backdrop" hidden>
-    <div class="modal-dialog">
-      <div class="modal-head">
-        <h3 class="modal-title">加入突发重置通知群</h3>
-        <button id="close-modal-btn" class="modal-close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="qr-placeholder">
-          <div class="qr-box">
-            <img src="/images/logo-dark.png" alt="T Salon" class="qr-logo" />
-            <p class="qr-hint">扫码关注 T Salon 或添加助手微信进群</p>
-            <div class="wechat-id-badge">微信号：<code>tsalon_helper</code></div>
-          </div>
-        </div>
-        <p class="modal-desc">
-          我们有自动化 Bot 24 小时紧盯 OpenAI Codex 与 Claude 官方动态。一旦官宣重置或发卡，群内第一时间艾特全员广播。
-        </p>
-        <button id="copy-wechat-btn" class="btn btn-dark copy-btn">一键复制微信号</button>
-      </div>
-    </div>
-  </div>
 </BaseLayout>
 
 <script>
@@ -413,37 +368,6 @@ const { codex, claude, updatedAtBeijing } = radarData;
 
   initCalculator('codex-limit-time', 'codex-calc-result', 'codex-calc-tips');
   initCalculator('claude-limit-time', 'claude-calc-result', 'claude-calc-tips');
-
-  // Modal logic
-  const modal = document.getElementById('join-modal');
-  const closeBtn = document.getElementById('close-modal-btn');
-  const joinBtns = document.querySelectorAll('.join-group-btn');
-  const copyBtn = document.getElementById('copy-wechat-btn');
-
-  joinBtns.forEach((b) => {
-    b.addEventListener('click', () => {
-      modal?.removeAttribute('hidden');
-    });
-  });
-
-  closeBtn?.addEventListener('click', () => {
-    modal?.setAttribute('hidden', '');
-  });
-
-  modal?.addEventListener('click', (e) => {
-    if (e.target === modal) modal.setAttribute('hidden', '');
-  });
-
-  copyBtn?.addEventListener('click', () => {
-    navigator.clipboard?.writeText('tsalon_helper').then(() => {
-      if (copyBtn) {
-        copyBtn.textContent = '已复制微信号！';
-        setTimeout(() => {
-          copyBtn.textContent = '一键复制微信号';
-        }, 2000);
-      }
-    });
-  });
 </script>
 
 <style>
@@ -772,80 +696,6 @@ const { codex, claude, updatedAtBeijing } = radarData;
     color: var(--text-secondary);
   }
 
-  /* Community Notification Banner */
-  .community-banner {
-    background: var(--color-ink-950);
-    color: #fff;
-    padding: var(--space-8) var(--space-10);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-8);
-    margin-bottom: var(--space-12);
-  }
-
-  .community-tag {
-    display: inline-block;
-    font-size: var(--text-10);
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    background: #2563eb;
-    color: #fff;
-    padding: 2px 8px;
-    margin-bottom: var(--space-3);
-  }
-
-  .community-title {
-    font-size: var(--text-24);
-    font-weight: var(--font-weight-bold);
-    margin: 0 0 var(--space-3);
-    color: #fff;
-  }
-
-  .community-desc {
-    color: #a3a3a3;
-    font-size: var(--text-13);
-    max-width: 580px;
-    line-height: 1.6;
-    margin: 0 0 var(--space-6);
-  }
-
-  .community-action {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-  }
-
-  .free-badge {
-    font-size: var(--text-11);
-    color: #737373;
-  }
-
-  .community-mock-radar {
-    width: 140px;
-    height: 140px;
-    border: 1px dashed rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    flex-shrink: 0;
-  }
-
-  .radar-icon {
-    font-size: 2rem;
-    margin-bottom: var(--space-1);
-  }
-
-  .radar-text {
-    font-size: 9px;
-    font-family: var(--font-mono);
-    color: #888;
-    text-align: center;
-  }
-
   /* Table Section */
   .history-section {
     margin-top: var(--space-12);
@@ -988,91 +838,6 @@ const { codex, claude, updatedAtBeijing } = radarData;
     margin: 0;
   }
 
-  /* Modal */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-
-  .modal-dialog {
-    background: #fff;
-    width: 90%;
-    max-width: 440px;
-    border: 1px solid var(--border-default);
-    padding: var(--space-6);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-  }
-
-  .modal-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-4);
-  }
-
-  .modal-title {
-    margin: 0;
-    font-size: var(--text-18);
-  }
-
-  .modal-close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-  }
-
-  .qr-placeholder {
-    display: flex;
-    justify-content: center;
-    margin-bottom: var(--space-4);
-  }
-
-  .qr-box {
-    background: var(--background-subtle);
-    border: 1px solid var(--border-default);
-    padding: var(--space-6);
-    text-align: center;
-    width: 100%;
-  }
-
-  .qr-logo {
-    height: 40px;
-    margin: 0 auto var(--space-2);
-  }
-
-  .qr-hint {
-    font-size: var(--text-12);
-    color: var(--text-secondary);
-    margin: 0 0 var(--space-3);
-  }
-
-  .wechat-id-badge {
-    font-size: var(--text-13);
-    background: #fff;
-    padding: 6px 12px;
-    border: 1px solid var(--border-default);
-    display: inline-block;
-  }
-
-  .modal-desc {
-    font-size: var(--text-12);
-    color: var(--text-secondary);
-    line-height: 1.5;
-    margin-bottom: var(--space-6);
-  }
-
-  .copy-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
   @media (max-width: 1024px) {
     .stats-bento {
       grid-template-columns: repeat(2, 1fr);
@@ -1092,10 +857,6 @@ const { codex, claude, updatedAtBeijing } = radarData;
     }
     .calc-arrow {
       display: none;
-    }
-    .community-banner {
-      flex-direction: column;
-      align-items: flex-start;
     }
   }
 </style>
