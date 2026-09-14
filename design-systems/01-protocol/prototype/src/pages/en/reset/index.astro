@@ -119,25 +119,27 @@ const { codex, claude, updatedAtBeijing } = radarData;
           </div>
         </div>
 
-        <!-- Notification Community Card -->
-        <div class="community-banner">
-          <div class="community-content">
-            <span class="community-tag">Instant Alerts</span>
-            <h2 class="community-title">Instant notification when Tibo announces a reset</h2>
-            <p class="community-desc">
-              Do not spend your day refreshing timelines. Join the developer notification channels to get notified immediately when bonus cards or quota resets drop.
-            </p>
-            <div class="community-action">
-              <button class="btn btn-primary join-group-btn" data-group="codex">Join Notification Channel ↗</button>
-              <span class="free-badge">Free Community Tool</span>
+        {/* Notification Community Card (Hidden for now) */}
+        {false && (
+          <div class="community-banner">
+            <div class="community-content">
+              <span class="community-tag">Instant Alerts</span>
+              <h2 class="community-title">Instant notification when Tibo announces a reset</h2>
+              <p class="community-desc">
+                Do not spend your day refreshing timelines. Join the developer notification channels to get notified immediately when bonus cards or quota resets drop.
+              </p>
+              <div class="community-action">
+                <button class="btn btn-primary join-group-btn" data-group="codex">Join Notification Channel ↗</button>
+                <span class="free-badge">Free Community Tool</span>
+              </div>
+            </div>
+            <div class="community-mock-radar">
+              <div class="radar-scan"></div>
+              <div class="radar-icon">⚡️</div>
+              <div class="radar-text">24h Radar Active</div>
             </div>
           </div>
-          <div class="community-mock-radar">
-            <div class="radar-scan"></div>
-            <div class="radar-icon">⚡️</div>
-            <div class="radar-text">24h Radar Active</div>
-          </div>
-        </div>
+        )}
 
         <!-- Events Table -->
         <div class="history-section">

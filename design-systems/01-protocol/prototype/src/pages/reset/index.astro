@@ -119,25 +119,27 @@ const { codex, claude, updatedAtBeijing } = radarData;
           </div>
         </div>
 
-        <!-- Notification Community Card -->
-        <div class="community-banner">
-          <div class="community-content">
-            <span class="community-tag">突发通知群</span>
-            <h2 class="community-title">Tibo 一发推，群内秒 @ 所有人</h2>
-            <p class="community-desc">
-              不想每半小时刷新一次？加入 T Salon AI 编程极速重置通知群，官方发卡、全局重置、突发调整实时群广播，不错过任何一次满血复活机会。
-            </p>
-            <div class="community-action">
-              <button class="btn btn-primary join-group-btn" data-group="codex">扫码或复制入群说明 ↗</button>
-              <span class="free-badge">免费社群服务</span>
+        {/* Notification Community Card (Hidden for now) */}
+        {false && (
+          <div class="community-banner">
+            <div class="community-content">
+              <span class="community-tag">突发通知群</span>
+              <h2 class="community-title">Tibo 一发推，群内秒 @ 所有人</h2>
+              <p class="community-desc">
+                不想每半小时刷新一次？加入 T Salon AI 编程极速重置通知群，官方发卡、全局重置、突发调整实时群广播，不错过任何一次满血复活机会。
+              </p>
+              <div class="community-action">
+                <button class="btn btn-primary join-group-btn" data-group="codex">扫码或复制入群说明 ↗</button>
+                <span class="free-badge">免费社群服务</span>
+              </div>
+            </div>
+            <div class="community-mock-radar">
+              <div class="radar-scan"></div>
+              <div class="radar-icon">⚡️</div>
+              <div class="radar-text">24h 突发监控在线</div>
             </div>
           </div>
-          <div class="community-mock-radar">
-            <div class="radar-scan"></div>
-            <div class="radar-icon">⚡️</div>
-            <div class="radar-text">24h 突发监控在线</div>
-          </div>
-        </div>
+        )}
 
         <!-- Events Table -->
         <div class="history-section">

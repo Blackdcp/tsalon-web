@@ -25,6 +25,16 @@
       "permanent": true
     },
     {
+      "source": "/whenreset",
+      "destination": "/reset/",
+      "permanent": false
+    },
+    {
+      "source": "/whenrest",
+      "destination": "/reset/",
+      "permanent": false
+    },
+    {
       "source": "/archives",
       "destination": "/articles/",
       "permanent": true
