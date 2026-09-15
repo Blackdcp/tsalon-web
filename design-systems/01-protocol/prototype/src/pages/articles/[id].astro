@@ -76,6 +76,7 @@ const jsonLd = talk ? {
   url: pageUrl,
   uploadDate: '2023-01-01T00:00:00.000Z',
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  author: { '@type': 'Person', name: talk.data.speaker },
   about: talk.data.topics,
   inLanguage: 'zh-CN',
 } : {
@@ -87,11 +88,29 @@ const jsonLd = talk ? {
   dateModified: (article!.data.updatedAt ?? article!.data.publishedAt).toISOString(),
   url: pageUrl,
   image: new URL(article!.data.cover, Astro.site).toString(),
-  author: { '@type': 'Organization', name: author!.data.name },
+  author: {
+    '@type': 'Organization',
+    name: author!.data.name,
+    description: author!.data.bio,
+    url: new URL('/about/', Astro.site).toString(),
+    ...(author!.data.links?.github ? { sameAs: [author!.data.links.github] } : {}),
+  },
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   inLanguage: 'zh-CN',
   about: article!.data.topics,
 };
+
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: '首页', item: new URL('/', Astro.site).toString() },
+    { '@type': 'ListItem', position: 2, name: '内容', item: new URL('/articles/', Astro.site).toString() },
+    { '@type': 'ListItem', position: 3, name: title, item: pageUrl },
+  ],
+};
+
+const pageJsonLd = [jsonLd, breadcrumbJsonLd];
 
 const pageTitle = talk ? `${talk.data.title}｜T Chat 第 ${talk.data.episode} 期 — T Salon` : article!.data.seo.title;
 const pageDescription = talk
@@ -99,7 +118,7 @@ const pageDescription = talk
   : article!.data.seo.description;
 ---
 
-<BaseLayout alternatePath={article ? `/en/articles/${article.id}/` : undefined} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={jsonLd}>
+<BaseLayout alternatePath={article ? `/en/articles/${article.id}/` : undefined} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={pageJsonLd}>
   <main class="content-detail-page">
     <nav class="content-detail-shell content-detail-breadcrumb" aria-label="面包屑">
       <a href="/articles/">内容</a><span aria-hidden="true">/</span><span>{contentKind}</span>

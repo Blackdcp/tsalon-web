@@ -45,6 +45,12 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={locale === 'zh' ? 'T Salon 内容订阅' : 'T Salon content feed'}
+      href={locale === 'zh' ? '/rss.xml' : '/en/rss.xml'}
+    />
     {alternate && zhUrl && <link rel="alternate" hreflang="zh-Hans" href={zhUrl} />}
     {alternate && enUrl && <link rel="alternate" hreflang="en" href={enUrl} />}
     {alternate && zhUrl && <link rel="alternate" hreflang="x-default" href={zhUrl} />}

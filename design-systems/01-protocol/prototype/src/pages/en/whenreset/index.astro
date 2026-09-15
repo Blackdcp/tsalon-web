@@ -6,6 +6,54 @@ export const prerender = false;
 
 const radarData = await getResetRadarData();
 const { codex, claude, updatedAtBeijing } = radarData;
+
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
+
+const faqItems = [
+  {
+    q: 'What is the difference between global resets and rolling windows',
+    a: '<strong>Global resets</strong> are platform-wide promotional or compensatory events announced on X by leadership. <strong>5-hour rolling windows</strong> are automatic individual limits that refresh continuously starting 5 hours after your earliest usage burst.',
+  },
+  {
+    q: 'What are bonus reset cards',
+    a: 'Reset cards are emergency coupons dropped to certain subscribers. When you hit your quota, you can consume a card to instantly refresh your usage. They can expire or be tied to specific tiers.',
+  },
+  {
+    q: 'How is the estimated next reset calculated',
+    a: 'Estimates are computed as the <strong>median gap</strong> between the previous 10 official resets. It serves as a community baseline rather than an official scheduled commitment.',
+  },
+  {
+    q: 'How to stay productive during quota cooldowns',
+    a: 'Maintain a dual-tool setup across Codex and Claude Code. Toggle prompt caching and reasoning levels prudently. You can also monitor your consumption patterns on T Salon TokenRank.',
+  },
+];
+
+const pageUrl = new URL('/en/whenreset/', Astro.site).toString();
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'AI Quota Reset Radar',
+    url: pageUrl,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Web',
+    description:
+      'Real-time monitoring of official usage resets and airdropped reset cards for OpenAI Codex and Anthropic Claude, all converted to Beijing time (UTC+8), with next-reset estimates derived from the median of historical intervals. Includes a 5-hour rolling window calculator.',
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    inLanguage: 'en',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: 'en',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: stripTags(item.a) },
+    })),
+  },
+];
 ---
 
 <BaseLayout
@@ -13,6 +61,7 @@ const { codex, claude, updatedAtBeijing } = radarData;
   description="Track official OpenAI Codex and Anthropic Claude usage resets, bonus reset cards, typical cadences, and Beijing time countdowns in real time."
   alternatePath="/whenreset/"
   locale="en"
+  jsonLd={jsonLd}
 >
   <main class="reset-page">
     <div class="container">
@@ -276,30 +325,12 @@ const { codex, claude, updatedAtBeijing } = radarData;
       <section class="faq-section">
         <h2 class="faq-main-title">Frequently Asked Questions</h2>
         <div class="faq-grid">
-          <div class="faq-item">
-            <h3 class="faq-q">What is the difference between global resets and rolling windows</h3>
-            <p class="faq-a">
-              <strong>Global resets</strong> are platform-wide promotional or compensatory events announced on X by leadership. <strong>5-hour rolling windows</strong> are automatic individual limits that refresh continuously starting 5 hours after your earliest usage burst.
-            </p>
-          </div>
-          <div class="faq-item">
-            <h3 class="faq-q">What are bonus reset cards</h3>
-            <p class="faq-a">
-              Reset cards are emergency coupons dropped to certain subscribers. When you hit your quota, you can consume a card to instantly refresh your usage. They can expire or be tied to specific tiers.
-            </p>
-          </div>
-          <div class="faq-item">
-            <h3 class="faq-q">How is the estimated next reset calculated</h3>
-            <p class="faq-a">
-              Estimates are computed as the <strong>median gap</strong> between the previous 10 official resets. It serves as a community baseline rather than an official scheduled commitment.
-            </p>
-          </div>
-          <div class="faq-item">
-            <h3 class="faq-q">How to stay productive during quota cooldowns</h3>
-            <p class="faq-a">
-              Maintain a dual-tool setup across Codex and Claude Code. Toggle prompt caching and reasoning levels prudently. You can also monitor your consumption patterns on T Salon TokenRank.
-            </p>
-          </div>
+          {faqItems.map((item) => (
+            <div class="faq-item">
+              <h3 class="faq-q">{item.q}</h3>
+              <p class="faq-a" set:html={item.a} />
+            </div>
+          ))}
         </div>
       </section>
     </div>

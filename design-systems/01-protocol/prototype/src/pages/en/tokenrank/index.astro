@@ -75,12 +75,35 @@ try {
   }
 } catch(e) {}
 
-const seoJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  name: 'T Salon Token Leaderboard',
-  description: 'A live leaderboard of AI coding token usage — see how developers across the community stack up, in real time.'
-};
+const tokenRankUrl = new URL('/en/tokenrank/', Astro.site).toString();
+const seoJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'T Salon Token Leaderboard',
+    description: 'A live leaderboard of AI coding token usage — see how developers across the community stack up, in real time.',
+    url: tokenRankUrl,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: 'T Salon TokenRank — AI coding token consumption dataset',
+    description:
+      'A first-party dataset of real AI coding tool token consumption collected by T Salon. Developers report local usage through an open-source agent; data is bucketed by Beijing time (UTC+8) and reported on three bases — total with cache, normalized excluding cache, and estimated cost — alongside cache hit rate and tool distribution.',
+    url: tokenRankUrl,
+    creator: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    isAccessibleForFree: true,
+    inLanguage: 'en',
+    keywords: ['AI coding', 'token consumption', 'Codex', 'Claude Code', 'developer productivity'],
+    variableMeasured: [
+      { '@type': 'PropertyValue', name: 'Total tokens including cache', description: 'Full token consumption including cache hits' },
+      { '@type': 'PropertyValue', name: 'Normalized tokens excluding cache', description: 'Net token consumption after removing cache reads' },
+      { '@type': 'PropertyValue', name: 'Estimated cost', description: 'USD cost estimate derived from model pricing' },
+      { '@type': 'PropertyValue', name: 'Cache hit rate', description: 'Share of cache-read tokens within raw tokens' },
+    ],
+  },
+];
 
 const formatDisplayAmount = (num: any, metric: string = 'total') => {
   const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));

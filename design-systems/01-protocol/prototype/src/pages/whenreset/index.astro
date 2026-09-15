@@ -6,6 +6,54 @@ export const prerender = false;
 
 const radarData = await getResetRadarData();
 const { codex, claude, updatedAtBeijing } = radarData;
+
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
+
+const faqItems = [
+  {
+    q: '官方重置（Reset）与 5 小时窗口有什么区别',
+    a: '<strong>官方重置</strong>是平台运营方的全员福利或活动（例如新模型上线庆祝、服务故障补偿、发卡活动），通常由官方人员在 X 上官宣后生效。<strong>5 小时窗口</strong>则是每个账号系统固定的滑动限制，从你发起请求开始滚动计算 5 小时后自动释放部分配额。',
+  },
+  {
+    q: '重置卡（Reset Card）怎么用',
+    a: '重置卡是官方空投给部分用户的额度应急券。在用量触顶时可以主动消耗一张卡，瞬间刷新个人额度。重置卡通常具有时效性或账号绑定属性，老号与新号发放规则以官方公告为准。',
+  },
+  {
+    q: '预测下次重置时间是如何计算的',
+    a: '该时间基于过去 10 次官方重置之间的<strong>间隔中位数</strong>（Median Gap）进行数学推算，仅作为社群经验参考，并非官方固定排期日程。官方突袭往往伴随模型重大升级或偶发技术故障。',
+  },
+  {
+    q: '被限额后如何继续高效工作',
+    a: '建议建立多工具互备策略（例如 Codex 与 Claude Code 双持）；合理利用 Thinking 开关与 Prompt 缓存；在等待 5 小时窗口冷却期间，可复盘架构或在 T Salon TokenRank 检查用量消耗分布。',
+  },
+];
+
+const pageUrl = new URL('/whenreset/', Astro.site).toString();
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'AI 编程额度重置雷达',
+    url: pageUrl,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Web',
+    description:
+      '实时监控 OpenAI Codex 与 Anthropic Claude 的官方用量重置（Reset）与空投补卡记录，全部换算为北京时间，并基于历史间隔中位数推算下次重置时间，另提供 5 小时滑动窗口推算器。',
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    inLanguage: 'zh-CN',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: 'zh-CN',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: stripTags(item.a) },
+    })),
+  },
+];
 ---
 
 <BaseLayout
@@ -13,6 +61,7 @@ const { codex, claude, updatedAtBeijing } = radarData;
   description="实时监控 OpenAI Codex、Claude 等 AI 编程工具用量重置（Reset）倒计时、官方掉卡记录及北京时间恢复推算。"
   alternatePath="/en/whenreset/"
   locale="zh"
+  jsonLd={jsonLd}
 >
   <main class="reset-page">
     <div class="container">
@@ -276,30 +325,12 @@ const { codex, claude, updatedAtBeijing } = radarData;
       <section class="faq-section">
         <h2 class="faq-main-title">关于额度重置常见规则</h2>
         <div class="faq-grid">
-          <div class="faq-item">
-            <h3 class="faq-q">官方重置（Reset）与 5 小时窗口有什么区别</h3>
-            <p class="faq-a">
-              <strong>官方重置</strong>是平台运营方的全员福利或活动（例如新模型上线庆祝、服务故障补偿、发卡活动），通常由官方人员在 X 上官宣后生效。<strong>5 小时窗口</strong>则是每个账号系统固定的滑动限制，从你发起请求开始滚动计算 5 小时后自动释放部分配额。
-            </p>
-          </div>
-          <div class="faq-item">
-            <h3 class="faq-q">重置卡（Reset Card）怎么用</h3>
-            <p class="faq-a">
-              重置卡是官方空投给部分用户的额度应急券。在用量触顶时可以主动消耗一张卡，瞬间刷新个人额度。重置卡通常具有时效性或账号绑定属性，老号与新号发放规则以官方公告为准。
-            </p>
-          </div>
-          <div class="faq-item">
-            <h3 class="faq-q">预测下次重置时间是如何计算的</h3>
-            <p class="faq-a">
-              该时间基于过去 10 次官方重置之间的<strong>间隔中位数</strong>（Median Gap）进行数学推算，仅作为社群经验参考，并非官方固定排期日程。官方突袭往往伴随模型重大升级或偶发技术故障。
-            </p>
-          </div>
-          <div class="faq-item">
-            <h3 class="faq-q">被限额后如何继续高效工作</h3>
-            <p class="faq-a">
-              建议建立多工具互备策略（例如 Codex 与 Claude Code 双持）；合理利用 Thinking 开关与 Prompt 缓存；在等待 5 小时窗口冷却期间，可复盘架构或在 T Salon TokenRank 检查用量消耗分布。
-            </p>
-          </div>
+          {faqItems.map((item) => (
+            <div class="faq-item">
+              <h3 class="faq-q">{item.q}</h3>
+              <p class="faq-a" set:html={item.a} />
+            </div>
+          ))}
         </div>
       </section>
     </div>

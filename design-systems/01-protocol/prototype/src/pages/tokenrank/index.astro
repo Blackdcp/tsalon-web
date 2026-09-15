@@ -75,12 +75,35 @@ try {
   }
 } catch(e) {}
 
-const seoJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  name: 'T Salon Token 排行榜',
-  description: '全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。'
-};
+const tokenRankUrl = new URL('/tokenrank/', Astro.site).toString();
+const seoJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'T Salon Token 排行榜',
+    description: '全网 AI 开发者 Token 消耗风云榜，实时统计各路大神的本地 AI 代码生成量。',
+    url: tokenRankUrl,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: 'T Salon TokenRank — AI 编程 Token 消耗数据集',
+    description:
+      '由 T Salon 第一方采集的 AI 编程工具真实 Token 消耗数据集。开发者通过开源上报 agent 提交本地用量，数据按北京时间分桶，提供含缓存总量、不含缓存量与预估费用三种口径，并统计缓存命中率与工具分布。',
+    url: tokenRankUrl,
+    creator: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    isAccessibleForFree: true,
+    inLanguage: 'zh-CN',
+    keywords: ['AI 编程', 'Token 消耗', 'Codex', 'Claude Code', '开发者生产力'],
+    variableMeasured: [
+      { '@type': 'PropertyValue', name: '含缓存总 Token 量', description: '包含缓存命中的全部 token 消耗总量' },
+      { '@type': 'PropertyValue', name: '不含缓存 Token 量', description: '剔除缓存读取后的净 token 消耗量' },
+      { '@type': 'PropertyValue', name: '预估费用', description: '按模型定价折算的美元费用估算' },
+      { '@type': 'PropertyValue', name: '缓存命中率', description: '缓存读取 token 占原始 token 的比例' },
+    ],
+  },
+];
 
 const formatDisplayAmount = (num: any, metric: string = 'total') => {
   const n = typeof num === 'number' ? num : (num && typeof num === 'object' ? (num.total || 0) : (Number(num) || 0));

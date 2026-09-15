@@ -12,9 +12,33 @@ const index = all.findIndex((item) => item.id === article.id);
 const previous = index > 0 ? all[index - 1] : undefined;
 const next = index < all.length - 1 ? all[index + 1] : undefined;
 const labels: Record<string, string> = { news: 'Community news', insight: 'Industry insight', interview: 'Interview', 'field-note': 'Field note', guide: 'Practitioner viewpoint', archive: 'Archive' };
-const jsonLd = { '@context': 'https://schema.org', '@type': 'Article', headline: article.data.title, description: article.data.summary, datePublished: article.data.publishedAt.toISOString(), dateModified: (article.data.updatedAt ?? article.data.publishedAt).toISOString(), url: new URL(`/en/articles/${article.id}/`, Astro.site).toString(), image: new URL(article.data.cover, Astro.site).toString(), author: { '@type': 'Organization', name: 'T Salon Editorial' }, publisher: { '@type': 'Organization', name: 'T Salon' }, inLanguage: 'en', about: article.data.topics };
+const pageUrl = new URL(`/en/articles/${article.id}/`, Astro.site).toString();
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: article.data.title,
+  description: article.data.summary,
+  datePublished: article.data.publishedAt.toISOString(),
+  dateModified: (article.data.updatedAt ?? article.data.publishedAt).toISOString(),
+  url: pageUrl,
+  image: new URL(article.data.cover, Astro.site).toString(),
+  author: { '@type': 'Organization', name: 'T Salon Editorial', url: new URL('/en/about/', Astro.site).toString(), sameAs: ['https://github.com/Code-T'] },
+  publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  inLanguage: 'en',
+  about: article.data.topics,
+};
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: new URL('/en/', Astro.site).toString() },
+    { '@type': 'ListItem', position: 2, name: 'Stories', item: new URL('/en/articles/', Astro.site).toString() },
+    { '@type': 'ListItem', position: 3, name: article.data.title, item: pageUrl },
+  ],
+};
+const pageJsonLd = [jsonLd, breadcrumbJsonLd];
 ---
-<BaseLayout locale="en" alternatePath={`/articles/${article.data.translationOf}/`} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={jsonLd}>
+<BaseLayout locale="en" alternatePath={`/articles/${article.data.translationOf}/`} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={pageJsonLd}>
   <main class="content-detail-page">
     <nav class="content-detail-shell content-detail-breadcrumb" aria-label="Breadcrumb"><a href="/en/articles/">Stories</a><span aria-hidden="true">/</span><span>{labels[article.data.type]}</span></nav>
     <header class="content-detail-shell content-detail-header"><div class="content-detail-kicker"><p class="eyebrow">{labels[article.data.type]} / T SALON</p><span class="mono">EDITORIAL</span></div><h1>{article.data.title}</h1><p class="content-detail-summary">{article.data.summary}</p><div class="content-detail-byline"><span class="content-detail-avatar" aria-hidden="true">TS</span><div><strong>T Salon Editorial</strong><span>{article.data.publishedAt.toISOString().slice(0, 10)} · {article.data.readingMinutes} min read</span></div></div></header>
