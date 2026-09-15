@@ -8,11 +8,16 @@ export const GET: APIRoute = async ({ site }) => {
   const archiveEvents = await getCollection('activityArchive');
   const talks = await getCollection('talks');
   const articles = await getCollection('articles', ({ data }) => !data.draft);
+  const latestUpdate = [
+    ...articles.map((entry) => entry.data.publishedAt),
+    ...archiveEvents.map((entry) => entry.data.startDate),
+    ...events.map((entry) => entry.data.startDate),
+  ].reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest), new Date(0));
   const body = {
     name: 'T Salon',
     description: '面向开发者的线上与线下技术交流平台',
     language: 'zh-CN',
-    updated: '2026-07-18',
+    updated: latestUpdate.toISOString().slice(0, 10),
     pages: { events: `${origin}/events/`, content: `${origin}/articles/`, about: `${origin}/about/`, history: `${origin}/history/`, join: `${origin}/about/#join` },
     preparationTopics: [
       { id: 'ai', name: 'AI', collaboration: ['guest', 'content'] },
