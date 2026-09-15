@@ -1,0 +1,298 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { PRICING_SNAPSHOT_DATE, PRICING_SOURCE_URL } from '../../../../lib/token-pricing.mjs';
+
+const pageUrl = new URL('/en/tokenrank/methodology/', Astro.site).toString();
+
+const faqItems = [
+  {
+    q: 'How is TokenRank data collected',
+    a: 'Data is submitted by developers who voluntarily install the T Salon reporting agent. The agent tallies token usage from AI coding tools locally, buckets the totals by tool and model, and uploads the aggregated figures. Developers who never install the agent contribute nothing, so the leaderboard reflects real usage among participants rather than a sample of all developers.',
+  },
+  {
+    q: 'Why does one developer have three different numbers',
+    a: 'Because caching changes token counts substantially. "Total" counts everything including cache hits, "normalized" strips cache reads to show net consumption, and "estimated cost" converts usage into a dollar figure. They answer different questions: use total for volume, normalized for computational intensity, and cost for spend.',
+  },
+  {
+    q: 'Is the estimated cost an actual billing amount',
+    a: 'No. Cost is derived from a model pricing table captured on the snapshot date from public prices, and usage that cannot be matched to a specific model falls back to a default tier. Actual spend depends on subscription type, discounts and billing arrangements, so the figure is only useful for comparing orders of magnitude.',
+  },
+  {
+    q: 'Does using multiple devices double-count me',
+    a: 'No. TokenRank identifies devices belonging to the same developer by GitHub account ID and merges them, so each leaderboard row represents a person rather than a machine.',
+  },
+];
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'TokenRank data methodology',
+    description:
+      'How TokenRank data is collected, the three counting bases, Beijing time bucketing, identity merging, cost estimation, and known limitations.',
+    url: pageUrl,
+    inLanguage: 'en',
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: 'en',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: new URL('/en/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: 'TokenRank', item: new URL('/en/tokenrank/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: 'Methodology', item: pageUrl },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  locale="en"
+  alternatePath="/tokenrank/methodology/"
+  title="TokenRank data methodology | T Salon"
+  description="How TokenRank data is collected, the three counting bases, Beijing time bucketing, identity merging, cost estimation, and known limitations."
+  jsonLd={jsonLd}
+>
+  <main class="methodology-page">
+    <div class="container">
+      <nav class="methodology-breadcrumb" aria-label="Breadcrumb">
+        <a href="/en/">Home</a><span aria-hidden="true">/</span><a href="/en/tokenrank/">TokenRank</a><span aria-hidden="true">/</span><span>Methodology</span>
+      </nav>
+
+      <header class="methodology-header">
+        <p class="eyebrow">Methodology / TOKENRANK</p>
+        <h1>TokenRank data methodology</h1>
+        <p class="methodology-lede">
+          TokenRank is T Salon's own leaderboard of AI coding token consumption. This page documents where the data
+          comes from, how it is counted, and where it should not be relied on.
+        </p>
+      </header>
+
+      <section class="methodology-section">
+        <h2>Where the data comes from</h2>
+        <p>
+          Data is submitted by developers who voluntarily install the T Salon reporting agent. The agent tallies token
+          usage from AI coding tools locally, buckets the totals by tool and model, and uploads the aggregated figures.
+          Developers who never install the agent contribute nothing.
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>Three counting bases</h2>
+        <div class="methodology-table-wrap">
+          <table class="methodology-table">
+            <thead>
+              <tr><th>Basis</th><th>Definition</th><th>Question it answers</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Total</td>
+                <td>All token consumption including cache hits, reflecting real request volume</td>
+                <td>How much does this developer call</td>
+              </tr>
+              <tr>
+                <td>Normalized</td>
+                <td>Net token consumption after removing cache reads</td>
+                <td>How much computation actually happened</td>
+              </tr>
+              <tr>
+                <td>Estimated cost</td>
+                <td>Dollar amount derived from model pricing</td>
+                <td>What is this usage roughly worth</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="methodology-section">
+        <h2>Time bucketing</h2>
+        <p>
+          All data is bucketed by <strong>Beijing time (UTC+8)</strong>. Daily usage is the delta between the current
+          cumulative value and that device's previous snapshot, so a day only has a record if the device uploaded data
+          for it.
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>Identity merging</h2>
+        <p>
+          A single developer may run the agent on several machines. TokenRank identifies devices belonging to the same
+          person by GitHub account ID and merges them, so each leaderboard row represents a person rather than a device.
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>Cost estimation</h2>
+        <p>
+          Cost estimates use a model pricing snapshot dated <strong>{PRICING_SNAPSHOT_DATE}</strong>, sourced from the
+          <a href={PRICING_SOURCE_URL} target="_blank" rel="noreferrer">official OpenAI pricing page</a>. Usage that
+          cannot be matched to a specific model falls back to a default tier, so cost is an estimate rather than a
+          billed amount.
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>Known limitations</h2>
+        <ul class="methodology-list">
+          <li>Self-selected sample: the data comes from developers who chose to install the agent and does not represent all developers.</li>
+          <li>Cost is an estimate that depends on subscription type, discounts and billing arrangements; it should not be treated as a billed amount.</li>
+          <li>Historical figures are affected by pricing snapshot updates, so cross-period comparisons need care.</li>
+          <li>Only tools wired into the reporting agent are covered; usage from other tools does not appear.</li>
+        </ul>
+      </section>
+
+      <section class="methodology-faq">
+        <h2>Frequently asked questions</h2>
+        {faqItems.map((item) => (
+          <div class="methodology-faq-item">
+            <h3>{item.q}</h3>
+            <p>{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .methodology-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 70vh;
+  }
+
+  .methodology-breadcrumb {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-8);
+  }
+
+  .methodology-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .methodology-breadcrumb a:hover {
+    text-decoration: underline;
+  }
+
+  .methodology-header {
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--space-10);
+  }
+
+  .methodology-header h1 {
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.03em;
+    margin: var(--space-2) 0 var(--space-4);
+  }
+
+  .methodology-lede {
+    max-width: 680px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  .methodology-section {
+    margin-bottom: var(--space-10);
+  }
+
+  .methodology-section h2 {
+    font-size: var(--text-20);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-4);
+  }
+
+  .methodology-section p {
+    max-width: 720px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .methodology-table-wrap {
+    overflow-x: auto;
+  }
+
+  .methodology-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-13);
+  }
+
+  .methodology-table th,
+  .methodology-table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-default);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .methodology-table th {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    background: var(--background-subtle);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .methodology-list {
+    max-width: 720px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    padding-left: var(--space-5);
+    margin: 0;
+  }
+
+  .methodology-list li {
+    margin-bottom: var(--space-2);
+  }
+
+  .methodology-faq {
+    margin-top: var(--space-16);
+    padding-top: var(--space-10);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .methodology-faq h2 {
+    font-size: var(--text-20);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-6);
+  }
+
+  .methodology-faq-item {
+    padding: var(--space-5) 0;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .methodology-faq-item h3 {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-2);
+  }
+
+  .methodology-faq-item p {
+    color: var(--text-secondary);
+    font-size: var(--text-13);
+    line-height: 1.7;
+    margin: 0;
+    max-width: 720px;
+  }
+</style>

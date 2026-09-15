@@ -13,6 +13,20 @@ cover: /images/default-cover.svg
 coverAlt: T Salon 内容与观点
 featured: false
 draft: false
+tldr:
+  - "NVIDIA 在 Hugging Face 开源 Cosmos 3 Edge：40 亿参数的轻量“世界模型”，专为边缘设备打造。"
+  - "它不只识别图像，而是在潜空间学习物理规律，能预测未来状态并直接生成动作（关节扭矩、转向角）。"
+  - "4B 规模可在 Jetson 等边缘硬件本地实时推理，解决云端架构的高延迟与离线不可用两大痛点。"
+  - "开发者可用 transformers 直接调用与微调，甚至消费级显卡本地训练，并可经量化移植到 Apple Neural Engine / 高通 NPU。"
+faq:
+  - question: "Cosmos 3 Edge 是什么？"
+    answer: "NVIDIA 开源的 40 亿参数世界模型，专为边缘设备设计，让机器人无需云端即可实时理解物理规律并生成动作。"
+  - question: "世界模型（World Model）和普通视觉模型有何区别？"
+    answer: "普通模型停留在“感知”（识别物体与坐标）；世界模型在潜空间学习物理规律，能预测未来状态并端到端输出控制指令。"
+  - question: "为什么需要边缘世界模型？"
+    answer: "云端架构有两大致命缺陷：高延迟（工业机械臂、无人机避障）与离线不可用（工厂深处、野外）；边缘模型让机器人摆脱对云端的依赖。"
+  - question: "开发者如何上手 Cosmos 3 Edge？"
+    answer: "可用 transformers 库调用与微调；4B 规模支持消费级显卡本地训练；开源特性使其可被量化并运行在 ONNX / CoreML 及 Apple Neural Engine、高通 NPU 上。"
 seo:
   title: NVIDIA 开源 Cosmos 3 Edge：4B 参数世界模型重塑端侧 AI
   description: 深度解析 NVIDIA 在 Hugging Face 开源的 Cosmos 3 Edge 世界模型。拥有 40 亿参数，专为边缘计算和具身智能设计，实现从视觉感知到物理动作生成的跨越。

@@ -1,0 +1,30 @@
+[
+  {
+    "slug": "agent",
+    "name": "Agent",
+    "nameZh": "智能体",
+    "descriptionZh": "T Salon 关于 AI 智能体的内容合集，记录多智能体协作的架构缺陷与重构、长期记忆的更新与淘汰机制、企业 Agent 的记忆安全控制，以及 AI Native 应用的工程落地经验。",
+    "description": "T Salon's collection on AI agents — architectural flaws and rebuilds in multi-agent collaboration, long-term memory update and expiry, memory security controls for enterprise agents, and engineering lessons from shipping AI-native applications."
+  },
+  {
+    "slug": "engineering",
+    "name": "Engineering",
+    "nameZh": "工程实践",
+    "descriptionZh": "T Salon 关于软件工程实践的内容合集，关注架构选择的取舍、从 Demo 走向生产的工程化路径、大型项目的协作方式，以及开发者在真实项目中做出的判断。",
+    "description": "T Salon's collection on software engineering practice — trade-offs in architecture choices, the path from demo to production, collaboration in large projects, and the judgement calls developers make in real projects."
+  },
+  {
+    "slug": "ai",
+    "name": "AI",
+    "nameZh": "人工智能",
+    "descriptionZh": "T Salon 关于 AI 技术的内容合集，覆盖模型能力的演进、记忆系统的设计变化、AI 应用从验证到落地的观察，以及这些变化对开发者工作方式的实际影响。",
+    "description": "T Salon's collection on AI technology — how model capabilities evolve, changing memory system design, observations on AI applications moving from validation to production, and the practical impact on how developers work."
+  },
+  {
+    "slug": "security",
+    "name": "Security",
+    "nameZh": "安全",
+    "descriptionZh": "T Salon 关于 AI 安全的内容合集，关注自主智能体带来的新型攻击面、记忆投毒等持久化风险，以及企业在部署 Agent 时需要建立的长期控制措施。",
+    "description": "T Salon's collection on AI security — new attack surfaces introduced by autonomous agents, persistent risks such as memory poisoning, and the long-term controls enterprises need when deploying agents."
+  }
+]

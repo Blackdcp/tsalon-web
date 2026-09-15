@@ -100,6 +100,11 @@ const articles = defineCollection({
       label: z.string(),
       url: z.url(),
     })).default([]),
+    tldr: z.array(z.string()).default([]),
+    faq: z.array(z.object({
+      question: z.string(),
+      answer: z.string(),
+    })).default([]),
     featured: z.boolean().default(false),
     draft: z.boolean().default(true),
     seo: seoFields,
@@ -121,6 +126,11 @@ const articlesEn = defineCollection({
     cover: z.string(),
     coverAlt: z.string().min(10),
     citations: z.array(z.object({ label: z.string(), url: z.url() })).default([]),
+    tldr: z.array(z.string()).default([]),
+    faq: z.array(z.object({
+      question: z.string(),
+      answer: z.string(),
+    })).default([]),
     featured: z.boolean().default(false),
     draft: z.boolean().default(true),
     translationOf: z.string(),

@@ -1,0 +1,182 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import topics from '../../../data/topics.json';
+
+export async function getStaticPaths() {
+  const articles = await getCollection('articlesEn', ({ data }) => !data.draft);
+  return topics.flatMap((topic) => {
+    const items = articles
+      .filter((article) => article.data.topics.includes(topic.name))
+      .sort((a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime());
+    return items.length >= 2 ? [{ params: { topic: topic.slug }, props: { topicMeta: topic, items } }] : [];
+  });
+}
+
+const { topicMeta, items } = Astro.props;
+const pageUrl = new URL(`/en/topics/${topicMeta.slug}/`, Astro.site).toString();
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `${topicMeta.name} — T Salon collection`,
+    description: topicMeta.description,
+    url: pageUrl,
+    inLanguage: 'en',
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: items.length,
+      itemListElement: items.map((article, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: article.data.title,
+        url: new URL(`/en/articles/${article.id}/`, Astro.site).toString(),
+      })),
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: new URL('/en/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: 'Stories', item: new URL('/en/articles/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: topicMeta.name, item: pageUrl },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  locale="en"
+  alternatePath={`/topics/${topicMeta.slug}/`}
+  title={`${topicMeta.name} — T Salon collection`}
+  description={topicMeta.description}
+  jsonLd={jsonLd}
+>
+  <main class="topic-page">
+    <div class="container">
+      <nav class="topic-breadcrumb" aria-label="Breadcrumb">
+        <a href="/en/">Home</a><span aria-hidden="true">/</span><a href="/en/articles/">Stories</a><span aria-hidden="true">/</span><span>{topicMeta.name}</span>
+      </nav>
+
+      <header class="topic-header">
+        <p class="eyebrow">Topic / T SALON</p>
+        <h1>{topicMeta.name}</h1>
+        <p class="topic-desc">{topicMeta.description}</p>
+        <p class="topic-count mono">{items.length} {items.length === 1 ? 'story' : 'stories'}</p>
+      </header>
+
+      <ul class="topic-list">
+        {items.map((article) => (
+          <li>
+            <a href={`/en/articles/${article.id}/`}>
+              <span class="topic-item-date mono">{article.data.publishedAt.toISOString().slice(0, 10).replaceAll('-', '.')}</span>
+              <h2>{article.data.title}</h2>
+              <p>{article.data.summary}</p>
+              <div class="topic-item-tags">{article.data.topics.map((topic) => <span class="tag">{topic}</span>)}</div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .topic-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 70vh;
+  }
+
+  .topic-breadcrumb {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-8);
+  }
+
+  .topic-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .topic-breadcrumb a:hover {
+    text-decoration: underline;
+  }
+
+  .topic-header {
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--space-10);
+  }
+
+  .topic-header h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.03em;
+    margin: var(--space-2) 0 var(--space-4);
+  }
+
+  .topic-desc {
+    max-width: 680px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 var(--space-3);
+  }
+
+  .topic-count {
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+  }
+
+  .topic-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .topic-list a {
+    display: block;
+    padding: var(--space-6);
+    background: #fff;
+    border: 1px solid var(--border-default);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--duration-base) var(--ease-standard);
+  }
+
+  .topic-list a:hover {
+    border-color: var(--color-ink-950);
+  }
+
+  .topic-item-date {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+  }
+
+  .topic-list h2 {
+    font-size: var(--text-18);
+    font-weight: var(--font-weight-bold);
+    margin: var(--space-2) 0 var(--space-2);
+    line-height: 1.35;
+  }
+
+  .topic-list p {
+    font-size: var(--text-13);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 var(--space-3);
+  }
+
+  .topic-item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+</style>

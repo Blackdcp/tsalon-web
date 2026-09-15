@@ -42,8 +42,18 @@ export const GET: APIRoute = async ({ site }) => {
       `- Topics: ${entry.data.topics.join(', ')}`,
       `- Summary: ${entry.data.summary}`,
       '',
+      ...(entry.data.tldr.length > 0
+        ? ['- TL;DR:', ...entry.data.tldr.map((point) => `  - ${point}`), '']
+        : []),
       stripImages(entry.body ?? ''),
       '',
+      ...(entry.data.faq.length > 0
+        ? [
+            '### Frequently Asked Questions',
+            ...entry.data.faq.flatMap((item) => [`**Q: ${item.question}**`, item.answer, '']),
+            '',
+          ]
+        : []),
       '---',
       '',
     );

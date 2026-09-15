@@ -15,6 +15,20 @@ featured: false
 draft: false
 translationStatus: reviewed
 translationOf: nvidia-cosmos-edge
+tldr:
+  - "NVIDIA open-sourced Cosmos 3 Edge on Hugging Face: a 4B-parameter lightweight 'world model' built for edge devices."
+  - "It is not just a vision model; it learns physical laws in latent space, predicts future states, and directly generates actions (joint torque, steering angle)."
+  - "Its 4B scale runs real-time inference on edge hardware like Jetson, fixing the cloud architecture's latency and offline-unavailability pain points."
+  - "Developers can use the transformers library to call and fine-tune it, even train locally on consumer GPUs, and quantize it onto Apple Neural Engine / Qualcomm NPUs."
+faq:
+  - question: "What is Cosmos 3 Edge?"
+    answer: "An open-source 4-billion-parameter world model from NVIDIA designed for edge devices, letting robots understand physical laws and generate actions in real time without the cloud."
+  - question: "How is a world model different from a normal vision model?"
+    answer: "A normal model stays at 'perception' (recognizing objects and coordinates); a world model learns physical laws in latent space, predicts future states, and outputs control commands end-to-end."
+  - question: "Why do we need an edge world model?"
+    answer: "Cloud architectures suffer two fatal flaws: high latency (robotic arms, drone avoidance) and offline unavailability (deep factories, wilderness); edge models free robots from cloud dependency."
+  - question: "How can developers get started with Cosmos 3 Edge?"
+    answer: "Use the transformers library to call and fine-tune it; the 4B scale supports local training on consumer GPUs; its open-source nature lets it be quantized onto ONNX / CoreML and Apple Neural Engine / Qualcomm NPUs."
 seo:
   title: "NVIDIA Open Sources Cosmos 3 Edge: A 4B World Model for Edge AI"
   description: "Deep dive into NVIDIA's Cosmos 3 Edge 4B world model for edge computing and embodied AI, leaping from visual perception to physical action generation."

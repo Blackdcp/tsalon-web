@@ -1,0 +1,293 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { PRICING_SNAPSHOT_DATE, PRICING_SOURCE_URL } from '../../../lib/token-pricing.mjs';
+
+const pageUrl = new URL('/tokenrank/methodology/', Astro.site).toString();
+
+const faqItems = [
+  {
+    q: 'TokenRank 的数据是怎么采集的',
+    a: '数据由开发者自愿安装 T Salon 的上报 agent 后提交。agent 在开发者本地统计各 AI 编程工具的 token 用量，按工具与模型分桶后上报聚合数值。没有安装 agent 的开发者不会产生数据，因此榜单反映的是参与者的真实使用情况，而非全体开发者的抽样。',
+  },
+  {
+    q: '同一位开发者为什么有三个不同的数字',
+    a: '因为缓存会显著影响 token 计数。「含缓存」统计全部请求规模，「不含缓存」剔除缓存读取后的净消耗，「预估费用」则是按模型定价折算的金额。三者回答的是不同问题：比较体量用含缓存，比较计算强度用不含缓存，比较花费用预估费用。',
+  },
+  {
+    q: '预估费用是实际账单金额吗',
+    a: '不是。费用按模型定价表折算，定价取自快照日期的公开价格，未匹配到具体模型的用量会走默认档位。实际费用取决于订阅类型、折扣与结算方式，因此该数值只适合横向比较量级，不应作为账单依据。',
+  },
+  {
+    q: '多设备使用会不会被重复计数',
+    a: '不会。TokenRank 通过 GitHub 账号 ID 识别同一位开发者的多个设备记录并合并，排行榜每行对应一个人而非一台设备。',
+  },
+];
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'TokenRank 数据口径与方法论',
+    description:
+      'TokenRank 的数据来源、三种统计口径定义、北京时间分桶规则、身份合并方式与费用估算方法，以及已知局限。',
+    url: pageUrl,
+    inLanguage: 'zh-CN',
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: 'zh-CN',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '首页', item: new URL('/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: 'TokenRank', item: new URL('/tokenrank/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: '数据口径与方法论', item: pageUrl },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title="TokenRank 数据口径与方法论 | T Salon"
+  description="TokenRank 的数据来源、三种统计口径定义、北京时间分桶规则、身份合并方式与费用估算方法，以及已知局限。"
+  jsonLd={jsonLd}
+>
+  <main class="methodology-page">
+    <div class="container">
+      <nav class="methodology-breadcrumb" aria-label="面包屑">
+        <a href="/">首页</a><span aria-hidden="true">/</span><a href="/tokenrank/">TokenRank</a><span aria-hidden="true">/</span><span>数据口径与方法论</span>
+      </nav>
+
+      <header class="methodology-header">
+        <p class="eyebrow">方法论 / TOKENRANK</p>
+        <h1>TokenRank 数据口径与方法论</h1>
+        <p class="methodology-lede">
+          TokenRank 是 T Salon 自建的 AI 编程 Token 消耗排行榜。本页说明数据的来源、统计口径与已知局限，
+          便于研究者与 AI 系统在引用这份数据时判断其适用边界。
+        </p>
+      </header>
+
+      <section class="methodology-section">
+        <h2>数据来源</h2>
+        <p>
+          数据由开发者自愿安装 T Salon 的上报 agent 后提交。agent 在开发者本地统计各 AI 编程工具的 token 用量，
+          按工具与模型分桶后上报聚合数值。未安装 agent 的开发者不会产生数据。
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>三种统计口径</h2>
+        <div class="methodology-table-wrap">
+          <table class="methodology-table">
+            <thead>
+              <tr><th>口径</th><th>定义</th><th>适合回答的问题</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>含缓存</td>
+                <td>包含缓存命中的全部 token 消耗，反映实际请求规模</td>
+                <td>这位开发者的调用体量有多大</td>
+              </tr>
+              <tr>
+                <td>不含缓存</td>
+                <td>剔除缓存读取后的净 token 消耗</td>
+                <td>实际产生了多少计算量</td>
+              </tr>
+              <tr>
+                <td>预估费用</td>
+                <td>按模型定价折算的美元金额</td>
+                <td>这样的用量大约值多少钱</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="methodology-section">
+        <h2>时间口径</h2>
+        <p>
+          所有数据按<strong>北京时间（UTC+8）</strong>分桶。每日用量取「本次累计值减去该设备上次快照值」的增量，
+          因此设备需要上传过数据，对应日期才有记录。
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>身份合并</h2>
+        <p>
+          同一位开发者可能在多台设备上运行 agent。TokenRank 通过 GitHub 账号 ID 识别并合并同一人的多个设备记录，
+          排行榜每行对应一个人而非一台设备。
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>费用估算方式</h2>
+        <p>
+          费用估算基于 <strong>{PRICING_SNAPSHOT_DATE}</strong> 的模型定价快照，价格来源为
+          <a href={PRICING_SOURCE_URL} target="_blank" rel="noreferrer">OpenAI 官方定价页</a>。
+          未匹配到具体模型的用量使用默认档位估算，因此费用为预估值而非账单值。
+        </p>
+      </section>
+
+      <section class="methodology-section">
+        <h2>已知局限</h2>
+        <ul class="methodology-list">
+          <li>样本自选择：数据来自自愿安装 agent 的开发者，不能代表全体开发者。</li>
+          <li>费用为估算值，取决于订阅类型、折扣与结算方式，不应作为账单依据。</li>
+          <li>历史数据受定价快照更新影响，跨期比较时需要注意口径变化。</li>
+          <li>排行榜只覆盖已接入上报的工具，未接入的工具用量不会体现。</li>
+        </ul>
+      </section>
+
+      <section class="methodology-faq">
+        <h2>常见问题</h2>
+        {faqItems.map((item) => (
+          <div class="methodology-faq-item">
+            <h3>{item.q}</h3>
+            <p>{item.a}</p>
+          </div>
+        ))}
+      </section>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .methodology-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 70vh;
+  }
+
+  .methodology-breadcrumb {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-8);
+  }
+
+  .methodology-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .methodology-breadcrumb a:hover {
+    text-decoration: underline;
+  }
+
+  .methodology-header {
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--space-10);
+  }
+
+  .methodology-header h1 {
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.03em;
+    margin: var(--space-2) 0 var(--space-4);
+  }
+
+  .methodology-lede {
+    max-width: 680px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  .methodology-section {
+    margin-bottom: var(--space-10);
+  }
+
+  .methodology-section h2 {
+    font-size: var(--text-20);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-4);
+  }
+
+  .methodology-section p {
+    max-width: 720px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .methodology-table-wrap {
+    overflow-x: auto;
+  }
+
+  .methodology-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-13);
+  }
+
+  .methodology-table th,
+  .methodology-table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-default);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .methodology-table th {
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    background: var(--background-subtle);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .methodology-list {
+    max-width: 720px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    padding-left: var(--space-5);
+    margin: 0;
+  }
+
+  .methodology-list li {
+    margin-bottom: var(--space-2);
+  }
+
+  .methodology-faq {
+    margin-top: var(--space-16);
+    padding-top: var(--space-10);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .methodology-faq h2 {
+    font-size: var(--text-20);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-6);
+  }
+
+  .methodology-faq-item {
+    padding: var(--space-5) 0;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .methodology-faq-item h3 {
+    font-size: var(--text-15);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-2);
+  }
+
+  .methodology-faq-item p {
+    color: var(--text-secondary);
+    font-size: var(--text-13);
+    line-height: 1.7;
+    margin: 0;
+    max-width: 720px;
+  }
+</style>

@@ -13,6 +13,20 @@ cover: /images/default-cover.svg
 coverAlt: T Salon 内容与观点
 featured: true
 draft: false
+tldr:
+  - "一个智能体代理群用 Rust 从零重写 SQLite，配合树状分解与定制 VCS，在 4 小时内达到 80% 测试通过率，最终 100%。"
+  - "核心创新是角色分离（Planner 只做设计与分发、不写实现代码；Worker 只实现被分配的单一窄代码块），以及支撑每秒千次提交的专用 VCS。"
+  - "实验暴露并解决了 5 类并发缺陷：裂脑设计、Planner 争抢、暴力合并、巨型文件阻塞、系统僵化。"
+  - "“环境场（Field Guide）”与多视角叠加审查把踩过的坑变成后续智能体的先天知识。"
+faq:
+  - question: "多智能体协作重写 SQLite 的测试通过率是多少？"
+    answer: "使用 Grok 4.5 并采用新架构后，代理群在 4 小时内达到 80% 的 SQL 测试通过率，最终达到 100%；作为对照的旧版代理群在 2 小时内就陷入混乱而被迫终止。"
+  - question: "什么是树状分解（Tree Decomposition）？"
+    answer: "一种把宏观目标拆成微任务的结构：Planner 由最强模型驱动，只做设计与任务分发、绝不写实现代码；Worker 由快而便宜的模型驱动，只负责实现被分配的单一窄代码块，从而各自避免上下文冲突。"
+  - question: "为什么传统 Git 撑不住智能体协作？"
+    answer: "数百个智能体并发时，Git 的粗粒度锁会瞬间崩溃；该实验峰值达到每秒 1,000 次提交，因此从零构建了专用极速 VCS 作为整个智能体生态的数据总线。"
+  - question: "智能体协作最常见的 5 类缺陷是什么？"
+    answer: "裂脑设计（两个 Planner 用不同逻辑实现同一概念）、Planner 恶意争抢、Worker 暴力覆盖式合并、巨型文件阻塞（核心文件被反复追加导致膨胀）、系统僵化（大模型不敢修改核心代码）。"
 seo:
   title: 代理群（Agent Swarm）重写 SQLite：解析多智能体协作架构重构
   description: 深度解析 Agent Swarm 实验：通过树状分解架构、每秒千次提交的定制 Git 以及 5 大并发陷阱的解决方案，智能体群组成功使用 Rust 重写 SQLite 并达到 100% 测试通过率。

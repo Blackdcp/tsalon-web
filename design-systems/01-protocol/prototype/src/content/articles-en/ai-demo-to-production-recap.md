@@ -6,9 +6,9 @@ publishedAt: 2026-08-03
 readingMinutes: 5
 author: editorial-team
 topics:
-  - AI Native
+  - AI
   - Agent
-  - Engineering Practices
+  - Engineering
 relatedEvents:
   - hdx-7870619038900
 cover: /images/events/hdx-7870619038900.jpg
@@ -20,6 +20,20 @@ featured: true
 draft: false
 translationOf: ai-demo-to-production-recap
 translationStatus: reviewed
+tldr:
+  - "A recap of the Aug 1 Shanghai 'From AI Demo to Production' event with four talks: persistent Agent memory, multi-model collaboration, Vibe Coding, and Agent execution environments."
+  - "Memmy / MemOS focuses on letting multiple AIs share one long-term memory (task progress, failures, reusable Skills)."
+  - "PPIO proposes 'Token Intelligence Density' plus multi-model consultation and smart routing to balance quality and cost."
+  - "Zion live-built a Vibe Coding diet assistant that writes to a real database and triggers notifications; FastGPT uses a Linux sandbox so Agents truly execute tasks."
+faq:
+  - question: "What engineering practices were discussed at the event?"
+    answer: "Four areas: persistent Agent memory (MemOS / Memmy), multi-model collaboration and smart routing (PPIO), Vibe Coding across the backend (Zion), and Agent execution environments (FastGPT Linux sandbox)."
+  - question: "What is Token Intelligence Density?"
+    answer: "A PPIO concept: whether spending one Token yields a better result. Through multi-model consultation and difficulty-based smart routing, the right task goes to the right model."
+  - question: "How does Vibe Coding cross the backend hurdle?"
+    answer: "The Zion Plugin lets a Coding Agent operate a visual backend directly: describe the need and it configures DB tables, permissions, Agents, and behavior flows, then generates frontend code and integrates real APIs."
+  - question: "Why do Agents need a real execution environment?"
+    answer: "Traditional workflows suit only fixed-path tasks; FastGPT gives each session an isolated Linux sandbox so Agents run code, read/write files, and continue after mid-task failures."
 seo:
   title: "Event Recap: From AI Demo to Production"
   description: "On Aug 1st, we hosted the From AI Demo to Production event in Shanghai. Read insights shared by MemTensor, PPIO, Zion, and FastGPT on agents and AI applications."

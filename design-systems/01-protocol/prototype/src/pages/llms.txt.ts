@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
+import topics from '../data/topics.json';
 
 export const GET: APIRoute = async ({ site }) => {
   const origin = site?.origin ?? 'https://www.tsalon.tech';
@@ -45,6 +46,14 @@ export const GET: APIRoute = async ({ site }) => {
     '',
     '## Published articles',
     ...articles.map((entry) => `- [${entry.data.title}](${origin}/articles/${entry.id}/): ${entry.data.summary}`),
+    '',
+    '## Topic collections',
+    ...topics
+      .filter((topic) => articles.filter((entry) => entry.data.topics.includes(topic.name)).length >= 2)
+      .map((topic) => {
+        const count = articles.filter((entry) => entry.data.topics.includes(topic.name)).length;
+        return `- [${topic.nameZh}](${origin}/topics/${topic.slug}/): ${topic.descriptionZh}（${count} 篇）`;
+      }),
     '',
     '## T Chat video interviews',
     ...talks.map((entry) => `- [Episode ${entry.data.episode}: ${entry.data.title}](${origin}/articles/${entry.id}/) — Guest: ${entry.data.speaker}. Topics: ${entry.data.topics.join(', ')}. Original video: ${entry.data.videoUrl}`),

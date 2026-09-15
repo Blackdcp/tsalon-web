@@ -6,9 +6,8 @@ publishedAt: 2022-05-10
 readingMinutes: 9
 author: editorial-team
 topics:
-  - 前端工程
+  - Frontend
   - Flutter
-  - 工程化
   - Webpack
 cover: /images/news/shenzhen-frontend-recap-01.jpg
 coverAlt: 大前端时代的挑战与机遇深圳场活动现场观众交流
@@ -17,6 +16,20 @@ citations:
     url: https://mp.weixin.qq.com/s/f3ayHlx2JFlxVYXa7ZfR2w
 featured: true
 draft: false
+tldr:
+  - "2022 年 5 月 8 日深圳「大前端时代的挑战与机遇」回顾五位一线研发的五场分享。"
+  - "卢依宁谈前端监控如何影响业务（Sentry / ARMS / 自研对比与体系建设）。"
+  - "崔明辉演示用 Flutter 开发微信小程序（MPFlutter），并回应 Flutter for Web 的工程问题。"
+  - "张泽亚谈工程化要匹配团队阶段；郭树煜讲 Flutter Web 构建渲染；范文杰讲如何找到真正的 Webpack 瓶颈。"
+faq:
+  - question: "这场深圳前端活动有哪些分享主题？"
+    answer: "五个：前端监控如何影响业务、用 Flutter 开发微信小程序、前端工程化建设、Flutter Web 构建与渲染、Webpack 性能优化。"
+  - question: "MPFlutter 是什么？"
+    answer: "崔明辉（SVGA 作者）开源的架构，让 Flutter 可用于微信小程序开发，并回应了包体积、滑动性能与异步渲染等 Flutter for Web 常见问题。"
+  - question: "前端工程化有没有通用方案？"
+    answer: "张泽亚强调不存在适用于所有团队的银弹，工具与平台需匹配团队所处阶段、主要矛盾与投入能力，建设之前先判断真正要解决的问题。"
+  - question: "Webpack 性能优化该怎么做？"
+    answer: "范文杰建议从核心工作流程与性能分析入手，关注 Webpack 5 的变化与 Vite 速度优势背后的原因，重点是找到真正的性能瓶颈，而非照搬配置清单。"
 seo:
   title: 大前端时代的挑战与机遇｜T Salon 深圳活动回顾
   description: 回顾 T 技术沙龙深圳场的五场技术分享，内容覆盖前端监控、Flutter 小程序、前端工程化、Flutter Web 与 Webpack 性能优化。

@@ -20,6 +20,20 @@ featured: true
 draft: false
 translationOf: tchat-launch
 translationStatus: reviewed
+tldr:
+  - "T Salon and Laosiji Weekly launched T Chat, an online series where engineers from major tech companies share real team and individual practice."
+  - "Each episode pairs a 30-minute talk with a 30-minute one-to-one conversation, streaming every other Thursday since 28 April 2022."
+  - "T Chat extends T Salon (founded 2016) from offline salons to an online archive that stays findable after the live session."
+  - "The series completed 17 episodes, archived on T Salon's Bilibili channel."
+faq:
+  - question: "What is T Chat?"
+    answer: "An online conversation series by T Salon and Laosiji Weekly inviting engineers from leading internet companies to share real engineering practice."
+  - question: "What is the format of each T Chat episode?"
+    answer: "A 30-minute guest talk followed by a 30-minute one-to-one host-guest conversation that preserves follow-up questions and context."
+  - question: "Which community does T Chat belong to?"
+    answer: "It extends T Salon, founded in March 2016, which has run 30+ offline events in Beijing, Shanghai, Chengdu, Hangzhou, and Shenzhen."
+  - question: "How many T Chat episodes exist and where are they?"
+    answer: "The series completed 17 episodes, archived on T Salon's Bilibili channel and findable via the site's articles and T Chat series pages."
 seo:
   title: Introducing the T Chat Engineering Conversation Series
   description: T Salon and Laosiji Weekly created T Chat to document the real engineering practices of teams and individuals at major technology companies.

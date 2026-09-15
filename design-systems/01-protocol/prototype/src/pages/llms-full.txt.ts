@@ -42,8 +42,18 @@ export const GET: APIRoute = async ({ site }) => {
       `- 话题：${entry.data.topics.join('、')}`,
       `- 摘要：${entry.data.summary}`,
       '',
+      ...(entry.data.tldr.length > 0
+        ? ['- TL;DR：', ...entry.data.tldr.map((point) => `  - ${point}`), '']
+        : []),
       stripImages(entry.body ?? ''),
       '',
+      ...(entry.data.faq.length > 0
+        ? [
+            '### 常见问题（FAQ）',
+            ...entry.data.faq.flatMap((item) => [`**Q：${item.question}**`, item.answer, '']),
+            '',
+          ]
+        : []),
       '---',
       '',
     );

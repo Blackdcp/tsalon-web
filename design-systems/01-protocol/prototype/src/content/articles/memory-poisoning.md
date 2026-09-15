@@ -16,6 +16,20 @@ citations:
     url: https://segmentfault.com/a/1190000048255404
 featured: true
 draft: false
+tldr:
+  - "Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话、任务与多 Agent 协作中被再次调用。"
+  - "与 Prompt Injection 不同：注入只影响当前交互，投毒的影响沿记忆生命周期持续数天到数周。"
+  - "记忆治理要回答六个问题：信息从哪来、谁能写入、新旧如何共存、谁能看见、错误如何处置、怎样发现异常。"
+  - "MemOS 提供写入 / 检索 / 反馈 / 删除等系统入口；但私有化部署不能替代治理，仍需 IAM、最小权限、审批、DLP、SIEM 配合。"
+faq:
+  - question: "Memory Poisoning 和 Prompt Injection 有什么区别？"
+    answer: "Prompt Injection 主要影响当前任务；Memory Poisoning 让不可信信息进入持久记忆，并在后续任务中持续产生影响。"
+  - question: "私有化部署能否解决记忆投毒？"
+    answer: "私有化部署可缩小数据外流范围，但来源不可信、权限过大与错误写入等问题仍需通过记忆治理来处理。"
+  - question: "企业应当监控哪些记忆指标？"
+    answer: "至少应覆盖记忆写入量、来源类型、跨范围访问、冲突率、反馈率、删除率、异常召回与高风险工具调用。"
+  - question: "MemOS 能解决哪些问题？"
+    answer: "提供记忆写入、检索、反馈、删除与模块编排的系统入口，帮助把记忆治理接入 Agent 工作流；具体权限、审批、监控与应急处置仍需企业按自身架构配置。"
 seo:
   title: "Memory Poisoning：企业 Agent 必须建立的六道长期记忆控制"
   description: "如果系统把网页中的虚假联系人写成“可信供应商”，影响不止停留在这轮对话。Memory Poisoning 指不可信、错误或被操纵的信息进入持久记忆后，在后续会话中被再次调用。"

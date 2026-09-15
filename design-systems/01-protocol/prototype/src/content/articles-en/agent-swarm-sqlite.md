@@ -15,6 +15,20 @@ featured: true
 draft: false
 translationStatus: reviewed
 translationOf: agent-swarm-sqlite
+tldr:
+  - "An agent swarm rewrote SQLite from scratch in Rust, reaching an 80% SQL test pass rate in 4 hours and eventually 100% with tree decomposition and a custom VCS."
+  - "The core idea is role separation (Planners design and dispatch, never writing implementation code; Workers implement a single narrow block) plus a purpose-built VCS sustaining 1,000 commits per second."
+  - "The experiment surfaced and fixed five concurrency flaws: split-brain design, planner contention, violent merges, megafiles, and ossification."
+  - "A stigmergic Field Guide and stacked review lenses turn accumulated pitfalls into innate knowledge for later agents."
+faq:
+  - question: "What test pass rate did the agent swarm achieve rewriting SQLite?"
+    answer: "Using Grok 4.5 with the new architecture, the swarm reached an 80% SQL test pass rate within 4 hours and eventually 100%; the control 'old swarm' collapsed within 2 hours."
+  - question: "What is Tree Decomposition?"
+    answer: "A structure that breaks macro goals into micro-tasks: Planners (driven by strong models) only design and dispatch, never writing implementation code; Workers (fast, cheap models) implement a single narrow code block, avoiding context conflicts."
+  - question: "Why can't traditional Git handle agent collaboration?"
+    answer: "With hundreds of concurrent agents, Git's coarse-grained locks crash instantly; the experiment peaked at 1,000 commits per second, so a purpose-built ultra-fast VCS was built as the data bus."
+  - question: "What are the five most common agent collaboration flaws?"
+    answer: "Split-brain design (the same concept implemented twice), planner contention, violent overwrite merges, megafiles, and ossification (refusing to touch core code)."
 seo:
   title: "Agent Swarm Rewrites SQLite: Multi-Agent Collaboration Deep Dive"
   description: "Deep dive into the Agent Swarm experiment: AI agents rewrote SQLite in Rust via tree decomposition and a custom high-speed VCS, achieving 100% pass rate."

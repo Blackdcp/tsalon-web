@@ -6,9 +6,9 @@ publishedAt: 2026-08-03
 readingMinutes: 5
 author: editorial-team
 topics:
-  - AI Native
+  - AI
   - Agent
-  - 工程实践
+  - Engineering
 relatedEvents:
   - hdx-7870619038900
 cover: /images/events/hdx-7870619038900.jpg
@@ -18,6 +18,20 @@ citations:
     label: "AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践 活动回顾"
 featured: true
 draft: false
+tldr:
+  - "8 月 1 日上海「AI 从 Demo 到生产」活动回顾四位嘉宾的分享：Agent 长期记忆、多模型协同、Vibe Coding、Agent 执行环境。"
+  - "Memmy / MemOS 让多个 AI 共享同一份长期记忆：任务如何推进、哪里失败、哪些经验可复用。"
+  - "PPIO 提出“Token 智能密度”与多模型会诊 + 智能路由，在效果与成本之间取平衡。"
+  - "Zion 现场用 Vibe Coding 搭出可写真实数据库、可触发通知的 AI 饮食助手；FastGPT 用 Linux 沙箱让 Agent 真正执行任务。"
+faq:
+  - question: "这场活动讨论了哪些工程实践？"
+    answer: "四类：Agent 长期记忆（MemOS / Memmy）、多模型协同与智能路由（PPIO）、Vibe Coding 打通后端（Zion）、Agent 执行环境（FastGPT 的 Linux 沙箱）。"
+  - question: "什么是 Token 智能密度？"
+    answer: "PPIO 提出的概念：同样花出去一个 Token，能否得到更好的结果。做法是让多个模型一起会诊提取共识，并按任务难度做智能路由，把合适的任务交给合适的模型。"
+  - question: "Vibe Coding 如何跨过后端这道坎？"
+    answer: "Zion Plugin 让 Coding Agent 直接操作可视化后端：用户描述需求，AI 即可配置数据库表、权限、AI Agent 与行为流，再生成前端代码并完成真实接口联调。"
+  - question: "Agent 为什么需要真实执行环境？"
+    answer: "传统工作流只适合路径明确的任务；FastGPT 为每个会话提供独立的 Linux 沙箱，Agent 可在其中运行 Python、Node.js 与 Shell，按执行结果继续处理任务并支持中途出错后的恢复。"
 seo:
   title: "活动回顾：AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践"
   description: "8 月 1 日，我们在上海举办了 「AI 从 Demo 到生产」线下活动。本次活动回顾总结了来自记忆张量、PPIO、Zion 和 FastGPT 嘉宾的分享，涵盖 Agent、Vibe Coding 等技术实践。"

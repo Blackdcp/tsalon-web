@@ -6,9 +6,8 @@ publishedAt: 2022-05-10
 readingMinutes: 8
 author: editorial-team
 topics:
-  - Frontend Engineering
+  - Frontend
   - Flutter
-  - Developer Tooling
   - Webpack
 relatedEvents: []
 cover: /images/news/shenzhen-frontend-recap-01.jpg
@@ -20,6 +19,20 @@ featured: true
 draft: false
 translationOf: shenzhen-frontend-recap
 translationStatus: reviewed
+tldr:
+  - "A recap of the May 8, 2022 Shenzhen 'Challenges and Opportunities in Modern Frontend Engineering' event with five talks from frontline engineers."
+  - "Yining Lu on how frontend observability affects the business (Sentry / ARMS / in-house comparison and system building)."
+  - "Minghui Cui demoed building WeChat mini programs with Flutter (MPFlutter) and Flutter for Web engineering trade-offs."
+  - "Zeya Zhang on engineering systems fitting the team; Shuyu Guo on Flutter Web build / render; Wenjie Fan on finding the real Webpack bottleneck."
+faq:
+  - question: "What topics were covered at the Shenzhen frontend event?"
+    answer: "Five: how frontend observability affects the business, building WeChat mini programs with Flutter, frontend engineering systems, Flutter Web build and render, and Webpack performance."
+  - question: "What is MPFlutter?"
+    answer: "An open-source architecture by Minghui Cui (creator of SVGA) that lets Flutter build WeChat mini programs and addresses bundle size, scrolling performance, and async rendering in Flutter for Web."
+  - question: "Is there a universal frontend engineering solution?"
+    answer: "Zeya Zhang stressed there is no silver bullet for every team; tools and platforms must fit the team's stage, main conflict, and capacity—judge the real problem first."
+  - question: "How should you optimize Webpack performance?"
+    answer: "Wenjie Fan advised starting from the core workflow and performance analysis, noting Webpack 5 changes and why Vite is faster; the point is to locate the real bottleneck, not copy a config list."
 seo:
   title: Modern Frontend Engineering in Shenzhen — T Salon
   description: A field report from five talks on frontend observability, Flutter mini programs, engineering systems, Flutter Web and Webpack performance.

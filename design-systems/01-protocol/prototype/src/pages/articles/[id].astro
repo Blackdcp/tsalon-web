@@ -110,7 +110,18 @@ const breadcrumbJsonLd = {
   ],
 };
 
-const pageJsonLd = [jsonLd, breadcrumbJsonLd];
+const faqJsonLd = article && article.data.faq.length > 0
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: article.data.faq.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: { '@type': 'Answer', text: item.answer },
+      })),
+    }
+  : null;
+const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])];
 
 const pageTitle = talk ? `${talk.data.title}｜T Chat 第 ${talk.data.episode} 期 — T Salon` : article!.data.seo.title;
 const pageDescription = talk
@@ -157,7 +168,28 @@ const pageDescription = talk
             <p>T Chat 由 T Salon 与老司机周报共同发起，通过主题分享与一对一交流，记录一线互联网研发团队与工程师的真实实践。系列共完成 17 期。</p>
           </>
         ) : (
-          <ArticleContent />
+          <>
+            {article!.data.tldr.length > 0 && (
+              <section class="article-tldr" aria-label="TL;DR">
+                <p class="mono">TL;DR</p>
+                <ul>{article!.data.tldr.map((point) => <li>{point}</li>)}</ul>
+              </section>
+            )}
+            <ArticleContent />
+            {article!.data.faq.length > 0 && (
+              <section class="article-faq" aria-label="常见问题">
+                <h2>常见问题（FAQ）</h2>
+                <dl>
+                  {article!.data.faq.map((item) => (
+                    <>
+                      <dt>{item.question}</dt>
+                      <dd>{item.answer}</dd>
+                    </>
+                  ))}
+                </dl>
+              </section>
+            )}
+          </>
         )}
         <footer class="content-detail-tags">
           <span class="mono">主题</span>
@@ -223,3 +255,31 @@ const pageDescription = talk
     </nav>
   </main>
 </BaseLayout>
+
+<style>
+  .article-tldr {
+    margin: 0 0 2rem;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--accent, #2b6cb0);
+    background: color-mix(in srgb, var(--accent, #2b6cb0) 8%, transparent);
+    border-radius: 0 8px 8px 0;
+  }
+  .article-tldr .mono {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin: 0 0 0.5rem;
+  }
+  .article-tldr ul { margin: 0; padding-left: 1.1rem; }
+  .article-tldr li { margin: 0.35rem 0; }
+  .article-faq {
+    margin: 2.5rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  }
+  .article-faq h2 { font-size: 1.25rem; }
+  .article-faq dl { margin: 0; }
+  .article-faq dt { font-weight: 600; margin-top: 1rem; }
+  .article-faq dd { margin: 0.25rem 0 0; opacity: 0.92; }
+</style>

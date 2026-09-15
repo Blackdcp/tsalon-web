@@ -36,7 +36,18 @@ const breadcrumbJsonLd = {
     { '@type': 'ListItem', position: 3, name: article.data.title, item: pageUrl },
   ],
 };
-const pageJsonLd = [jsonLd, breadcrumbJsonLd];
+const faqJsonLd = article.data.faq.length > 0
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: article.data.faq.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: { '@type': 'Answer', text: item.answer },
+      })),
+    }
+  : null;
+const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])];
 ---
 <BaseLayout locale="en" alternatePath={`/articles/${article.data.translationOf}/`} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={pageJsonLd}>
   <main class="content-detail-page">
@@ -45,7 +56,26 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd];
     <figure class="content-detail-shell content-detail-cover"><div><img src={article.data.cover} alt={article.data.coverAlt} /></div><figcaption class="mono">T SALON / COMMUNITY ARCHIVE</figcaption></figure>
     <section class="content-detail-shell content-detail-body">
       <article class="prose content-detail-prose">
+        {article.data.tldr.length > 0 && (
+          <section class="article-tldr" aria-label="TL;DR">
+            <p class="mono">TL;DR</p>
+            <ul>{article.data.tldr.map((point) => <li>{point}</li>)}</ul>
+          </section>
+        )}
         <Content />
+        {article.data.faq.length > 0 && (
+          <section class="article-faq" aria-label="FAQ">
+            <h2>Frequently Asked Questions</h2>
+            <dl>
+              {article.data.faq.map((item) => (
+                <>
+                  <dt>{item.question}</dt>
+                  <dd>{item.answer}</dd>
+                </>
+              ))}
+            </dl>
+          </section>
+        )}
         <footer class="content-detail-tags"><span class="mono">TOPICS</span><div class="tag-list">{article.data.topics.map((topic) => <span class="tag">{topic}</span>)}</div></footer>
       </article>
       <aside class="content-detail-aside">
@@ -54,6 +84,34 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd];
         {article.data.citations.map((citation) => <a class="content-detail-source" href={citation.url} target="_blank" rel="noopener noreferrer">{citation.label} <span>↗</span></a>)}
       </aside>
     </section>
-    <nav class="content-pagination" aria-label="Article navigation"><div class="content-detail-shell content-pagination-inner">{previous ? <a class="content-pagination-item content-pagination-previous" href={`/en/articles/${previous.id}/`}><span>← Previous</span><strong>{previous.data.title}</strong></a> : <span></span>}<a class="content-pagination-back" href="/en/articles/">All stories</a>{next ? <a class="content-pagination-item content-pagination-next" href={`/en/articles/${next.id}/`}><span>Next →</span><strong>{next.data.title}</strong></a> : <span></span>}</div></nav>
+    <nav class="content-pagination" aria-label="Article navigation"><div class="content-detail-shell content-pagination-inner">{previous ? <a class="content-pagination-item content-pagination-previous" href={`/en/articles/${previous.id}/`}><span>← Previous</span><strong>{previous.data.title}</strong></a> : <span></span>}<a class="content-pagination-back" href="/en/articles/">All stories</a>{next ? <a class="content-pagination-item content-pagination-next" href={`/en/articles/${next.id}/`}><span>Next →</span><strong>{next.data.title}</strong></a> : <span></span>}</div>    </nav>
   </main>
 </BaseLayout>
+
+<style>
+  .article-tldr {
+    margin: 0 0 2rem;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--accent, #2b6cb0);
+    background: color-mix(in srgb, var(--accent, #2b6cb0) 8%, transparent);
+    border-radius: 0 8px 8px 0;
+  }
+  .article-tldr .mono {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin: 0 0 0.5rem;
+  }
+  .article-tldr ul { margin: 0; padding-left: 1.1rem; }
+  .article-tldr li { margin: 0.35rem 0; }
+  .article-faq {
+    margin: 2.5rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  }
+  .article-faq h2 { font-size: 1.25rem; }
+  .article-faq dl { margin: 0; }
+  .article-faq dt { font-weight: 600; margin-top: 1rem; }
+  .article-faq dd { margin: 0.25rem 0 0; opacity: 0.92; }
+</style>
