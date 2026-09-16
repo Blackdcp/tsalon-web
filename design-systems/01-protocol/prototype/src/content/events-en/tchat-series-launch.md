@@ -30,7 +30,15 @@ agenda:
   - time: "20:30"
     title: One-to-one conversation
     description: Follow-up questions about the team’s work, decisions and constraints.
-faq: []
+faq:
+  - question: "Is T Chat live only, or can I watch it later?"
+    answer: "Each episode streams live on bilibili, and after the livestream the video enters T Salon's public archive where it stays findable and replayable."
+  - question: "What is the format of each T Chat episode?"
+    answer: "Every episode pairs a 30-minute guest talk with a 30-minute one-to-one host-guest conversation, preserving follow-up questions and context that a one-way talk usually loses."
+  - question: "Who should join or watch T Chat?"
+    answer: "Developers, tech leads, and students who care about real engineering practice, team methods, and personal growth; the content favors genuine experience over product promotion."
+  - question: "How do I get notified about future episodes?"
+    answer: "Follow T Salon's bilibili channel and the on-site T Chat series page; new episodes are announced through community channels when they go live."
 featured: false
 draft: false
 translationOf: tchat-series-launch

@@ -30,7 +30,15 @@ agenda:
   - time: "20:30"
     title: 主持人与嘉宾一对一交流
     description: 围绕团队在做什么、工程师关注什么继续追问与讨论。
-faq: []
+faq:
+  - question: "T Chat 是直播还是可以回看？"
+    answer: "每期在 Bilibili 在线直播，直播结束后视频会进入 T Salon 的公开内容档案，可长期检索与回看。"
+  - question: "每期的形式是怎样的？"
+    answer: "每期由 30 分钟嘉宾主题分享和 30 分钟主持人与嘉宾一对一交流组成，相比单向演讲保留了追问、判断与实践背景。"
+  - question: "谁适合参加或观看 T Chat？"
+    answer: "关注一线互联网研发实践、团队工程方法与个人成长的开发者、技术负责人与学生都适合；内容侧重真实经验而非产品宣传。"
+  - question: "如何获取后续期数的提醒？"
+    answer: "可关注 T Salon 的 Bilibili 空间与站内 T Chat 系列页，新一期上线后会在社区渠道同步。"
 featured: false
 draft: false
 seo:

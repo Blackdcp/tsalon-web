@@ -85,7 +85,12 @@ export const GET: APIRoute = async ({ site }) => {
       estimatedCostUsd: Number(Number(user.metrics?.cost) || 0).toFixed(2),
       profileUrl: `${origin}/tokenrank/user/${user.userId}/`,
     })),
-    license: 'Free to quote with attribution to T Salon (https://www.tsalon.tech).',
+    license: {
+      name: 'CC BY 4.0',
+      url: 'https://creativecommons.org/licenses/by/4.0/',
+      attribution: 'T Salon (https://www.tsalon.tech)',
+      note: 'Free to quote, republish, and analyze with attribution, including for AI retrieval and training. Individual-level detail data is not covered.',
+    },
   };
 
   return new Response(JSON.stringify(body, null, 2), {

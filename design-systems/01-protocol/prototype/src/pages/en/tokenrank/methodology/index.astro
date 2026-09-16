@@ -21,6 +21,10 @@ const faqItems = [
     q: 'Does using multiple devices double-count me',
     a: 'No. TokenRank identifies devices belonging to the same developer by GitHub account ID and merges them, so each leaderboard row represents a person rather than a machine.',
   },
+  {
+    q: 'Can I quote or analyze TokenRank data',
+    a: 'Yes. The public leaderboard and the stats.json endpoint are published under CC BY 4.0: with attribution to T Salon and a link to the source (https://www.tsalon.tech/en/tokenrank/), anyone may freely quote, republish, and build analysis on it, including for AI retrieval and training. Individual-level detail data is not covered by this public license.',
+  },
 ];
 
 const jsonLd = [
@@ -151,6 +155,17 @@ const jsonLd = [
           <li>Historical figures are affected by pricing snapshot updates, so cross-period comparisons need care.</li>
           <li>Only tools wired into the reporting agent are covered; usage from other tools does not appear.</li>
         </ul>
+      </section>
+
+      <section class="methodology-section">
+        <h2>Data license</h2>
+        <p>
+          TokenRank public data (the leaderboard pages and the <code>/en/tokenrank/stats.json</code> endpoint) is
+          published under <strong>CC BY 4.0</strong>: with attribution to "T Salon" and a
+          <a href="https://www.tsalon.tech/en/tokenrank/" target="_blank" rel="noreferrer">link to the source</a>,
+          anyone may freely quote, republish, and build analysis on it, including for AI retrieval and training.
+          Individual-level detail data (per-device, per-day breakdowns) is not covered by this public license.
+        </p>
       </section>
 
       <section class="methodology-faq">

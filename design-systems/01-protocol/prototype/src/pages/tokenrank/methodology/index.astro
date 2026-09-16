@@ -21,6 +21,10 @@ const faqItems = [
     q: '多设备使用会不会被重复计数',
     a: '不会。TokenRank 通过 GitHub 账号 ID 识别同一位开发者的多个设备记录并合并，排行榜每行对应一个人而非一台设备。',
   },
+  {
+    q: 'TokenRank 的数据可以引用或二次分析吗',
+    a: '可以。公开榜单与 stats.json 接口以 CC BY 4.0 许可发布：署名 T Salon 并附数据来源链接（https://www.tsalon.tech/tokenrank/）后，可自由引用、转载与二次分析，包括用于 AI 检索与训练场景；个人级明细数据不在公开授权范围内。',
+  },
 ];
 
 const jsonLd = [
@@ -146,6 +150,17 @@ const jsonLd = [
           <li>历史数据受定价快照更新影响，跨期比较时需要注意口径变化。</li>
           <li>排行榜只覆盖已接入上报的工具，未接入的工具用量不会体现。</li>
         </ul>
+      </section>
+
+      <section class="methodology-section">
+        <h2>数据授权</h2>
+        <p>
+          TokenRank 公开数据（含排行榜页面与 <code>/tokenrank/stats.json</code> 接口）以
+          <strong>CC BY 4.0</strong> 许可发布：在署名「T Salon」并附上
+          <a href="https://www.tsalon.tech/tokenrank/" target="_blank" rel="noreferrer">数据来源链接</a>
+          的前提下，任何人可自由引用、转载与二次分析，包括用于 AI 检索与训练场景。
+          个人级明细数据（单设备、单日明细）不在此公开授权范围内。
+        </p>
       </section>
 
       <section class="methodology-faq">
