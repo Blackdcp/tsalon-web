@@ -51,6 +51,19 @@ const enUrl = locale === 'en' ? canonical : alternate;
       title={locale === 'zh' ? 'T Salon 内容订阅' : 'T Salon content feed'}
       href={locale === 'zh' ? '/rss.xml' : '/en/rss.xml'}
     />
+    <link
+      rel="alternate"
+      type="text/plain"
+      title={locale === 'zh' ? 'T Salon LLMs 入口' : 'T Salon LLMs Entry'}
+      href={locale === 'zh' ? '/llms.txt' : '/en/llms.txt'}
+    />
+    <link
+      rel="alternate"
+      type="text/plain"
+      title={locale === 'zh' ? 'T Salon LLMs 全文' : 'T Salon LLMs Full Text'}
+      href={locale === 'zh' ? '/llms-full.txt' : '/en/llms-full.txt'}
+    />
+    <link rel="help" href={locale === 'zh' ? '/llms.txt' : '/en/llms.txt'} />
     {alternate && zhUrl && <link rel="alternate" hreflang="zh-Hans" href={zhUrl} />}
     {alternate && enUrl && <link rel="alternate" hreflang="en" href={enUrl} />}
     {alternate && zhUrl && <link rel="alternate" hreflang="x-default" href={zhUrl} />}
@@ -63,6 +76,9 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <meta property="og:locale" content={locale === 'zh' ? 'zh_CN' : 'en_US'} />
     <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
   </head>
   <body>

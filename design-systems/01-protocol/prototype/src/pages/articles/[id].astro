@@ -1,6 +1,19 @@
 ---
 import { getCollection, getEntry, render, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import topicsData from '../../data/topics.json';
+
+const topicSlugMap = new Map<string, string>();
+for (const t of topicsData) {
+  topicSlugMap.set(t.name.toLowerCase(), t.slug);
+  topicSlugMap.set(t.nameZh.toLowerCase(), t.slug);
+}
+topicSlugMap.set('智能体', 'agent');
+topicSlugMap.set('工程实践', 'engineering');
+topicSlugMap.set('工程化', 'engineering');
+topicSlugMap.set('前端工程', 'engineering');
+topicSlugMap.set('人工智能', 'ai');
+topicSlugMap.set('安全', 'security');
 
 export async function getStaticPaths() {
   const articles = await getCollection('articles', ({ data }) => !data.draft);
@@ -66,6 +79,9 @@ const coverAlt = talk?.data.coverAlt ?? article!.data.coverAlt;
 const topics = talk?.data.topics ?? article!.data.topics;
 const pageUrl = new URL(`/articles/${currentId}/`, Astro.site).toString();
 
+const bvidMatch = talk?.data.videoUrl?.match(/BV[a-zA-Z0-9]+/);
+const bvid = bvidMatch ? bvidMatch[0] : null;
+
 const jsonLd = talk ? {
   '@context': 'https://schema.org',
   '@type': 'VideoObject',
@@ -73,8 +89,9 @@ const jsonLd = talk ? {
   description: talk.data.summary,
   thumbnailUrl: [new URL(talk.data.cover, Astro.site).toString()],
   contentUrl: talk.data.videoUrl,
+  embedUrl: bvid ? `https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0` : talk.data.videoUrl,
   url: pageUrl,
-  uploadDate: '2023-01-01T00:00:00.000Z',
+  uploadDate: '2022-04-28T12:00:00.000Z',
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   author: { '@type': 'Person', name: talk.data.speaker },
   about: talk.data.topics,
@@ -110,11 +127,13 @@ const breadcrumbJsonLd = {
   ],
 };
 
-const faqJsonLd = article && article.data.faq.length > 0
+const activeFaq = (talk ? talk.data.faq : article?.data.faq) ?? [];
+const faqJsonLd = activeFaq.length > 0
   ? {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
-      mainEntity: article.data.faq.map((item) => ({
+      inLanguage: 'zh-CN',
+      mainEntity: activeFaq.map((item) => ({
         '@type': 'Question',
         name: item.question,
         acceptedAnswer: { '@type': 'Answer', text: item.answer },
@@ -162,8 +181,43 @@ const pageDescription = talk
           <>
             <p class="standfirst">{talk.data.speaker} 做客 T Chat「我在大厂做研发」第 {talk.data.episode} 期，围绕“{talk.data.title}”分享一线研发实践。</p>
             <p>{talk.data.summary}</p>
+
+            {bvid && (
+              <div class="talk-video-embed">
+                <iframe
+                  src={`https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`}
+                  allowfullscreen
+                  title={talk.data.title}
+                  loading="lazy"
+                ></iframe>
+              </div>
+            )}
+
+            {talk.data.takeaways && talk.data.takeaways.length > 0 && (
+              <section class="article-tldr" aria-label="核心实践看点">
+                <p class="mono">核心实践看点 · KEY TAKEAWAYS</p>
+                <ul>
+                  {talk.data.takeaways.map((point: string) => <li>{point}</li>)}
+                </ul>
+              </section>
+            )}
+
+            {talk.data.faq && talk.data.faq.length > 0 && (
+              <section class="article-faq" aria-label="讨论看点与常见问答">
+                <h2>讨论看点与常见问答（FAQ）</h2>
+                <dl>
+                  {talk.data.faq.map((item: { question: string; answer: string }) => (
+                    <>
+                      <dt>{item.question}</dt>
+                      <dd>{item.answer}</dd>
+                    </>
+                  ))}
+                </dl>
+              </section>
+            )}
+
             <h2>本期讨论主题</h2>
-            <ul>{talk.data.topics.map((topic) => <li>{topic}</li>)}</ul>
+            <ul>{talk.data.topics.map((topic: string) => <li>{topic}</li>)}</ul>
             <h2>关于「我在大厂做研发」</h2>
             <p>T Chat 由 T Salon 与老司机周报共同发起，通过主题分享与一对一交流，记录一线互联网研发团队与工程师的真实实践。系列共完成 17 期。</p>
           </>
@@ -193,7 +247,16 @@ const pageDescription = talk
         )}
         <footer class="content-detail-tags">
           <span class="mono">主题</span>
-          <div class="tag-list">{topics.map((topic) => <span class="tag">{topic}</span>)}</div>
+          <div class="tag-list">
+            {topics.map((topic) => {
+              const slug = topicSlugMap.get(topic.trim().toLowerCase());
+              return slug ? (
+                <a href={`/topics/${slug}/`} class="tag tag-link">{topic}</a>
+              ) : (
+                <span class="tag">{topic}</span>
+              );
+            })}
+          </div>
         </footer>
       </article>
 
@@ -282,4 +345,45 @@ const pageDescription = talk
   .article-faq dl { margin: 0; }
   .article-faq dt { font-weight: 600; margin-top: 1rem; }
   .article-faq dd { margin: 0.25rem 0 0; opacity: 0.92; }
+  .talk-video-embed {
+    margin: 1.5rem 0 2rem;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+  }
+  .talk-video-embed iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tag {
+    display: inline-block;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    color: inherit;
+  }
+  .tag-link {
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    border: 1px solid transparent;
+  }
+  .tag-link:hover {
+    background: color-mix(in srgb, var(--accent, #2b6cb0) 15%, transparent);
+    color: var(--accent, #2b6cb0);
+    border-color: color-mix(in srgb, var(--accent, #2b6cb0) 30%, transparent);
+  }
 </style>

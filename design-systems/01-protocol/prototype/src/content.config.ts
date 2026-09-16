@@ -156,6 +156,11 @@ const talks = defineCollection({
     seriesId: z.literal('t-chat').default('t-chat'),
     featured: z.boolean().default(false),
     order: z.number().int(),
+    takeaways: z.array(z.string()).default([]),
+    faq: z.array(z.object({
+      question: z.string(),
+      answer: z.string(),
+    })).default([]),
   }),
 });
 

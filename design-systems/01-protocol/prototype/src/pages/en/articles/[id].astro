@@ -1,6 +1,17 @@
 ---
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import topicsData from '../../../data/topics.json';
+
+const topicSlugMap = new Map<string, string>();
+for (const t of topicsData) {
+  topicSlugMap.set(t.name.toLowerCase(), t.slug);
+}
+topicSlugMap.set('agent', 'agent');
+topicSlugMap.set('engineering', 'engineering');
+topicSlugMap.set('ai', 'ai');
+topicSlugMap.set('security', 'security');
+
 export async function getStaticPaths() {
   const articles = await getCollection('articlesEn', ({ data }) => !data.draft);
   return articles.map((article) => ({ params: { id: article.id }, props: { article } }));
@@ -76,7 +87,19 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])]
             </dl>
           </section>
         )}
-        <footer class="content-detail-tags"><span class="mono">TOPICS</span><div class="tag-list">{article.data.topics.map((topic) => <span class="tag">{topic}</span>)}</div></footer>
+        <footer class="content-detail-tags">
+          <span class="mono">TOPICS</span>
+          <div class="tag-list">
+            {article.data.topics.map((topic) => {
+              const slug = topicSlugMap.get(topic.trim().toLowerCase());
+              return slug ? (
+                <a href={`/en/topics/${slug}/`} class="tag tag-link">{topic}</a>
+              ) : (
+                <span class="tag">{topic}</span>
+              );
+            })}
+          </div>
+        </footer>
       </article>
       <aside class="content-detail-aside">
         {headings.some((heading) => heading.depth === 2) && <div class="content-detail-aside-section"><strong class="mono">ON THIS PAGE</strong><nav aria-label="On this page">{headings.filter((heading) => heading.depth === 2).map((heading) => <a href={`#${heading.slug}`}>{heading.text}</a>)}</nav></div>}
@@ -114,4 +137,28 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])]
   .article-faq dl { margin: 0; }
   .article-faq dt { font-weight: 600; margin-top: 1rem; }
   .article-faq dd { margin: 0.25rem 0 0; opacity: 0.92; }
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tag {
+    display: inline-block;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    color: inherit;
+  }
+  .tag-link {
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    border: 1px solid transparent;
+  }
+  .tag-link:hover {
+    background: color-mix(in srgb, var(--accent, #2b6cb0) 15%, transparent);
+    color: var(--accent, #2b6cb0);
+    border-color: color-mix(in srgb, var(--accent, #2b6cb0) 30%, transparent);
+  }
 </style>

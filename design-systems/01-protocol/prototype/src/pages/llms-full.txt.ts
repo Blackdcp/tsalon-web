@@ -71,6 +71,16 @@ export const GET: APIRoute = async ({ site }) => {
       `- 视频：${talk.data.videoUrl}`,
       `- 摘要：${talk.data.summary}`,
       '',
+      ...(talk.data.takeaways && talk.data.takeaways.length > 0
+        ? ['- 核心看点（Key Takeaways）：', ...talk.data.takeaways.map((point) => `  - ${point}`), '']
+        : []),
+      ...(talk.data.faq && talk.data.faq.length > 0
+        ? [
+            '#### 常见问答（FAQ）',
+            ...talk.data.faq.flatMap((item) => [`**Q：${item.question}**`, item.answer, '']),
+            '',
+          ]
+        : []),
       '---',
       '',
     );
