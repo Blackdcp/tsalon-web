@@ -25,6 +25,11 @@
       "permanent": true
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/sitemap-index.xml",
+      "permanent": true
+    },
+    {
       "source": "/reset",
       "destination": "/whenreset/",
       "permanent": true
