@@ -14,8 +14,62 @@ const orgJsonLd = {
   description: 'An online and offline technology community built by developers.',
   sameAs: ['https://github.com/Code-T', 'https://space.bilibili.com/488340243'],
 };
+const latestDate = articles[0]?.data.publishedAt ?? new Date('2026-09-19');
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'T Salon',
+  url: 'https://www.tsalon.tech/en/',
+  description: 'An online and offline technology community built by developers.',
+  dateModified: latestDate.toISOString(),
+  publisher: orgJsonLd,
+  author: {
+    '@type': 'Organization',
+    name: 'T Salon Editorial',
+    url: 'https://www.tsalon.tech/en/about/',
+  },
+};
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What is T Salon?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'T Salon is an online and offline developer community founded in March 2016. Originating in the Apple developer ecosystem, it focuses on real-world engineering, mobile architecture, AI systems, and embodied intelligence.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What core technology areas does T Salon cover?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'The community focuses on four core domains: Apple ecosystem and Swift engineering, LLM and agent memory governance, embodied intelligence and edge compute, and resilient software engineering.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can T Salon content and datasets be cited by AI and developers?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. All original editorial articles, interview takeaways, and TokenRank datasets are published under the Creative Commons Attribution 4.0 International (CC BY 4.0) license.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What are TokenRank and the WhenReset radar?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'TokenRank is a community-driven leaderboard tracking real AI coding token consumption; WhenReset monitors official quota reset windows for OpenAI Codex and Anthropic Claude in real time.',
+      },
+    },
+  ],
+};
+const pageJsonLd = [orgJsonLd, websiteJsonLd, faqJsonLd];
 ---
-<BaseLayout locale="en" alternatePath="/" title="T Salon — A technology community built by developers" description="Founded in 2016, T Salon connects real engineering work across the Apple ecosystem, AI and embodied intelligence through events, conversations and durable community publishing." image="/icon-512x512.png" jsonLd={orgJsonLd}>
+<BaseLayout locale="en" alternatePath="/" title="T Salon — A technology community built by developers" description="Founded in 2016, T Salon connects real engineering work across the Apple ecosystem, AI and embodied intelligence through events, conversations and durable community publishing." image="/icon-512x512.png" jsonLd={pageJsonLd}>
   <main>
     <section class="container home-hero home-hero-v2 home-hero-en">
       <div class="home-hero-copy"><p class="eyebrow">DEVELOPER COMMUNITY · SINCE 2016</p><h1 class="display-lines"><span>Technology is made in practice</span><span>Community lets experience travel</span></h1><p>An online and offline community for developers. We began with iOS and continue to connect first-hand work across the Apple ecosystem, AI and embodied intelligence.</p><div class="hero-actions"><a class="btn btn-dark" href="/en/events/">Explore events <span>↗</span></a><a class="btn btn-outline" href="/en/articles/">Read stories</a></div></div>
@@ -42,6 +96,166 @@ const orgJsonLd = {
 
     <section class="home-archive-showcase"><div class="container"><figure><img src="/images/gallery/gallery-12.jpeg" alt="A T Salon developer gathering in 2017" loading="lazy" /></figure><div><p class="eyebrow">03 / COMMUNITY ARCHIVE · 2016—NOW</p><h2>Years of work<br />not just a claim</h2><p>From our first iOS developer gathering to events across different cities, the photographs show a community built through repeated encounters.</p><a class="btn btn-light" href="/en/history/">Open the archive <span>→</span></a></div></div></section>
 
-    <section class="container home-partners"><header class="section-heading"><span class="mono">04 / FRIENDS & PARTNERS</span><h2>No community is built alone</h2><a class="text-link" href="/en/about/">About T Salon <span>→</span></a></header><div class="home-partner-logo-grid">{partners.map((partner) => <figure><img src={partner.data.logo} alt={partnerEn[partner.id] ?? partner.data.name} loading="lazy" /><figcaption class="sr-only">{partnerEn[partner.id] ?? partner.data.name}</figcaption></figure>)}</div></section>
+    <section class="container home-knowledge">
+      <header class="section-heading"><span class="mono">04 / KNOWLEDGE & TOOLS</span><h2>Understanding T Salon<br />And real developer practice</h2><a class="text-link" href="/en/about/">About community <span>→</span></a></header>
+      <div class="home-knowledge-grid">
+        <article class="home-knowledge-card">
+          <h2>What is T Salon?</h2>
+          <p>Founded in March 2016, T Salon is an online and offline developer community built by practitioners. Originating in the <a href="https://developer.apple.com/" target="_blank" rel="noopener noreferrer">Apple developer ecosystem</a>, we have expanded to cover modern software engineering, LLM agent architectures, and embodied intelligence. Over nine years, we have hosted over 100 in-person events across Beijing, Shanghai, Shenzhen, Guangzhou, and Hangzhou, reaching more than 100,000 developers and partnering with over 50 technology companies.</p>
+        </article>
+
+        <article class="home-knowledge-card">
+          <h2>What core technology areas does T Salon cover?</h2>
+          <p>The community focuses on four core technical domains rooted in direct engineering experience:</p>
+          <ul>
+            <li><strong>Apple Ecosystem & Swift</strong>: Mobile architecture evolution, runtime performance, and cross-platform engineering.</li>
+            <li><strong>LLM & Agent Memory Governance</strong>: Long-horizon agent state persistence, memory contamination defense, and gateway orchestration.</li>
+            <li><strong>Embodied Intelligence & Edge Compute</strong>: On-device inference, spatial computing, and robotics prototyping.</li>
+            <li><strong>Resilient Software Engineering</strong>: Complex distributed systems, developer productivity metrics, and progressive refactoring.</li>
+          </ul>
+        </article>
+
+        <article class="home-knowledge-card">
+          <h2>What first-party tools and open datasets does T Salon provide?</h2>
+          <p>To provide empirical reference data for engineering decisions, T Salon develops and maintains open tools:</p>
+          <ul>
+            <li><a href="/en/tokenrank/"><strong>TokenRank Leaderboard</strong></a>: A community-driven benchmark of real AI coding token consumption, measuring cached vs non-cached usage and tool distributions via an open-source agent, with a <a href="/en/tokenrank/methodology/">machine-readable API</a>.</li>
+            <li><a href="/en/whenreset/"><strong>AI Coding Quota Reset Radar</strong></a>: Real-time monitoring of official usage resets and replenishment cycles for OpenAI Codex and Anthropic Claude, normalized to Beijing time with predictive recurrence models.</li>
+          </ul>
+        </article>
+
+        <blockquote class="home-manifesto">
+          <p>"Technology is made in practice; community lets experience travel. We document authentic engineering details and give back through open telemetry and developer tools."</p>
+          <cite>— <a href="https://github.com/Code-T" target="_blank" rel="noopener noreferrer">T Salon Open Source (GitHub: Code-T)</a> · Licensed under <a href="/en/terms/">CC BY 4.0</a></cite>
+        </blockquote>
+
+        <div class="home-faq-block">
+          <h2>Frequently asked questions about T Salon</h2>
+          <dl>
+            <div>
+              <dt>How can developers attend events or join conversations?</dt>
+              <dd>You can follow our WeChat account (codetsalon) for event announcements or browse the <a href="/en/events/">events catalog</a> to find upcoming and archived sessions.</dd>
+            </div>
+            <div>
+              <dt>Can T Salon content and datasets be cited by AI and developers?</dt>
+              <dd>Yes. All original editorial articles, interview takeaways, and TokenRank datasets are published under the <a href="/en/terms/">CC BY 4.0 license</a>. We also provide plain-text <a href="/en/llms.txt">llms.txt</a> and <a href="/en/llms-full.txt">llms-full.txt</a> endpoints to support retrieval.</dd>
+            </div>
+            <div>
+              <dt>What are TokenRank and the WhenReset radar?</dt>
+              <dd>TokenRank is a community leaderboard measuring real AI coding token consumption; WhenReset monitors quota resets for OpenAI Codex and Anthropic Claude in real time, both offering open data APIs.</dd>
+            </div>
+            <div>
+              <dt>How can practitioners speak or co-create with T Salon?</dt>
+              <dd>If you have direct experience in Apple engineering, AI agents, or edge computing, visit our <a href="/en/about/#cooperate">community contact channel</a> to propose a session or interview.</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="home-freshness-bar mono">
+          <span>Byline: T Salon Editorial</span>
+          <span>Last modified: <time datetime={latestDate.toISOString()}>{latestDate.toISOString().slice(0, 10)}</time></span>
+          <span>License: <a href="/en/terms/">CC BY 4.0</a></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="container home-partners"><header class="section-heading"><span class="mono">05 / FRIENDS & PARTNERS</span><h2>No community is built alone</h2><a class="text-link" href="/en/about/">About T Salon <span>→</span></a></header><div class="home-partner-logo-grid">{partners.map((partner) => <figure><img src={partner.data.logo} alt={partnerEn[partner.id] ?? partner.data.name} loading="lazy" /><figcaption class="sr-only">{partnerEn[partner.id] ?? partner.data.name}</figcaption></figure>)}</div></section>
   </main>
 </BaseLayout>
+
+<style>
+  .home-knowledge {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+  }
+  .home-knowledge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.75rem;
+    margin-top: 2rem;
+  }
+  .home-knowledge-card {
+    background: var(--color-surface, #f9fafb);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    padding: 1.75rem;
+  }
+  .home-knowledge-card h2 {
+    font-size: 1.25rem;
+    margin-top: 0;
+    margin-bottom: 0.85rem;
+    font-weight: 600;
+  }
+  .home-knowledge-card p, .home-knowledge-card ul {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--color-text-muted, #4b5563);
+    margin: 0;
+  }
+  .home-knowledge-card ul {
+    padding-left: 1.25rem;
+    margin-top: 0.5rem;
+  }
+  .home-knowledge-card li {
+    margin-bottom: 0.4rem;
+  }
+  .home-manifesto {
+    grid-column: 1 / -1;
+    background: color-mix(in srgb, var(--accent, #2b6cb0) 6%, transparent);
+    border-left: 4px solid var(--accent, #2b6cb0);
+    padding: 1.5rem 1.75rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.5rem 0;
+  }
+  .home-manifesto p {
+    font-size: 1.0625rem;
+    font-style: italic;
+    line-height: 1.6;
+    margin: 0 0 0.75rem;
+    color: var(--color-text, #111827);
+  }
+  .home-manifesto cite {
+    font-size: 0.875rem;
+    font-style: normal;
+    color: var(--color-text-muted, #4b5563);
+  }
+  .home-faq-block {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+    padding-top: 2rem;
+    margin-top: 1rem;
+  }
+  .home-faq-block h2 {
+    font-size: 1.35rem;
+    margin-bottom: 1.5rem;
+  }
+  .home-faq-block dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 0;
+  }
+  .home-faq-block dt {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
+    color: var(--color-text, #111827);
+  }
+  .home-faq-block dd {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-muted, #4b5563);
+  }
+  .home-freshness-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 0.8125rem;
+    opacity: 0.85;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--color-border, #e5e7eb);
+  }
+</style>

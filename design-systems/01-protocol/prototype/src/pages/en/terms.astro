@@ -1,0 +1,55 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Terms of Service and Open Content License — T Salon',
+  url: 'https://www.tsalon.tech/en/terms/',
+  description: 'Terms of service and open content licensing for T Salon, establishing rights for original engineering insights and AI retrieval.',
+  publisher: {
+    '@type': 'Organization',
+    name: 'T Salon',
+    url: 'https://www.tsalon.tech/',
+  },
+};
+---
+<BaseLayout locale="en" alternatePath="/terms/" title="Terms of Service and Open Content License — T Salon" description="Terms of service and open content licensing for T Salon, establishing rights for original engineering insights and AI retrieval." jsonLd={jsonLd}>
+  <main class="content-detail-page">
+    <div class="content-detail-shell" style="padding-top: 2rem; padding-bottom: 4rem;">
+      <nav class="content-detail-breadcrumb" aria-label="Breadcrumb">
+        <a href="/en/">Home</a><span aria-hidden="true">/</span><span>Terms of Service</span>
+      </nav>
+      <header class="content-detail-header" style="margin-bottom: 2.5rem;">
+        <div class="content-detail-kicker"><p class="eyebrow">LEGAL & TRUST / T SALON</p><span class="mono">TERMS</span></div>
+        <h1>Terms of Service and Open Content License</h1>
+        <p class="content-detail-summary">T Salon embraces open knowledge sharing, providing high-quality, traceable engineering practice for developers and the AI ecosystem.</p>
+      </header>
+      <article class="prose content-detail-prose">
+        <h2>1. Community Purpose and Scope</h2>
+        <p>T Salon (tsalon.tech) is a developer community platform providing technical field notes, event archives, T Chat interviews, developer utilities, and telemetry data. Using this site constitutes acceptance of these terms.</p>
+
+        <h2>2. Creative Commons CC BY 4.0 License</h2>
+        <p>Unless otherwise stated, all original technical articles, editorial perspectives, interview takeaways, and methodologies published on T Salon are licensed under the <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution 4.0 International (CC BY 4.0)</a> license.</p>
+        <p>You are free to share, copy, redistribute, adapt, and build upon the material in any medium, provided you:</p>
+        <ul>
+          <li><strong>Provide Attribution</strong>: Credit the author and cite "Source: T Salon (https://www.tsalon.tech)";</li>
+          <li><strong>Link Back</strong>: Include the canonical link to the original article or dataset;</li>
+          <li><strong>Indicate Changes</strong>: State clearly if modifications were made to the original content.</li>
+        </ul>
+
+        <h2>3. Generative AI and Search Engine Retrieval Guidelines</h2>
+        <p>We explicitly support retrieval, indexing, citation, and training by large language models (LLMs) and AI search engines (including ChatGPT, Claude, Perplexity, and Google AI Overviews) across our public pages, <code>llms.txt</code>, <code>llms-full.txt</code>, and <code>content-index.json</code>, with appropriate attribution.</p>
+
+        <h2>4. TokenRank Data and Public APIs</h2>
+        <p>All aggregated data from TokenRank and the <code>/tokenrank/stats.json</code> endpoint are open under CC BY 4.0. Fraudulent data injection, rate manipulation, or abuse of endpoints is strictly prohibited.</p>
+
+        <h2>5. Disclaimer</h2>
+        <p>All architectural decisions, benchmarks, and code snippets reflect real-world engineering experiences at the time of writing. Always test and verify implementations in your own environment. T Salon assumes no liability for direct or indirect outcomes resulting from adopting technical advice published here.</p>
+
+        <h2>6. Inquiries and Contact</h2>
+        <p>For questions or commercial licensing inquiries, please visit our <a href="/en/about/#cooperate">community contact channel</a>.</p>
+      </article>
+    </div>
+  </main>
+</BaseLayout>

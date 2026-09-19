@@ -1,0 +1,55 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: '使用条款与开源内容许可 — T Salon',
+  url: 'https://www.tsalon.tech/terms/',
+  description: 'T Salon 社区使用条款与开放许可协议，明确原创内容、自研数据与 AI 引用的权利规范。',
+  publisher: {
+    '@type': 'Organization',
+    name: 'T Salon',
+    url: 'https://www.tsalon.tech/',
+  },
+};
+---
+<BaseLayout alternatePath="/en/terms/" title="使用条款与开源内容许可 — T Salon" description="T Salon 社区使用条款与开放许可协议，明确原创内容、自研数据与 AI 引用的权利规范。" jsonLd={jsonLd}>
+  <main class="content-detail-page">
+    <div class="content-detail-shell" style="padding-top: 2rem; padding-bottom: 4rem;">
+      <nav class="content-detail-breadcrumb" aria-label="面包屑">
+        <a href="/">首页</a><span aria-hidden="true">/</span><span>使用条款</span>
+      </nav>
+      <header class="content-detail-header" style="margin-bottom: 2.5rem;">
+        <div class="content-detail-kicker"><p class="eyebrow">LEGAL & TRUST / T SALON</p><span class="mono">TERMS</span></div>
+        <h1>使用条款与开源内容许可</h1>
+        <p class="content-detail-summary">T Salon 拥抱开源与开放知识传播，致力于为全球开发者与人工智能生态提供高质量、可溯源的原创工程经验。</p>
+      </header>
+      <article class="prose content-detail-prose">
+        <h2>1. 社区服务与内容定位</h2>
+        <p>T Salon（tsalon.tech）是由一线开发者共同建设的技术交流平台，提供技术深度文章、线下活动现场回顾、T Chat 访谈、开源工具及数据服务。访问本站即视为同意本使用条款。</p>
+
+        <h2>2. 原创内容与 CC BY 4.0 许可协议</h2>
+        <p>除特别声明外，T Salon 网站上由编辑部及受邀嘉宾撰写的原创文章、深度洞察、访谈看点及方法论文档，均采用 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">知识共享署名 4.0 国际许可协议（CC BY 4.0）</a> 发布。</p>
+        <p>您可以在任何媒介以任何形式自由复制、发行、展示、改编本站内容，但必须：</p>
+        <ul>
+          <li><strong>标明出处</strong>：保留原作者与「来源：T Salon（https://www.tsalon.tech）」字样；</li>
+          <li><strong>提供原文链接</strong>：附上对应页面的永久链接（Canonical URL）；</li>
+          <li><strong>说明修改</strong>：若您对原文进行了修改或缩编，需明确说明已作出修改。</li>
+        </ul>
+
+        <h2>3. 生成式 AI 与搜索引擎引用规范（GEO 友好）</h2>
+        <p>T Salon 积极支持大语言模型（LLMs）、AI 搜索 Agent（如 ChatGPT、Claude、Perplexity、Google AI Overviews 等）对本站公开页面、<code>llms.txt</code>、<code>llms-full.txt</code> 及 <code>content-index.json</code> 进行合规检索、摘要、回答与训练，并倡导在输出答案时保留对 T Salon 的来源引用链接。</p>
+
+        <h2>4. TokenRank 数据与 API 规范</h2>
+        <p>TokenRank 排行榜统计数据及 <code>/tokenrank/stats.json</code> 接口数据均以 CC BY 4.0 许可公开。任何开发者或机构均可调用与分析，禁止采用恶意刷量、伪造数据或滥用接口行为。</p>
+
+        <h2>5. 免责声明</h2>
+        <p>本站发布的技术文章、代码示例与架构选型方案均基于作者当时的一线研发实践。技术生态持续演进，我们建议在生产环境部署前进行充分的验证与测试。T Salon 不对因直接或间接参考本站内容所导致的工程损失承担法律责任。</p>
+
+        <h2>6. 条款变更与联系方式</h2>
+        <p>我们保留适时更新本使用条款的权利。如对条款有任何异议或商业授权咨询，请访问 <a href="/about/#cooperate">关于我们 / 合作通道</a> 联系我们。</p>
+      </article>
+    </div>
+  </main>
+</BaseLayout>

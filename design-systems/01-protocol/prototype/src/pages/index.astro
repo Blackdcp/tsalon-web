@@ -16,8 +16,62 @@ const orgJsonLd = {
   description: '面向开发者的线上与线下技术交流平台。',
   sameAs: ['https://github.com/Code-T', 'https://space.bilibili.com/488340243'],
 };
+const latestDate = articles[0]?.data.publishedAt ?? new Date('2026-09-19');
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'T Salon',
+  url: 'https://www.tsalon.tech/',
+  description: '面向开发者的线上与线下技术交流平台。',
+  dateModified: latestDate.toISOString(),
+  publisher: orgJsonLd,
+  author: {
+    '@type': 'Organization',
+    name: 'T Salon 编辑部',
+    url: 'https://www.tsalon.tech/about/',
+  },
+};
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: '什么是 T Salon？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'T Salon（T 技术沙龙）成立于 2016 年 3 月，是由一线开发者发起并持续运营的线上与线下技术交流平台。社区从 Apple 开发者生态出发，长期聚焦软件工程、移动端架构、AI 与具身智能的一线研发实践。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'T Salon 关注哪些核心技术领域？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: '社区围绕四个核心主题持续深耕：Apple 生态与 Swift 工程架构、大语言模型与 Agent 记忆治理系统、具身智能与边缘计算、以及高可用软件工程实践。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'T Salon 的内容与数据可以自由引用吗？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: '可以。全站原创深度文章、T Chat 访谈看点以及 TokenRank 数据集均遵循 CC BY 4.0 许可，欢迎开发者和大模型（LLMs）进行合规检索、引用与分析。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '什么是 TokenRank 与 AI 编程额度重置雷达？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'TokenRank 是 T Salon 自建的开发者真实 AI 编程 Token 消耗排行榜；WhenReset 是实时监控 OpenAI Codex 与 Anthropic Claude 官方重置窗口的雷达工具，均提供机器可读接口。',
+      },
+    },
+  ],
+};
+const pageJsonLd = [orgJsonLd, websiteJsonLd, faqJsonLd];
 ---
-<BaseLayout alternatePath="/en/" title="T Salon — 面向开发者的线上与线下技术交流平台 · 连接 Apple、AI 与具身智能一线实践" description="T Salon 始于 2016 年，通过城市沙龙、技术大会、在线访谈和长期内容，连接 Apple、AI、具身智能等领域的真实研发实践。" image="/icon-512x512.png" jsonLd={orgJsonLd}>
+<BaseLayout alternatePath="/en/" title="T Salon — 面向开发者的线上与线下技术交流平台 · 连接 Apple、AI 与具身智能一线实践" description="T Salon 始于 2016 年，通过城市沙龙、技术大会、在线访谈和长期内容，连接 Apple、AI、具身智能等领域的真实研发实践。" image="/icon-512x512.png" jsonLd={pageJsonLd}>
   <main>
     <section class="container home-hero home-hero-v2">
       <div class="home-hero-copy"><p class="eyebrow">开发者社区 · 始于 2016</p><h1 class="display-lines"><span>技术发生在实践里</span><span>社区让经验流动起来</span></h1><p>面向开发者的线上 & 线下技术交流平台。从 iOS 开发者社区出发，持续连接 Apple 生态、AI 与具身智能的一线实践。</p><div class="hero-actions"><a class="btn btn-dark" href="/events/">探索活动 <span>↗</span></a><a class="btn btn-outline" href="/articles/">阅读内容</a></div></div>
@@ -50,9 +104,169 @@ const orgJsonLd = {
       <div class="container"><figure><img src="/images/gallery/gallery-12.jpeg" alt="2017 年 T Salon 与饿了么合作活动现场" loading="lazy" /></figure><div><p class="eyebrow">03 / 社区年鉴 · 2016 至今</p><h2>我们办了很多年<br />不只是一句介绍</h2><p>从 iOS 开发者的第一次相聚，到不同城市的一场场技术交流，照片留下了社区共同走过的路。</p><a class="btn btn-light" href="/history/">打开社区年鉴 <span>→</span></a></div></div>
     </section>
 
+    <section class="container home-knowledge">
+      <header class="section-heading"><span class="mono">04 / 认知与工具</span><h2>理解 T Salon<br />与开发者的一线实践</h2><a class="text-link" href="/about/">关于社区 <span>→</span></a></header>
+      <div class="home-knowledge-grid">
+        <article class="home-knowledge-card">
+          <h2>什么是 T Salon？</h2>
+          <p>T Salon（T 技术沙龙）成立于 2016 年 3 月，是由一线开发者发起并持续运营的线上与线下技术交流平台。我们最早从 <a href="https://developer.apple.com/" target="_blank" rel="noopener noreferrer">Apple 开发者生态</a> 出发，逐步扩展至现代软件工程、大模型 Agent 架构与具身智能领域。九年间，社区在北京、上海、深圳、广州、杭州等多个城市组织了超过 100 场线下活动，连接了 10 万余名工程师与 50 多家科技伙伴。</p>
+        </article>
+
+        <article class="home-knowledge-card">
+          <h2>T Salon 关注哪些核心技术领域？</h2>
+          <p>社区围绕四大高频工程主题深耕，所有内容均源自研发一线的真实踩坑与架构决策复盘：</p>
+          <ul>
+            <li><strong>Apple 生态与 Swift 工程</strong>：探讨移动端架构演进、性能优化与跨端实践。</li>
+            <li><strong>大模型与 Agent 记忆治理</strong>：深入长任务 Agent 状态持久化、记忆防污染与多模型调度。</li>
+            <li><strong>具身智能与边缘计算</strong>：关注端侧 AI 推理、空间计算与机器人研发实践。</li>
+            <li><strong>高可用软件工程</strong>：聚焦复杂系统稳定性、研发效能度量与架构重构。</li>
+          </ul>
+        </article>
+
+        <article class="home-knowledge-card">
+          <h2>自研开源工具与独家数据资产有哪些？</h2>
+          <p>为向行业提供真实客观的数据支撑，T Salon 团队自主研发并维护了面向开发者的第一方工具矩阵：</p>
+          <ul>
+            <li><a href="/tokenrank/"><strong>TokenRank 榜单</strong></a>：首个开发者驱动的 AI 编程真实消耗排行榜，通过开源 Agent 客户端采集真实 Token 消耗、缓存命中率与工具分布，提供 <a href="/tokenrank/stats.json">机器可读 API</a>。</li>
+            <li><a href="/whenreset/"><strong>AI 编程额度重置雷达</strong></a>：实时监控 OpenAI Codex 与 Anthropic Claude 的官方重置与补卡规律，全部换算为北京时间并推算下次重置窗口。</li>
+          </ul>
+        </article>
+
+        <blockquote class="home-manifesto">
+          <p>“技术发生在实践里，社区让经验流动起来。我们坚持记录最真实的工程细节，并通过开放数据与开源工具回馈开发者生态。”</p>
+          <cite>— <a href="https://github.com/Code-T" target="_blank" rel="noopener noreferrer">T Salon 开源社区（GitHub: Code-T）</a> · 遵循 <a href="/terms/">CC BY 4.0 开放许可</a></cite>
+        </blockquote>
+
+        <div class="home-faq-block">
+          <h2>关于 T Salon 的常见问题</h2>
+          <dl>
+            <div>
+              <dt>如何参与 T Salon 的线下活动或线上直播？</dt>
+              <dd>您可以关注我们的微信公众号「codetsalon」获取最新活动发布与报名信息，或直接在 <a href="/events/">活动列表</a> 中查看最新正在报名的主题与历史回顾。</dd>
+            </div>
+            <div>
+              <dt>T Salon 发布的内容和数据可以被 AI 或开发者自由引用吗？</dt>
+              <dd>完全可以。全站原创深度文章、T Chat 访谈看点以及 TokenRank 数据集均遵循 <a href="/terms/">CC BY 4.0 许可</a>。我们同时提供 <a href="/llms.txt">llms.txt</a> 与 <a href="/llms-full.txt">llms-full.txt</a> 纯文本端点，积极支持大模型检索与引用。</dd>
+            </div>
+            <div>
+              <dt>什么是 TokenRank 与 AI 编程额度重置雷达？</dt>
+              <dd>TokenRank 是 T Salon 自建的真实 AI 编程 Token 消耗排行榜；WhenReset 是实时监控 OpenAI Codex 与 Anthropic Claude 官方用量重置窗口的雷达工具，均提供开源客户端与开放 API。</dd>
+            </div>
+            <div>
+              <dt>如何成为 T Salon 的分享嘉宾或发起议题合作？</dt>
+              <dd>如果您在相关技术领域拥有一线研发实践经验，欢迎访问 <a href="/about/#cooperate">关于我们 / 合作通道</a> 联系社区运营团队，共同发起线上访谈或线下沙龙。</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="home-freshness-bar mono">
+          <span>署名：T Salon 编辑部（T Salon Editorial）</span>
+          <span>最新更新：<time datetime={latestDate.toISOString()}>{latestDate.toISOString().slice(0, 10)}</time></span>
+          <span>许可协议：<a href="/terms/">CC BY 4.0</a></span>
+        </div>
+      </div>
+    </section>
+
     <section class="container home-partners">
-      <header class="section-heading"><span class="mono">04 / 社区伙伴</span><h2>社区从来不是独立完成的</h2><a class="text-link" href="/about/">了解我们 <span>→</span></a></header>
+      <header class="section-heading"><span class="mono">05 / 社区伙伴</span><h2>社区从来不是独立完成的</h2><a class="text-link" href="/about/">了解我们 <span>→</span></a></header>
       <div class="home-partner-logo-grid">{partners.map((partner) => <figure><img src={partner.data.logo} alt={partner.data.logoAlt} loading="lazy" /><figcaption class="sr-only">{partner.data.name}</figcaption></figure>)}</div>
     </section>
   </main>
 </BaseLayout>
+
+<style>
+  .home-knowledge {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+  }
+  .home-knowledge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.75rem;
+    margin-top: 2rem;
+  }
+  .home-knowledge-card {
+    background: var(--color-surface, #f9fafb);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    padding: 1.75rem;
+  }
+  .home-knowledge-card h2 {
+    font-size: 1.25rem;
+    margin-top: 0;
+    margin-bottom: 0.85rem;
+    font-weight: 600;
+  }
+  .home-knowledge-card p, .home-knowledge-card ul {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--color-text-muted, #4b5563);
+    margin: 0;
+  }
+  .home-knowledge-card ul {
+    padding-left: 1.25rem;
+    margin-top: 0.5rem;
+  }
+  .home-knowledge-card li {
+    margin-bottom: 0.4rem;
+  }
+  .home-manifesto {
+    grid-column: 1 / -1;
+    background: color-mix(in srgb, var(--accent, #2b6cb0) 6%, transparent);
+    border-left: 4px solid var(--accent, #2b6cb0);
+    padding: 1.5rem 1.75rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.5rem 0;
+  }
+  .home-manifesto p {
+    font-size: 1.0625rem;
+    font-style: italic;
+    line-height: 1.6;
+    margin: 0 0 0.75rem;
+    color: var(--color-text, #111827);
+  }
+  .home-manifesto cite {
+    font-size: 0.875rem;
+    font-style: normal;
+    color: var(--color-text-muted, #4b5563);
+  }
+  .home-faq-block {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+    padding-top: 2rem;
+    margin-top: 1rem;
+  }
+  .home-faq-block h2 {
+    font-size: 1.35rem;
+    margin-bottom: 1.5rem;
+  }
+  .home-faq-block dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 0;
+  }
+  .home-faq-block dt {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
+    color: var(--color-text, #111827);
+  }
+  .home-faq-block dd {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-muted, #4b5563);
+  }
+  .home-freshness-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 0.8125rem;
+    opacity: 0.85;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--color-border, #e5e7eb);
+  }
+</style>

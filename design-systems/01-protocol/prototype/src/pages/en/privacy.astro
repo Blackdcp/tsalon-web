@@ -1,0 +1,51 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Privacy Policy — T Salon',
+  url: 'https://www.tsalon.tech/en/privacy/',
+  description: 'Privacy policy for the T Salon community, explaining data collection, usage, and protection practices.',
+  publisher: {
+    '@type': 'Organization',
+    name: 'T Salon',
+    url: 'https://www.tsalon.tech/',
+  },
+};
+---
+<BaseLayout locale="en" alternatePath="/privacy/" title="Privacy Policy — T Salon" description="Privacy policy for the T Salon community, explaining data collection, usage, and protection practices." jsonLd={jsonLd}>
+  <main class="content-detail-page">
+    <div class="content-detail-shell" style="padding-top: 2rem; padding-bottom: 4rem;">
+      <nav class="content-detail-breadcrumb" aria-label="Breadcrumb">
+        <a href="/en/">Home</a><span aria-hidden="true">/</span><span>Privacy Policy</span>
+      </nav>
+      <header class="content-detail-header" style="margin-bottom: 2.5rem;">
+        <div class="content-detail-kicker"><p class="eyebrow">LEGAL & TRUST / T SALON</p><span class="mono">PRIVACY</span></div>
+        <h1>Privacy Policy</h1>
+        <p class="content-detail-summary">T Salon is committed to open and transparent community practices while protecting the privacy of all visitors and contributors.</p>
+      </header>
+      <article class="prose content-detail-prose">
+        <h2>1. Scope</h2>
+        <p>This Privacy Policy applies to the official T Salon website (tsalon.tech) and all its public pages, tools, and data services, including editorial stories, event archives, T Chat interviews, TokenRank leaderboards, and the WhenReset radar.</p>
+
+        <h2>2. Data Collection and Usage Principles</h2>
+        <p>We adhere to data minimization principles and only collect information essential to operating community services:</p>
+        <ul>
+          <li><strong>Public Reading</strong>: Browsing technical articles, archives, and interview transcripts requires no registration. We do not track individual visitor identities.</li>
+          <li><strong>TokenRank Telemetry</strong>: Usage data reported through the open-source agent contains only aggregate metrics (token volume, cache hit rate, tool names, and timestamps). It never includes source code, sensitive prompts, or local private files.</li>
+          <li><strong>Third-Party Sign-In</strong>: When you authenticate via GitHub OAuth to link a TokenRank profile, we only access public profile information (username, avatar, and public user ID) to display your developer badge on the leaderboard.</li>
+        </ul>
+
+        <h2>3. Cookies and Local Storage</h2>
+        <p>We only use local storage to remember your preferred language selection (such as <code>tsalon-locale</code>). We do not deploy cross-site advertising trackers or sell visitor information to third-party data brokers.</p>
+
+        <h2>4. Third-Party Links</h2>
+        <p>This site includes links to external services such as GitHub, Bilibili, and WeChat. When navigating away from our site, the privacy policies of those external platforms govern your interactions.</p>
+
+        <h2>5. Policy Updates and Contact</h2>
+        <p>We may periodically update this policy as our platform evolves. If you have questions regarding this Privacy Policy, please reach out via our <a href="/en/about/#cooperate">community contact channel</a>.</p>
+      </article>
+    </div>
+  </main>
+</BaseLayout>

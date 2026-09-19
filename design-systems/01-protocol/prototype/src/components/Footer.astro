@@ -11,12 +11,14 @@ const friendLinks = [
 ];
 const copy = locale === 'zh' ? {
   nav: '站内导航', events: '活动与现场', articles: '内容与观点', history: '社区年鉴', about: '关于 T Salon',
-  official: '关注公众号', participate: '一起做点事情', collaborate: '嘉宾与合作',
-  friends: '友情链接', tagline: ['技术发生在实践里', '社区让经验流动起来'], home: '返回 T Salon 首页',
+  official: '关注公众号', participate: '一起做点事情', collaborate: '嘉宾与合作', contact: '联系我们',
+  friends: '友情链接', legal: '信任与条款', privacy: '隐私政策', terms: '使用条款', license: 'CC BY 4.0 开放许可',
+  tagline: ['技术发生在实践里', '社区让经验流动起来'], home: '返回 T Salon 首页',
 } : {
   nav: 'Explore', events: 'Events', articles: 'Stories & Ideas', history: 'Community Archive', about: 'About T Salon',
-  official: 'Follow on WeChat', participate: 'Do something together', collaborate: 'Speak or collaborate',
-  friends: 'Friends of T Salon', tagline: ['Technology is made in practice', 'Community lets experience travel'], home: 'T Salon home',
+  official: 'Follow on WeChat', participate: 'Do something together', collaborate: 'Speak or collaborate', contact: 'Contact Us',
+  friends: 'Friends of T Salon', legal: 'Trust & Legal', privacy: 'Privacy Policy', terms: 'Terms of Service', license: 'CC BY 4.0 License',
+  tagline: ['Technology is made in practice', 'Community lets experience travel'], home: 'T Salon home',
 };
 ---
 <footer class="site-footer">
@@ -28,7 +30,8 @@ const copy = locale === 'zh' ? {
       </div>
       <nav class="footer-nav" aria-label={locale === 'zh' ? '页脚导航' : 'Footer navigation'}>
         <div class="footer-col"><strong>{copy.nav}</strong><a href={route('/events/')}>{copy.events}</a><a href={route('/articles/')}>{copy.articles}</a><a href={route('/history/')}>{copy.history}</a><a href={route('/about/')}>{copy.about}</a></div>
-        <div class="footer-col"><strong>{copy.participate}</strong><a href={`${route('/about/')}#official`}>{copy.official}</a><a href={`${route('/about/')}#cooperate`}>{copy.collaborate}</a><a href="https://github.com/Code-T" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://space.bilibili.com/488340243" target="_blank" rel="noopener noreferrer">bilibili</a></div>
+        <div class="footer-col"><strong>{copy.participate}</strong><a href={`${route('/about/')}#official`}>{copy.official}</a><a href={`${route('/about/')}#cooperate`}>{copy.collaborate}</a><a href={`${route('/about/')}#cooperate`}>{copy.contact}</a><a href="https://github.com/Code-T" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://space.bilibili.com/488340243" target="_blank" rel="noopener noreferrer">bilibili</a></div>
+        <div class="footer-col"><strong>{copy.legal}</strong><a href={route('/privacy/')}>{copy.privacy}</a><a href={route('/terms/')}>{copy.terms}</a><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">{copy.license}</a></div>
         <div class="footer-col"><strong>{copy.friends}</strong>
           {friendLinks.map((link) => (
             <a href={link.href} target="_blank" rel="noopener noreferrer">
@@ -38,6 +41,6 @@ const copy = locale === 'zh' ? {
         </div>
       </nav>
     </div>
-    <div class="footer-legal mono"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">苏ICP备15023694号-3</a></div>
+    <div class="footer-legal mono"><span>© 2016—2026 T Salon</span> · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">苏ICP备15023694号-3</a></div>
   </div>
 </footer>
