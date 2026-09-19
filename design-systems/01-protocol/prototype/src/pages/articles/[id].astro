@@ -146,9 +146,10 @@ const pageTitle = talk ? `${talk.data.title}｜T Chat 第 ${talk.data.episode} �
 const pageDescription = talk
   ? `${talk.data.speaker} 做客 T Chat「我在大厂做研发」第 ${talk.data.episode} 期。${talk.data.summary}`
   : article!.data.seo.description;
+const hasEnTranslation = Boolean(article && (await getEntry('articlesEn', article.id)));
 ---
 
-<BaseLayout alternatePath={article ? `/en/articles/${article.id}/` : undefined} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={pageJsonLd}>
+<BaseLayout alternatePath={hasEnTranslation ? `/en/articles/${article!.id}/` : undefined} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={pageJsonLd}>
   <main class="content-detail-page">
     <nav class="content-detail-shell content-detail-breadcrumb" aria-label="面包屑">
       <a href="/articles/">内容</a><span aria-hidden="true">/</span><span>{contentKind}</span>

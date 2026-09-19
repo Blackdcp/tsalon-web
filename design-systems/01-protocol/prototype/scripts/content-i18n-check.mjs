@@ -20,6 +20,7 @@ for (const [zhName, enName] of pairs) {
   for (const file of zhFiles) {
     const zhSource = readFileSync(join(zhDir, file), 'utf8');
     if (!published(zhSource)) continue;
+    if (/\nallowSingleLocale:\s*true\s*(?:\n|$)/.test(zhSource)) continue;
     const enPath = join(enDir, file);
     const slug = basename(file).replace(/\.mdx?$/, '');
     if (!existsSync(enPath)) {

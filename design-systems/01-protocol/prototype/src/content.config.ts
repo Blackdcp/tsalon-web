@@ -107,6 +107,7 @@ const articles = defineCollection({
     })).default([]),
     featured: z.boolean().default(false),
     draft: z.boolean().default(true),
+    allowSingleLocale: z.boolean().default(false),
     seo: seoFields,
   }),
 });
