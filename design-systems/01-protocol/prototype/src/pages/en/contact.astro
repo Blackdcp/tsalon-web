@@ -1,0 +1,59 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ContactPage',
+  name: 'Contact Us — T Salon',
+  url: 'https://www.tsalon.tech/en/contact/',
+  description: 'Connect with the T Salon developer community: event registration, speaking proposals, and co-creation channels.',
+  publisher: {
+    '@type': 'Organization',
+    name: 'T Salon',
+    url: 'https://www.tsalon.tech/',
+  },
+};
+---
+<BaseLayout locale="en" alternatePath="/contact/" title="Contact Us — T Salon Developer Community" description="Connect with the T Salon developer community: event registration, speaking proposals, and co-creation channels." jsonLd={jsonLd}>
+  <main class="content-detail-page">
+    <div class="content-detail-shell" style="padding-top: 2rem; padding-bottom: 4rem;">
+      <nav class="content-detail-breadcrumb" aria-label="Breadcrumb">
+        <a href="/en/">Home</a><span aria-hidden="true">/</span><span>Contact Us</span>
+      </nav>
+      <header class="content-detail-header" style="margin-bottom: 2.5rem;">
+        <div class="content-detail-kicker"><p class="eyebrow">COMMUNITY & COLLABORATION / T SALON</p><span class="mono">CONTACT</span></div>
+        <h1>Contact Us</h1>
+        <p class="content-detail-summary">Whether you want to attend a gathering, speak at an event, or propose a collaboration, we welcome active practitioners.</p>
+      </header>
+      
+      <section class="about-participate" style="padding: 0;">
+        <div class="about-channel-grid">
+          <article class="about-channel-card" id="official">
+            <p class="eyebrow">EVENTS</p>
+            <h2>Follow on WeChat</h2>
+            <p>Announcements and registration</p>
+            <figure><img src="/images/connect/wechat-official.jpg" alt="T Salon WeChat Official Account QR code" /><figcaption>Scan with WeChat: codetsalon</figcaption></figure>
+          </article>
+          <article class="about-channel-card" id="cooperate">
+            <p class="eyebrow">COLLABORATION</p>
+            <h2>Connect with Black</h2>
+            <p>Speaking, hosting, and partnerships</p>
+            <figure><img src="/images/connect/wechat-cooperation-qr.png" alt="Black WeChat QR code" /><figcaption>Scan to connect directly</figcaption></figure>
+          </article>
+          <a class="about-channel-card about-channel-link" href="https://github.com/Code-T" target="_blank" rel="noreferrer">
+            <p class="eyebrow">OPEN SOURCE</p>
+            <h2>GitHub<br />Code-T</h2>
+            <p>Open source projects and materials</p>
+            <span>Open profile ↗</span>
+          </a>
+          <a class="about-channel-card about-channel-link" href="https://space.bilibili.com/488340243" target="_blank" rel="noreferrer">
+            <p class="eyebrow">VIDEO</p>
+            <h2>Bilibili<br />T Salon</h2>
+            <p>Session recordings and archives</p>
+            <span>Open channel ↗</span>
+          </a>
+        </div>
+      </section>
+    </div>
+  </main>
+</BaseLayout>

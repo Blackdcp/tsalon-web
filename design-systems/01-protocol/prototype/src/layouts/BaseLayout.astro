@@ -13,6 +13,7 @@ interface Props {
   locale?: SiteLocale;
   alternatePath?: string | null;
   autoDetectLocale?: boolean;
+  keywords?: string;
 }
 
 const {
@@ -23,7 +24,10 @@ const {
   jsonLd,
   locale = localeFromPath(Astro.url.pathname),
   alternatePath,
-  autoDetectLocale = Astro.url.pathname === '/',
+  autoDetectLocale = false,
+  keywords = locale === 'zh'
+    ? 'T Salon, 开发者社区, 技术沙龙, Apple 开发者, iOS 研发, AI Agent, 具身智能, TokenRank, WhenReset, 软件工程'
+    : 'T Salon, developer community, tech salon, Apple developers, iOS engineering, AI agents, embodied intelligence, TokenRank, WhenReset, software engineering',
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const socialImage = new URL(image, Astro.site);
@@ -44,6 +48,7 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <link rel="manifest" href="/site.webmanifest" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
     <link rel="canonical" href={canonical} />
     <link
       rel="alternate"
