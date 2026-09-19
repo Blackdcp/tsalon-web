@@ -134,8 +134,9 @@ const articlesEn = defineCollection({
     })).default([]),
     featured: z.boolean().default(false),
     draft: z.boolean().default(true),
-    translationOf: z.string(),
-    translationStatus: z.enum(['draft', 'reviewed']).default('draft'),
+    translationOf: z.string().optional(),
+    translationStatus: z.enum(['draft', 'reviewed']).default('reviewed'),
+    allowSingleLocale: z.boolean().default(false),
     seo: seoFields,
   }),
 });

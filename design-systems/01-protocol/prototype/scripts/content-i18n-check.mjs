@@ -36,7 +36,9 @@ for (const [zhName, enName] of pairs) {
 
   for (const file of enFiles) {
     const enSource = readFileSync(join(enDir, file), 'utf8');
-    if (published(enSource) && !existsSync(join(zhDir, file))) errors.push(`${enName}/${file}: published translation has no Chinese source`);
+    if (!published(enSource)) continue;
+    if (/\nallowSingleLocale:\s*true\s*(?:\n|$)/.test(enSource)) continue;
+    if (!existsSync(join(zhDir, file))) errors.push(`${enName}/${file}: published translation has no Chinese source`);
   }
 }
 

@@ -58,9 +58,10 @@ const faqJsonLd = article.data.faq.length > 0
       })),
     }
   : null;
+const alternatePath = article.data.translationOf ? `/articles/${article.data.translationOf}/` : undefined;
 const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])];
 ---
-<BaseLayout locale="en" alternatePath={`/articles/${article.data.translationOf}/`} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={pageJsonLd}>
+<BaseLayout locale="en" alternatePath={alternatePath} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={pageJsonLd}>
   <main class="content-detail-page">
     <nav class="content-detail-shell content-detail-breadcrumb" aria-label="Breadcrumb"><a href="/en/articles/">Stories</a><span aria-hidden="true">/</span><span>{labels[article.data.type]}</span></nav>
     <header class="content-detail-shell content-detail-header"><div class="content-detail-kicker"><p class="eyebrow">{labels[article.data.type]} / T SALON</p><span class="mono">EDITORIAL</span></div><h1>{article.data.title}</h1><p class="content-detail-summary">{article.data.summary}</p><div class="content-detail-byline"><span class="content-detail-avatar" aria-hidden="true">TS</span><div><strong>T Salon Editorial</strong><span>{article.data.publishedAt.toISOString().slice(0, 10)} · {article.data.readingMinutes} min read</span></div></div></header>
