@@ -69,6 +69,7 @@ const enUrl = locale === 'en' ? canonical : alternate;
     {alternate && zhUrl && <link rel="alternate" hreflang="x-default" href={zhUrl} />}
     {noindex && <meta name="robots" content="noindex,nofollow" />}
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="T Salon" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
