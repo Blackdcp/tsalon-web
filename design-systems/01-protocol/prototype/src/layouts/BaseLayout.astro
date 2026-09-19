@@ -11,7 +11,7 @@ interface Props {
   noindex?: boolean;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   locale?: SiteLocale;
-  alternatePath?: string;
+  alternatePath?: string | null;
   autoDetectLocale?: boolean;
 }
 
@@ -27,7 +27,7 @@ const {
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const socialImage = new URL(image, Astro.site);
-const resolvedAlternatePath = alternatePath ?? localizedPath(Astro.url.pathname, locale === 'zh' ? 'en' : 'zh');
+const resolvedAlternatePath = alternatePath === null ? undefined : (alternatePath ?? localizedPath(Astro.url.pathname, locale === 'zh' ? 'en' : 'zh'));
 const alternate = resolvedAlternatePath ? new URL(resolvedAlternatePath, Astro.site) : undefined;
 const zhUrl = locale === 'zh' ? canonical : alternate;
 const enUrl = locale === 'en' ? canonical : alternate;
@@ -74,7 +74,7 @@ const enUrl = locale === 'en' ? canonical : alternate;
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={socialImage} />
     <meta property="og:locale" content={locale === 'zh' ? 'zh_CN' : 'en_US'} />
-    <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />
+    {alternate && <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
@@ -83,7 +83,7 @@ const enUrl = locale === 'en' ? canonical : alternate;
   </head>
   <body>
     <a class="skip-link" href="#main-content">{locale === 'zh' ? '跳到主要内容' : 'Skip to main content'}</a>
-    <Header locale={locale} alternatePath={resolvedAlternatePath} hasTranslation={Boolean(alternatePath)} />
+    <Header locale={locale} alternatePath={resolvedAlternatePath} hasTranslation={Boolean(resolvedAlternatePath)} />
     <div id="main-content" tabindex="-1"><slot /></div>
     <Footer locale={locale} />
     <script is:inline define:vars={{ autoDetectLocale, locale }}>

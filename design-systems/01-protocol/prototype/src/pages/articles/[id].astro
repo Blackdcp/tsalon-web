@@ -149,7 +149,7 @@ const pageDescription = talk
 const hasEnTranslation = Boolean(article && (await getEntry('articlesEn', article.id)));
 ---
 
-<BaseLayout alternatePath={hasEnTranslation ? `/en/articles/${article!.id}/` : undefined} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={pageJsonLd}>
+<BaseLayout alternatePath={hasEnTranslation ? `/en/articles/${article!.id}/` : null} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={pageJsonLd}>
   <main class="content-detail-page">
     <nav class="content-detail-shell content-detail-breadcrumb" aria-label="面包屑">
       <a href="/articles/">内容</a><span aria-hidden="true">/</span><span>{contentKind}</span>

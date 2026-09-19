@@ -3,7 +3,7 @@ import { localizedPath, type SiteLocale } from '../lib/i18n';
 
 interface Props {
   locale: SiteLocale;
-  alternatePath: string;
+  alternatePath?: string;
   hasTranslation?: boolean;
 }
 
@@ -14,7 +14,7 @@ const isActive = (path: string) => pathname === route(path) || pathname.startsWi
 const copy = locale === 'zh'
   ? { home: 'T Salon 首页', nav: '主导航', events: '活动与现场', articles: '内容与观点', about: '关于 T Salon', join: '一起做点事情', open: '打开导航', close: '关闭导航', language: 'English', languageTitle: hasTranslation ? '查看英文版' : '前往英文首页' }
   : { home: 'T Salon home', nav: 'Main navigation', events: 'Events', articles: 'Stories & Ideas', about: 'About T Salon', join: 'Take part', open: 'Open navigation', close: 'Close navigation', language: '中文', languageTitle: hasTranslation ? 'View in Chinese' : 'Go to the Chinese homepage' };
-const languageHref = hasTranslation ? alternatePath : (locale === 'zh' ? '/en/' : '/');
+const languageHref = hasTranslation && alternatePath ? alternatePath : (locale === 'zh' ? '/en/' : '/');
 ---
 <header class="site-header">
   <div class="container header-inner">

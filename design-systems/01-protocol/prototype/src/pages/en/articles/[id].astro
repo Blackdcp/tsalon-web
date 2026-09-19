@@ -58,7 +58,7 @@ const faqJsonLd = article.data.faq.length > 0
       })),
     }
   : null;
-const alternatePath = article.data.translationOf ? `/articles/${article.data.translationOf}/` : undefined;
+const alternatePath = article.data.translationOf ? `/articles/${article.data.translationOf}/` : null;
 const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])];
 ---
 <BaseLayout locale="en" alternatePath={alternatePath} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={pageJsonLd}>
