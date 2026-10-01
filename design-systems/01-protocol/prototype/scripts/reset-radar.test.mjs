@@ -128,3 +128,22 @@ test('events on the same month and day in different years remain distinguishable
   assert.equal(data.codex.latestEvent.id, 'new-year');
   assert.match(data.updatedAtBeijing, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
 });
+
+test('grok provider events and stats are parsed correctly', async (t) => {
+  const grokEvent = {
+    id: 'grok-reset-1', provider: 'grok', type: 'reset', scope: 'all',
+    reason: 'service restore', landedAt: '2026-09-20T10:00:00Z',
+    sources: [{ role: 'landed', url: 'https://x.com/grok/status/1' }],
+  };
+  const data = await loadRadar(t, {
+    events: [grokEvent],
+    stats: {},
+    watch: { grok: { open: true, text: 'Grok reset incoming', scheduledAt: '2026-10-02T15:00:00Z' } },
+  });
+  assert.equal(data.grok.name, 'xAI Grok');
+  assert.equal(data.grok.events.length, 1);
+  assert.equal(data.grok.latestEvent.id, 'grok-reset-1');
+  assert.equal(data.grok.latestEvent.typeLabelZh, '全局重置');
+  assert.equal(data.grok.watchNotice.isOpen, true);
+  assert.equal(data.grok.watchNotice.text, 'Grok reset incoming');
+});

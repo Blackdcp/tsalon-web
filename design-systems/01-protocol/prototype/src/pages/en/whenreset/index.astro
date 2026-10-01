@@ -5,26 +5,30 @@ import { getResetRadarData } from '../../../lib/reset-radar';
 export const prerender = false;
 
 const radarData = await getResetRadarData();
-const { codex, claude, updatedAtBeijing, status } = radarData;
+const { codex, claude, grok, updatedAtBeijing, status } = radarData;
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
 
 const faqItems = [
   {
-    "q": "How do global resets, scoped resets, and reset cards differ?",
-    "a": "This page labels a reset as global only when its record specifies all users. Other resets retain their stated scope. A reset-card record describes a card event, not an automatic reset for every account. Check the linked original post for eligibility and use instructions. None of these records establishes your personal quota balance."
+    "q": "What is the difference between global resets, scoped resets, and reset cards?",
+    "a": "Only records explicitly scoped to all users are designated as global resets. Other resets retain their documented scope (such as paid, affected, or max plans). Reset card entries record bonus issuance events and do not imply an automatic reset for all accounts. Eligibility and expiry details can be found in the linked source post. None of these records establish your individual remaining quota."
   },
   {
-    "q": "Can I calculate recovery from the time I hit a limit?",
-    "a": "No. Reaching a limit does not establish the window start. The calculator adds five hours to a <strong>known window start</strong> that you enter. Its result is only the end of that assumed window. Products and plans may have different or additional limits; use the time and quota shown in the product."
+    "q": "Can my quota recovery time be computed from when I hit the limit?",
+    "a": "No. The moment you hit the limit does not equal the window start. The calculator only adds 5 hours to your <strong>known window start</strong>, showing the assumed window end. Different products and tiers may have varying limits; always consult the time and quota shown directly inside the product."
   },
   {
-    "q": "How is the historical reference point calculated?",
-    "a": "We take up to 10 distinct global-reset timestamps in the loaded records and calculate the median of their adjacent intervals. The reference point is the latest global reset plus that median. Reset cards and scoped resets are excluded. Fewer than two global resets produces no reference point. This is historical arithmetic, not an official schedule or a personal recovery forecast."
+    "q": "How is the historical interval reference point calculated?",
+    "a": "From loaded records, the median gap between up to 10 distinct global reset timestamps is computed and added to the latest global reset time. Reset cards and scoped resets are excluded. If fewer than two global resets are loaded, no reference point is displayed. This is purely a historical arithmetic point, not an official schedule."
   },
   {
-    "q": "Where do the records come from?",
-    "a": "T Salon reads the <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev record feed</a> when this page is requested, with a five-minute cache. Original posts are linked in each record. “Read at” is the feed retrieval time, not evidence of a new reset. A failed request is shown as unavailable; the feed may be incomplete."
+    "q": "Where do records for Codex, Claude, and Grok come from?",
+    "a": "T Salon queries the <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev records API</a> upon page request with a 5-minute cache. Records link directly to original posts by official teams and technical leads. When unreachable, the page indicates temporary unavailability."
+  },
+  {
+    "q": "How does the weekly quota planner calculator work?",
+    "a": "Enter your current percentage used and your next personal reset time as shown in your product client. The calculator estimates your hourly burn pace, remaining time until reset, and recommended daily quota budget. All calculations run client-side with data stored only in local storage."
   }
 ];
 
@@ -38,15 +42,15 @@ const jsonLd = [
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Web',
     description:
-      'Browse Codex and Claude reset and reset-card records from WhenReset.dev in Beijing time, with original-post links, historical interval references, and a calculator based on a known window start and an explicit five-hour assumption.',
+      'Monitor Codex, Claude, and Grok quota resets and cards from WhenReset.dev, plan weekly usage pacing, calculate five-hour rolling windows, and subscribe to real-time RSS feeds.',
     publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
-    inLanguage: 'en',
+    inLanguage: 'en-US',
   },
   {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     url: pageUrl,
-    inLanguage: 'en',
+    inLanguage: 'en-US',
     mainEntity: faqItems.map((item) => ({
       '@type': 'Question',
       name: item.q,
@@ -57,8 +61,8 @@ const jsonLd = [
 ---
 
 <BaseLayout
-  title="AI Quota Reset Radar — Event Records | T Salon"
-  description="Browse Codex and Claude reset records from WhenReset.dev, follow original posts, and calculate an assumed five-hour window from a known start."
+  title="AI Quota Reset Radar · Multi-Model Tracker & Weekly Planner | T Salon"
+  description="Live tracking of Codex, Claude, and Grok quota resets and bonus cards from WhenReset.dev, with weekly pacing calculator, 5-hour window tools, and RSS feeds."
   alternatePath="/whenreset/"
   locale="en"
   jsonLd={jsonLd}
@@ -69,10 +73,10 @@ const jsonLd = [
       <section class="reset-hero">
         <div class="hero-top-badge">
           <span class:list={['pulse-dot', { unavailable: status === 'unavailable' }]}></span>
-          <span>{status === 'unavailable' ? 'WhenReset.dev records are temporarily unavailable' : status === 'empty' ? 'No records returned by WhenReset.dev' : 'WhenReset.dev records'}{updatedAtBeijing && ` · Read at ${updatedAtBeijing} (UTC+8)`}</span>
+          <span>{status === 'unavailable' ? 'WhenReset.dev records currently unavailable' : status === 'empty' ? 'No records available from WhenReset.dev' : 'WhenReset.dev Event Records'}{updatedAtBeijing && ` · Read at ${updatedAtBeijing} (UTC+8)`}</span>
         </div>
         <h1 class="hero-title">AI Quota Reset Radar</h1>
-        <p class="hero-desc">Records from <a href="https://whenreset.dev/" target="_blank" rel="noreferrer">WhenReset.dev</a>, with original posts linked in each row. Event times use Beijing time (UTC+8). Global resets, scoped resets, and reset cards do not establish your personal quota recovery time.</p>
+        <p class="hero-desc">Live tracker for OpenAI Codex, Anthropic Claude, and xAI Grok reset and bonus card events, featuring weekly quota pacing planning and real-time RSS/Webhook feeds. Recorded events do not establish your personal account quota status.</p>
 
         <!-- Provider Switcher Tabs -->
         <div class="provider-tabs">
@@ -84,6 +88,11 @@ const jsonLd = [
           <button class="tab-btn" data-provider="claude">
             <span class="tab-icon">🧠</span>
             <span class="tab-name">Anthropic Claude</span>
+            <span class="tab-badge">Records</span>
+          </button>
+          <button class="tab-btn" data-provider="grok">
+            <span class="tab-icon">🚀</span>
+            <span class="tab-name">xAI Grok</span>
             <span class="tab-badge">Records</span>
           </button>
         </div>
@@ -112,30 +121,30 @@ const jsonLd = [
         <!-- 4 Stats Cards Bento -->
         <div class="stats-bento">
           <div class="bento-card">
-            <div class="card-label">Latest recorded event</div>
-            <div class="card-value highlight">{codex.latestEvent?.typeLabelEn || 'No record'}</div>
+            <div class="card-label">Latest Event</div>
+            <div class="card-value highlight">{codex.latestEvent?.typeLabelEn || 'No records'}</div>
             <div class="card-sub">{codex.latestEvent?.timeAgoEn || '—'}</div>
-            <div class="card-sub">Applies to: {codex.latestEvent?.scopeEn || 'Not specified'}</div>
+            <div class="card-sub">Scope: {codex.latestEvent?.scopeEn || 'Not specified'}</div>
           </div>
           <div class="bento-card">
-            <div class="card-label">Time of that event (UTC+8)</div>
+            <div class="card-label">Event Time (UTC+8)</div>
             <div class="card-value">{codex.latestEvent?.landedAtBeijing || '—'}</div>
             <div class="card-sub">Reason: {codex.latestEvent?.reasonEn || 'Not specified in this record'}</div>
             {codex.latestEvent?.postUrl && (
-              <a href={codex.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">Original post for this event ↗</a>
+              <a href={codex.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">Source post ↗</a>
             )}
           </div>
           <div class="bento-card">
-            <div class="card-label">Historical interval reference</div>
+            <div class="card-label">Historical Cadence Reference</div>
             <div class="card-value">{codex.nextEstimated.dateBeijing} <span class="time-sub">{codex.nextEstimated.timeBeijing}</span></div>
             <div class="card-sub">{codex.nextEstimated.relativeTextEn}</div>
-            <div class="card-hint">Based on {codex.cadenceIntervalCount} global-reset intervals; not an official schedule</div>
+            <div class="card-hint">Based on {codex.cadenceIntervalCount} global reset intervals; not an official schedule</div>
           </div>
           <div class="bento-card">
-            <div class="card-label">Median global-reset interval</div>
+            <div class="card-label">Median Global Gap</div>
             <div class="card-value">{codex.typicalGapDays ?? '—'} <span class="unit">days</span></div>
-            <div class="card-sub">Loaded records in the last 30 days: {status === 'unavailable' ? '—' : codex.resets30d} resets, {status === 'unavailable' ? '—' : codex.cards30d} card events</div>
-            <div class="card-hint">Source: WhenReset.dev · records may be incomplete</div>
+            <div class="card-sub">Loaded past 30 days: {status === 'unavailable' ? '—' : codex.resets30d} resets, {status === 'unavailable' ? '—' : codex.cards30d} cards</div>
+            <div class="card-hint">Source: WhenReset.dev · Records may be partial</div>
           </div>
         </div>
 
@@ -144,21 +153,21 @@ const jsonLd = [
           <div class="tool-header">
             <div class="tool-icon">⏳</div>
             <div>
-              <h2 class="tool-title">Five-hour window time calculator</h2>
-              <p class="tool-sub">Enter a known window start, not the moment you hit a limit. This calculates only an assumed five-hour end time. Use the reset time shown in the product for your account.</p>
+              <h2 class="tool-title">Five-Hour Window Calculator</h2>
+              <p class="tool-sub">Enter a known window start, not the moment you hit the limit. Computes an assumed 5-hour window end only; refer to your product client for real account recovery.</p>
             </div>
           </div>
           <div class="calc-row">
             <div class="calc-input-group">
-              <label for="codex-window-start">Known window start (Beijing time, UTC+8)</label>
+              <label for="codex-window-start">Known window start (UTC+8)</label>
               <input type="datetime-local" id="codex-window-start" class="time-input" step="60" />
               <button type="button" id="codex-calculate" class="btn btn-dark">Calculate with 5 hours</button>
             </div>
             <div class="calc-arrow" aria-hidden="true">➔</div>
             <div class="calc-result-box" aria-live="polite">
-              <div class="result-label">Assumed window end (Beijing time, UTC+8)</div>
+              <div class="result-label">Assumed window end (UTC+8)</div>
               <div class="result-time" id="codex-calc-result">—</div>
-              <div class="result-tips" id="codex-calc-tips">Enter a known start and select the calculation button.</div>
+              <div class="result-tips" id="codex-calc-tips">Enter a known start, then select Calculate.</div>
             </div>
           </div>
         </div>
@@ -166,8 +175,8 @@ const jsonLd = [
         <!-- Events Table -->
         <div class="history-section">
           <div class="history-header">
-            <h2 class="history-title">Codex Reset and Reset-Card History</h2>
-            <span class="history-count">Up to 30 loaded records · Beijing time (UTC+8)</span>
+            <h2 class="history-title">Codex Reset & Card Records</h2>
+            <span class="history-count">Up to 30 loaded records · UTC+8</span>
           </div>
 
           <div class="table-responsive">
@@ -176,21 +185,19 @@ const jsonLd = [
                 <tr>
                   <th>Date (UTC+8)</th>
                   <th>Type</th>
-                  <th>Applies to</th>
+                  <th>Scope</th>
                   <th>Reason / Context</th>
-                  <th>Age</th>
+                  <th>Ago</th>
                   <th>Source</th>
                 </tr>
               </thead>
               <tbody>
-                {codex.events.length === 0 && <tr><td colspan="6">No available event records.</td></tr>}
+                {codex.events.length === 0 && <tr><td colspan="6">No event records available.</td></tr>}
                 {codex.events.map((e) => (
                   <tr>
                     <td class="cell-date">{e.landedAtBeijing}</td>
                     <td>
-                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>
-                        {e.typeLabelEn}
-                      </span>
+                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>{e.typeLabelEn}</span>
                     </td>
                     <td class="cell-scope">{e.scopeEn}</td>
                     <td class="cell-reason">{e.reasonEn}</td>
@@ -214,33 +221,51 @@ const jsonLd = [
 
       <!-- Claude Section -->
       <div id="section-claude" class="provider-section">
+        {claude.watchNotice?.isOpen && (
+          <div class="alert-banner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+              <div class="alert-title">{claude.watchNotice.titleEn || "Notice in the source feed"}</div>
+              <p class="alert-text">{claude.watchNotice.text}</p>
+              {claude.watchNotice.scheduledAtBeijing && (
+                <div class="alert-meta">Scheduled in the source: {claude.watchNotice.scheduledAtBeijing} (UTC+8)</div>
+              )}
+            </div>
+            {claude.watchNotice.tweetUrl && (
+              <a href={claude.watchNotice.tweetUrl} target="_blank" rel="noreferrer" class="btn btn-dark alert-btn">
+                Source Post <span>↗</span>
+              </a>
+            )}
+          </div>
+        )}
+
         <!-- 4 Stats Cards Bento -->
         <div class="stats-bento">
           <div class="bento-card">
-            <div class="card-label">Latest recorded event</div>
-            <div class="card-value highlight">{claude.latestEvent?.typeLabelEn || 'No record'}</div>
+            <div class="card-label">Latest Event</div>
+            <div class="card-value highlight">{claude.latestEvent?.typeLabelEn || 'No records'}</div>
             <div class="card-sub">{claude.latestEvent?.timeAgoEn || '—'}</div>
-            <div class="card-sub">Applies to: {claude.latestEvent?.scopeEn || 'Not specified'}</div>
+            <div class="card-sub">Scope: {claude.latestEvent?.scopeEn || 'Not specified'}</div>
           </div>
           <div class="bento-card">
-            <div class="card-label">Time of that event (UTC+8)</div>
+            <div class="card-label">Event Time (UTC+8)</div>
             <div class="card-value">{claude.latestEvent?.landedAtBeijing || '—'}</div>
             <div class="card-sub">Reason: {claude.latestEvent?.reasonEn || 'Not specified in this record'}</div>
             {claude.latestEvent?.postUrl && (
-              <a href={claude.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">Original post for this event ↗</a>
+              <a href={claude.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">Source post ↗</a>
             )}
           </div>
           <div class="bento-card">
-            <div class="card-label">Historical interval reference</div>
+            <div class="card-label">Historical Cadence Reference</div>
             <div class="card-value">{claude.nextEstimated.dateBeijing} <span class="time-sub">{claude.nextEstimated.timeBeijing}</span></div>
             <div class="card-sub">{claude.nextEstimated.relativeTextEn}</div>
-            <div class="card-hint">Based on {claude.cadenceIntervalCount} global-reset intervals; not an official schedule</div>
+            <div class="card-hint">Based on {claude.cadenceIntervalCount} global reset intervals; not an official schedule</div>
           </div>
           <div class="bento-card">
-            <div class="card-label">Median global-reset interval</div>
+            <div class="card-label">Median Global Gap</div>
             <div class="card-value">{claude.typicalGapDays ?? '—'} <span class="unit">days</span></div>
-            <div class="card-sub">Loaded records in the last 30 days: {status === 'unavailable' ? '—' : claude.resets30d} resets, {status === 'unavailable' ? '—' : claude.cards30d} card events</div>
-            <div class="card-hint">Source: WhenReset.dev · records may be incomplete</div>
+            <div class="card-sub">Loaded past 30 days: {status === 'unavailable' ? '—' : claude.resets30d} resets, {status === 'unavailable' ? '—' : claude.cards30d} cards</div>
+            <div class="card-hint">Source: WhenReset.dev · Records may be partial</div>
           </div>
         </div>
 
@@ -249,21 +274,21 @@ const jsonLd = [
           <div class="tool-header">
             <div class="tool-icon">⏳</div>
             <div>
-              <h2 class="tool-title">Five-hour window time calculator</h2>
-              <p class="tool-sub">Enter a known window start, not the moment you hit a limit. This calculates only an assumed five-hour end time. Use the reset time shown in the product for your account.</p>
+              <h2 class="tool-title">Five-Hour Window Calculator</h2>
+              <p class="tool-sub">Enter a known window start, not the moment you hit the limit. Computes an assumed 5-hour window end only; refer to your product client for real account recovery.</p>
             </div>
           </div>
           <div class="calc-row">
             <div class="calc-input-group">
-              <label for="claude-window-start">Known window start (Beijing time, UTC+8)</label>
+              <label for="claude-window-start">Known window start (UTC+8)</label>
               <input type="datetime-local" id="claude-window-start" class="time-input" step="60" />
               <button type="button" id="claude-calculate" class="btn btn-dark">Calculate with 5 hours</button>
             </div>
             <div class="calc-arrow" aria-hidden="true">➔</div>
             <div class="calc-result-box" aria-live="polite">
-              <div class="result-label">Assumed window end (Beijing time, UTC+8)</div>
+              <div class="result-label">Assumed window end (UTC+8)</div>
               <div class="result-time" id="claude-calc-result">—</div>
-              <div class="result-tips" id="claude-calc-tips">Enter a known start and select the calculation button.</div>
+              <div class="result-tips" id="claude-calc-tips">Enter a known start, then select Calculate.</div>
             </div>
           </div>
         </div>
@@ -271,8 +296,8 @@ const jsonLd = [
         <!-- Events Table -->
         <div class="history-section">
           <div class="history-header">
-            <h2 class="history-title">Claude Reset and Reset-Card History</h2>
-            <span class="history-count">Up to 30 loaded records · Beijing time (UTC+8)</span>
+            <h2 class="history-title">Claude Reset & Card Records</h2>
+            <span class="history-count">Up to 30 loaded records · UTC+8</span>
           </div>
 
           <div class="table-responsive">
@@ -281,14 +306,14 @@ const jsonLd = [
                 <tr>
                   <th>Date (UTC+8)</th>
                   <th>Type</th>
-                  <th>Applies to</th>
+                  <th>Scope</th>
                   <th>Reason / Context</th>
-                  <th>Age</th>
+                  <th>Ago</th>
                   <th>Source</th>
                 </tr>
               </thead>
               <tbody>
-                {claude.events.length === 0 && <tr><td colspan="6">No available event records.</td></tr>}
+                {claude.events.length === 0 && <tr><td colspan="6">No event records available.</td></tr>}
                 {claude.events.map((e) => (
                   <tr>
                     <td class="cell-date">{e.landedAtBeijing}</td>
@@ -315,9 +340,255 @@ const jsonLd = [
         </div>
       </div>
 
+      <!-- Grok Section -->
+      <div id="section-grok" class="provider-section">
+        {grok.watchNotice?.isOpen && (
+          <div class="alert-banner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+              <div class="alert-title">{grok.watchNotice.titleEn || "Notice in the source feed"}</div>
+              <p class="alert-text">{grok.watchNotice.text}</p>
+              {grok.watchNotice.scheduledAtBeijing && (
+                <div class="alert-meta">Scheduled in the source: {grok.watchNotice.scheduledAtBeijing} (UTC+8)</div>
+              )}
+            </div>
+            {grok.watchNotice.tweetUrl && (
+              <a href={grok.watchNotice.tweetUrl} target="_blank" rel="noreferrer" class="btn btn-dark alert-btn">
+                Source Post <span>↗</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        <!-- 4 Stats Cards Bento -->
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">Latest Event</div>
+            <div class="card-value highlight">{grok.latestEvent?.typeLabelEn || 'No records'}</div>
+            <div class="card-sub">{grok.latestEvent?.timeAgoEn || '—'}</div>
+            <div class="card-sub">Scope: {grok.latestEvent?.scopeEn || 'Not specified'}</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Event Time (UTC+8)</div>
+            <div class="card-value">{grok.latestEvent?.landedAtBeijing || '—'}</div>
+            <div class="card-sub">Reason: {grok.latestEvent?.reasonEn || 'Not specified in this record'}</div>
+            {grok.latestEvent?.postUrl && (
+              <a href={grok.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">Source post ↗</a>
+            )}
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Historical Cadence Reference</div>
+            <div class="card-value">{grok.nextEstimated.dateBeijing} <span class="time-sub">{grok.nextEstimated.timeBeijing}</span></div>
+            <div class="card-sub">{grok.nextEstimated.relativeTextEn}</div>
+            <div class="card-hint">Based on {grok.cadenceIntervalCount} global reset intervals; not an official schedule</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Median Global Gap</div>
+            <div class="card-value">{grok.typicalGapDays ?? '—'} <span class="unit">days</span></div>
+            <div class="card-sub">Loaded past 30 days: {status === 'unavailable' ? '—' : grok.resets30d} resets, {status === 'unavailable' ? '—' : grok.cards30d} cards</div>
+            <div class="card-hint">Source: WhenReset.dev · Records may be partial</div>
+          </div>
+        </div>
+
+        <!-- Window Time Calculator for Grok -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">Five-Hour Window Calculator</h2>
+              <p class="tool-sub">Enter a known window start, not the moment you hit the limit. Computes an assumed 5-hour window end only; refer to your product client for real account recovery.</p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for="grok-window-start">Known window start (UTC+8)</label>
+              <input type="datetime-local" id="grok-window-start" class="time-input" step="60" />
+              <button type="button" id="grok-calculate" class="btn btn-dark">Calculate with 5 hours</button>
+            </div>
+            <div class="calc-arrow" aria-hidden="true">➔</div>
+            <div class="calc-result-box" aria-live="polite">
+              <div class="result-label">Assumed window end (UTC+8)</div>
+              <div class="result-time" id="grok-calc-result">—</div>
+              <div class="result-tips" id="grok-calc-tips">Enter a known start, then select Calculate.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Events Table -->
+        <div class="history-section">
+          <div class="history-header">
+            <h2 class="history-title">Grok Reset & Card Records</h2>
+            <span class="history-count">Up to 30 loaded records · UTC+8</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="radar-table">
+              <thead>
+                <tr>
+                  <th>Date (UTC+8)</th>
+                  <th>Type</th>
+                  <th>Scope</th>
+                  <th>Reason / Context</th>
+                  <th>Ago</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grok.events.length === 0 && <tr><td colspan="6">No event records available.</td></tr>}
+                {grok.events.map((e) => (
+                  <tr>
+                    <td class="cell-date">{e.landedAtBeijing}</td>
+                    <td>
+                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>{e.typeLabelEn}</span>
+                    </td>
+                    <td class="cell-scope">{e.scopeEn}</td>
+                    <td class="cell-reason">{e.reasonEn}</td>
+                    <td class="cell-timeago">{e.timeAgoEn}</td>
+                    <td class="cell-src">
+                      {e.postUrl ? (
+                        <a href={e.postUrl} target="_blank" rel="noreferrer" class="src-link">
+                          Post ↗
+                        </a>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weekly Quota & Pacing Calculator -->
+      <section id="weekly-calculator-app" class="planner-section">
+        <div class="section-badge-tag">Quota Planning Tool</div>
+        <div class="planner-header">
+          <div>
+            <h2 class="section-title">Weekly Quota Planner Calculator</h2>
+            <p class="section-sub">Enter your percentage used and next reset time to estimate pacing, exhaustion risks, and recommended daily quota budgets.</p>
+          </div>
+          <div class="calc-presets">
+            <button type="button" class="calc-preset-btn active" data-preset="claude">Claude (Weekly)</button>
+            <button type="button" class="calc-preset-btn" data-preset="codex">Codex (Weekly)</button>
+            <button type="button" class="calc-preset-btn" data-preset="grok">Grok (Weekly)</button>
+            <button type="button" class="calc-preset-btn" data-preset="cursor">Cursor (Monthly 500)</button>
+          </div>
+        </div>
+
+        <div class="planner-body">
+          <div class="planner-controls">
+            <div class="control-card">
+              <label class="control-label" for="weekly-used-slider">
+                <span>Current Percentage Used</span>
+                <span class="control-hint">As reported by your client or product settings</span>
+              </label>
+              <div class="range-wrap">
+                <input type="range" id="weekly-used-slider" min="0" max="100" value="35" class="custom-range" />
+                <div class="range-number-box">
+                  <input type="number" id="weekly-used-number" min="0" max="100" value="35" class="number-input" />
+                  <span class="unit">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="control-card">
+              <label class="control-label" for="weekly-reset-time">
+                <span>Next Personal Reset Time (UTC+8)</span>
+                <span class="control-hint">The next scheduled quota refresh time in your client</span>
+              </label>
+              <input type="datetime-local" id="weekly-reset-time" class="time-input full-width" step="60" />
+            </div>
+          </div>
+
+          <div class="planner-results">
+            <div class="planner-metrics">
+              <div class="metric-card">
+                <span class="metric-label">Pace Verdict</span>
+                <div class="metric-val"><span id="weekly-calc-badge" class="pace-badge badge-success">Evaluating...</span></div>
+                <span class="metric-hint">Estimated from current burn rate</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Projected Total Usage</span>
+                <div class="metric-val"><strong id="weekly-calc-burn">—</strong></div>
+                <span class="metric-hint">At your current pace until reset</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Daily Budget Recommendation</span>
+                <div class="metric-val"><strong id="weekly-calc-budget">—</strong></div>
+                <span class="metric-hint">Remaining quota distributed daily</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Time Remaining</span>
+                <div class="metric-val"><strong id="weekly-calc-remaining">—</strong></div>
+                <span class="metric-hint">Until scheduled reset</span>
+              </div>
+            </div>
+
+            <div class="planner-verdict-box">
+              <div class="verdict-icon">💡</div>
+              <p id="weekly-calc-summary" class="verdict-text">Calculating usage pacing and recommended daily budgets from your input...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Multi-Channel Alerts Hub -->
+      <section class="notification-hub-section">
+        <div class="section-badge-tag">Subscriptions & Multi-Channel Feeds</div>
+        <h2 class="section-title">Reset Alerts & Automation Feeds</h2>
+        <p class="section-sub">Subscribe via standard RSS 2.0, connect custom Webhooks for team bots, or enable instant browser desktop notifications.</p>
+
+        <div class="hub-cards-grid">
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">📡</span>
+              <div>
+                <h3 class="hub-title">Real-Time RSS Feed</h3>
+                <span class="hub-tag">Standard RSS 2.0</span>
+              </div>
+            </div>
+            <p class="hub-desc">Subscribe in NetNewsWire, Feedly, Follow, or your favorite reader to receive global reset and card announcements automatically.</p>
+            <div class="hub-action">
+              <input type="text" readonly value="https://www.tsalon.tech/en/whenreset/rss.xml" class="hub-input" id="rss-link-input" />
+              <button type="button" class="btn btn-outline" id="copy-rss-btn">Copy Feed URL</button>
+            </div>
+          </div>
+
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">🤖</span>
+              <div>
+                <h3 class="hub-title">Feishu & Webhook Bot Alerts</h3>
+                <span class="hub-tag">Automated Bot Alerts</span>
+              </div>
+            </div>
+            <p class="hub-desc">Poll our public <code>/api/reset/data</code> endpoint via GitHub Actions to deliver live reset alerts to Slack, Discord, or Feishu groups.</p>
+            <div class="hub-action">
+              <a href="https://github.com/Blackdcp/tsalon-web#whenreset-api" target="_blank" rel="noreferrer" class="btn btn-outline full-width">View API Docs & Actions Script ↗</a>
+            </div>
+          </div>
+
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">🔔</span>
+              <div>
+                <h3 class="hub-title">Browser Desktop Alerts</h3>
+                <span class="hub-tag">Zero Installation</span>
+              </div>
+            </div>
+            <p class="hub-desc">Enable system-level desktop notifications on this device. While this tab remains active in background, alerts pop up upon new resets.</p>
+            <div class="hub-action">
+              <button type="button" class="btn btn-dark full-width" id="desktop-notification-btn">Enable Desktop Alerts</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- FAQ & Strategy Section -->
       <section class="faq-section">
-        <h2 class="faq-main-title">Frequently Asked Questions</h2>
+        <h2 class="faq-main-title">Quota Rules & Frequently Asked Questions</h2>
         <div class="faq-grid">
           {faqItems.map((item) => (
             <div class="faq-item">
@@ -333,6 +604,8 @@ const jsonLd = [
 
 <script>
   import { initResetWindowCalculator } from '../../../lib/reset-window';
+  import { initWeeklyQuotaCalculator } from '../../../lib/weekly-calculator';
+
   // Tab Switcher
   const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
   const sections = document.querySelectorAll<HTMLElement>('.provider-section');
@@ -355,6 +628,47 @@ const jsonLd = [
 
   initResetWindowCalculator('codex', 'en');
   initResetWindowCalculator('claude', 'en');
+  initResetWindowCalculator('grok', 'en');
+  initWeeklyQuotaCalculator('en');
+
+  // RSS Copy button
+  const copyBtn = document.getElementById('copy-rss-btn');
+  const rssInput = document.getElementById('rss-link-input') as HTMLInputElement | null;
+  if (copyBtn && rssInput) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(rssInput.value);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy Feed URL'; }, 2000);
+      } catch (_) {
+        rssInput.select();
+      }
+    });
+  }
+
+  // Desktop Notification
+  const notifyBtn = document.getElementById('desktop-notification-btn');
+  if (notifyBtn) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      notifyBtn.textContent = 'Desktop Alerts Enabled';
+      notifyBtn.classList.add('disabled');
+    }
+    notifyBtn.addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        alert('Your browser does not support desktop notifications.');
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        notifyBtn.textContent = 'Desktop Alerts Enabled';
+        new Notification('WhenReset Radar', {
+          body: 'Desktop notifications ready. You will be alerted when new quota resets land.',
+        });
+      } else {
+        alert('Notification permission was denied. Please allow notifications in site settings.');
+      }
+    });
+  }
 </script>
 
 <style>
@@ -408,7 +722,7 @@ const jsonLd = [
   }
 
   .hero-desc {
-    max-width: 680px;
+    max-width: 720px;
     color: var(--text-secondary);
     font-size: var(--text-15);
     line-height: 1.6;
@@ -547,14 +861,6 @@ const jsonLd = [
     color: #2563eb;
   }
 
-  .card-value.accent {
-    color: #059669;
-  }
-
-  .card-value.warn {
-    color: #ea580c;
-  }
-
   .time-sub {
     font-size: 1.1rem;
     font-weight: var(--font-weight-normal);
@@ -586,12 +892,6 @@ const jsonLd = [
     color: #2563eb;
     margin-top: var(--space-2);
     text-decoration: underline;
-  }
-
-  .text-truncate {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* Window time calculator */
@@ -657,6 +957,11 @@ const jsonLd = [
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-default);
     background: var(--background-subtle);
+  }
+
+  .time-input.full-width {
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .calc-arrow {
@@ -794,6 +1099,241 @@ const jsonLd = [
     text-decoration: underline;
   }
 
+  /* Section badge tag */
+  .section-badge-tag {
+    display: inline-block;
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: var(--space-2);
+  }
+
+  .section-title {
+    font-size: var(--text-24);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-2);
+  }
+
+  .section-sub {
+    font-size: var(--text-14);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-6);
+    max-width: 680px;
+  }
+
+  /* Weekly Planner Section */
+  .planner-section {
+    margin-top: var(--space-16);
+    padding: var(--space-8);
+    background: #fafafa;
+    border: 1px solid var(--border-default);
+  }
+
+  .planner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+
+  .calc-presets {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .calc-preset-btn {
+    font-size: var(--text-12);
+    padding: 6px 14px;
+    border: 1px solid var(--border-default);
+    background: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .calc-preset-btn:hover {
+    border-color: var(--color-ink-950);
+  }
+
+  .calc-preset-btn.active {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
+  }
+
+  .planner-body {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: var(--space-8);
+  }
+
+  .planner-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .control-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-5);
+  }
+
+  .control-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-3);
+  }
+
+  .control-hint {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    font-weight: normal;
+  }
+
+  .range-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .custom-range {
+    flex: 1;
+    height: 6px;
+    cursor: pointer;
+  }
+
+  .range-number-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    padding: 2px 8px;
+  }
+
+  .number-input {
+    width: 48px;
+    border: none;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-weight: bold;
+    font-size: 1rem;
+    text-align: right;
+  }
+
+  .planner-results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .planner-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+  }
+
+  .metric-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .metric-label {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-1);
+  }
+
+  .metric-val {
+    font-size: 1.4rem;
+    color: var(--color-ink-950);
+    margin-bottom: var(--space-1);
+  }
+
+  .metric-hint {
+    font-size: var(--text-10);
+    color: var(--text-secondary);
+    margin-top: auto;
+  }
+
+  .pace-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: var(--text-12);
+    font-weight: bold;
+    border-radius: 4px;
+  }
+
+  .badge-success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+  .badge-info { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+  .badge-warning { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .badge-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-due { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
+  .badge-neutral { background: #f3f4f6; color: #6b7280; }
+
+  .planner-verdict-box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-4);
+  }
+
+  .verdict-icon { font-size: 1.4rem; }
+  .verdict-text { font-size: var(--text-13); margin: 0; color: var(--text-secondary); line-height: 1.5; }
+
+  /* Hub section */
+  .notification-hub-section {
+    margin-top: var(--space-16);
+  }
+
+  .hub-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+  }
+
+  .hub-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hub-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .hub-icon { font-size: 1.8rem; }
+  .hub-title { font-size: var(--text-16); font-weight: bold; margin: 0 0 2px; }
+  .hub-tag { font-size: var(--text-10); font-family: var(--font-mono); color: var(--text-tertiary); }
+  .hub-desc { font-size: var(--text-12); color: var(--text-secondary); line-height: 1.5; margin: 0 0 var(--space-5); flex: 1; }
+  .hub-action { display: flex; gap: var(--space-2); align-items: center; }
+  .hub-input { flex: 1; font-size: var(--text-11); font-family: var(--font-mono); padding: 6px 8px; border: 1px solid var(--border-default); background: var(--background-subtle); min-width: 0; }
+  .btn-outline { border: 1px solid var(--border-default); background: #fff; color: var(--color-ink-950); padding: 6px 12px; font-size: var(--text-12); cursor: pointer; white-space: nowrap; }
+  .btn-outline:hover { background: var(--background-subtle); }
+  .full-width { width: 100%; text-align: center; box-sizing: border-box; }
+  .disabled { opacity: 0.6; cursor: default; }
+
   /* FAQ Section */
   .faq-section {
     margin-top: var(--space-20);
@@ -845,7 +1385,7 @@ const jsonLd = [
     .alert-banner { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; }
     .alert-content { min-width: 0; overflow-wrap: anywhere; }
     .alert-btn { grid-column: 2; justify-self: start; max-width: 100%; white-space: normal; }
-    .provider-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .provider-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .tab-btn { min-width: 0; justify-content: center; padding: var(--space-3); }
     .tab-badge { display: none; }
     .stats-bento {
@@ -857,6 +1397,12 @@ const jsonLd = [
     }
     .calc-arrow {
       display: none;
+    }
+    .planner-body {
+      grid-template-columns: 1fr;
+    }
+    .hub-cards-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>

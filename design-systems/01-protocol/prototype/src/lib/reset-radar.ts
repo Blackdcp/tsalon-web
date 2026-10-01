@@ -8,7 +8,7 @@ export interface ResetSource {
 
 export interface RawResetEvent {
   id: string;
-  provider: 'codex' | 'claude';
+  provider: 'codex' | 'claude' | 'grok';
   type: 'reset' | 'card';
   scope: string;
   scopeNote?: { 'zh-CN'?: string; 'en'?: string };
@@ -20,7 +20,7 @@ export interface RawResetEvent {
 
 export interface FormattedResetEvent {
   id: string;
-  provider: 'codex' | 'claude';
+  provider: 'codex' | 'claude' | 'grok';
   type: 'reset' | 'card';
   typeLabelZh: string;
   typeLabelEn: string;
@@ -44,7 +44,7 @@ export interface WatchNotice {
 }
 
 export interface ProviderStats {
-  provider: 'codex' | 'claude';
+  provider: 'codex' | 'claude' | 'grok';
   name: string;
   sourceAccount: string;
   latestEvent: FormattedResetEvent | null;
@@ -84,6 +84,7 @@ export interface ResetRadarData {
   updatedAtIso: string | null;
   codex: ProviderStats;
   claude: ProviderStats;
+  grok: ProviderStats;
 }
 
 // In-memory cache with 5-minute TTL
@@ -188,7 +189,7 @@ function formatEvent(event: RawResetEvent, now: number): FormattedResetEvent {
 }
 
 function computeProviderStats(
-  provider: 'codex' | 'claude',
+  provider: 'codex' | 'claude' | 'grok',
   allEvents: RawResetEvent[],
   remoteWatch?: any
 ): ProviderStats {
@@ -277,7 +278,7 @@ function computeProviderStats(
 
   return {
     provider,
-    name: provider === 'codex' ? 'OpenAI Codex' : 'Anthropic Claude',
+    name: provider === 'codex' ? 'OpenAI Codex' : provider === 'claude' ? 'Anthropic Claude' : 'xAI Grok',
     sourceAccount: 'WhenReset.dev',
     latestEvent: formattedEvents[0] || null,
     sinceLastReset,
@@ -325,13 +326,15 @@ export async function getResetRadarData(): Promise<ResetRadarData> {
 
   const codex = computeProviderStats('codex', events, watchRemote?.codex);
   const claude = computeProviderStats('claude', events, watchRemote?.claude);
+  const grok = computeProviderStats('grok', events, watchRemote?.grok);
 
   const data: ResetRadarData = {
-    status: !fetchedAt ? 'unavailable' : codex.events.length || claude.events.length ? 'ready' : 'empty',
+    status: !fetchedAt ? 'unavailable' : codex.events.length || claude.events.length || grok.events.length ? 'ready' : 'empty',
     updatedAtBeijing: fetchedAt ? toBeijingParts(fetchedAt).full : null,
     updatedAtIso: fetchedAt?.toISOString() || null,
     codex,
-    claude
+    claude,
+    grok,
   };
 
   cacheData = {

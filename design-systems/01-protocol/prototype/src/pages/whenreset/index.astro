@@ -5,7 +5,7 @@ import { getResetRadarData } from '../../lib/reset-radar';
 export const prerender = false;
 
 const radarData = await getResetRadarData();
-const { codex, claude, updatedAtBeijing, status } = radarData;
+const { codex, claude, grok, updatedAtBeijing, status } = radarData;
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
 
@@ -23,8 +23,12 @@ const faqItems = [
     "a": "从本次读取的记录中取最近最多 10 个不同的全局重置时刻，计算相邻间隔的中位数，再加到最近一次全局重置时刻上。重置卡和指定范围重置不参与计算。全局重置少于两次时不显示参考点。这只是历史时间计算，不是官方排期，也不是个人额度恢复预测。"
   },
   {
-    "q": "记录来自哪里？",
+    "q": "Codex、Claude 与 Grok 记录来自哪里？",
     "a": "T Salon 在页面被请求时读取 <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev 记录接口</a>，缓存 5 分钟，各条记录附原帖链接。“读取时间”表示获取来源数据的时刻，不代表刚发生新重置。请求失败时显示暂不可用；来源记录可能不完整。"
+  },
+  {
+    "q": "每周额度规划计算器如何使用？",
+    "a": "在客户端用量页查看本周已消耗百分比并设置下次重置时间，计算器将自动推算当前消耗速度、距重置剩余时间以及建议的每日消耗预算。数据仅保存在浏览器本地，不会上传服务器。"
   }
 ];
 
@@ -38,7 +42,7 @@ const jsonLd = [
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Web',
     description:
-      '查看 WhenReset.dev 收录的 Codex 与 Claude 重置和重置卡记录、北京时间与原帖链接，提供历史间隔参考及基于已知窗口起点的五小时时间计算。',
+      '查看 WhenReset.dev 收录的 Codex、Claude 与 Grok 重置和重置卡记录、北京时间与原帖链接，提供每周额度规划、五小时窗口计算与多渠道推送订阅。',
     publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
     inLanguage: 'zh-CN',
   },
@@ -57,8 +61,8 @@ const jsonLd = [
 ---
 
 <BaseLayout
-  title="AI 编程额度重置雷达 · 事件记录 | T Salon"
-  description="查看 WhenReset.dev 收录的 Codex、Claude 重置和重置卡记录及原帖，区分事件范围，并按已知窗口起点计算假设的五小时结束时间。"
+  title="AI 编程额度重置雷达 · 多产品监控与周额度规划 | T Salon"
+  description="查看 WhenReset.dev 收录的 Codex、Claude、Grok 重置和重置卡记录及原帖，提供每周额度规划计算、五小时窗口计算与 RSS/Webhook 多渠道订阅。"
   alternatePath="/en/whenreset/"
   locale="zh"
   jsonLd={jsonLd}
@@ -72,7 +76,7 @@ const jsonLd = [
           <span>{status === 'unavailable' ? '暂时无法读取 WhenReset.dev 记录' : status === 'empty' ? 'WhenReset.dev 暂无可用记录' : 'WhenReset.dev 事件记录'}{updatedAtBeijing && ` · 北京时间 ${updatedAtBeijing} 读取`}</span>
         </div>
         <h1 class="hero-title">AI 编程额度重置雷达</h1>
-        <p class="hero-desc">记录来源为 <a href="https://whenreset.dev/" target="_blank" rel="noreferrer">WhenReset.dev</a>，原帖见各条记录，事件时间统一为北京时间。全局重置、指定范围重置与重置卡均不代表你的个人额度恢复时间。</p>
+        <p class="hero-desc">实时监控 OpenAI Codex、Anthropic Claude 与 xAI Grok 的全网重置与发卡记录，支持每周配额节奏规划与多渠道消息订阅。全局重置、指定范围重置与重置卡均不代表个人额度恢复时间。</p>
 
         <!-- Provider Switcher Tabs -->
         <div class="provider-tabs">
@@ -84,6 +88,11 @@ const jsonLd = [
           <button class="tab-btn" data-provider="claude">
             <span class="tab-icon">🧠</span>
             <span class="tab-name">Anthropic Claude</span>
+            <span class="tab-badge">事件记录</span>
+          </button>
+          <button class="tab-btn" data-provider="grok">
+            <span class="tab-icon">🚀</span>
+            <span class="tab-name">xAI Grok</span>
             <span class="tab-badge">事件记录</span>
           </button>
         </div>
@@ -188,9 +197,7 @@ const jsonLd = [
                   <tr>
                     <td class="cell-date">{e.landedAtBeijing}</td>
                     <td>
-                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>
-                        {e.typeLabelZh}
-                      </span>
+                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>{e.typeLabelZh}</span>
                     </td>
                     <td class="cell-scope">{e.scopeZh}</td>
                     <td class="cell-reason">{e.reasonZh}</td>
@@ -214,6 +221,24 @@ const jsonLd = [
 
       <!-- Claude Section -->
       <div id="section-claude" class="provider-section">
+        {claude.watchNotice?.isOpen && (
+          <div class="alert-banner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+              <div class="alert-title">{claude.watchNotice.titleZh || "来源中的待发生通知"}</div>
+              <p class="alert-text">{claude.watchNotice.text}</p>
+              {claude.watchNotice.scheduledAtBeijing && (
+                <div class="alert-meta">来源所列时间：北京时间 {claude.watchNotice.scheduledAtBeijing}</div>
+              )}
+            </div>
+            {claude.watchNotice.tweetUrl && (
+              <a href={claude.watchNotice.tweetUrl} target="_blank" rel="noreferrer" class="btn btn-dark alert-btn">
+                查看来源原帖 <span>↗</span>
+              </a>
+            )}
+          </div>
+        )}
+
         <!-- 4 Stats Cards Bento -->
         <div class="stats-bento">
           <div class="bento-card">
@@ -315,6 +340,252 @@ const jsonLd = [
         </div>
       </div>
 
+      <!-- Grok Section -->
+      <div id="section-grok" class="provider-section">
+        {grok.watchNotice?.isOpen && (
+          <div class="alert-banner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+              <div class="alert-title">{grok.watchNotice.titleZh || "来源中的待发生通知"}</div>
+              <p class="alert-text">{grok.watchNotice.text}</p>
+              {grok.watchNotice.scheduledAtBeijing && (
+                <div class="alert-meta">来源所列时间：北京时间 {grok.watchNotice.scheduledAtBeijing}</div>
+              )}
+            </div>
+            {grok.watchNotice.tweetUrl && (
+              <a href={grok.watchNotice.tweetUrl} target="_blank" rel="noreferrer" class="btn btn-dark alert-btn">
+                查看来源原帖 <span>↗</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        <!-- 4 Stats Cards Bento -->
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">最近一条事件</div>
+            <div class="card-value highlight">{grok.latestEvent?.typeLabelZh || '暂无记录'}</div>
+            <div class="card-sub">{grok.latestEvent?.timeAgoZh || '—'}</div>
+            <div class="card-sub">适用范围：{grok.latestEvent?.scopeZh || '未说明'}</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">该事件时间（北京时间）</div>
+            <div class="card-value">{grok.latestEvent?.landedAtBeijing || '—'}</div>
+            <div class="card-sub">原因：{grok.latestEvent?.reasonZh || '该记录未说明'}</div>
+            {grok.latestEvent?.postUrl && (
+              <a href={grok.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">该事件原帖 ↗</a>
+            )}
+          </div>
+          <div class="bento-card">
+            <div class="card-label">历史间隔参考点</div>
+            <div class="card-value">{grok.nextEstimated.dateBeijing} <span class="time-sub">{grok.nextEstimated.timeBeijing}</span></div>
+            <div class="card-sub">{grok.nextEstimated.relativeTextZh}</div>
+            <div class="card-hint">基于 {grok.cadenceIntervalCount} 个全局重置间隔，不是官方排期</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">全局重置间隔中位数</div>
+            <div class="card-value">{grok.typicalGapDays ?? '—'} <span class="unit">天</span></div>
+            <div class="card-sub">已读取的近 30 天记录：{status === 'unavailable' ? '—' : grok.resets30d} 次重置，{status === 'unavailable' ? '—' : grok.cards30d} 次发卡</div>
+            <div class="card-hint">来源：WhenReset.dev · 记录可能不完整</div>
+          </div>
+        </div>
+
+        <!-- Window Time Calculator for Grok -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">五小时窗口时间计算器</h2>
+              <p class="tool-sub">填写已知窗口起点，不是触顶时刻。这里只按五小时假设计算结束时间；个人实际重置时间请以产品内显示为准。</p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for="grok-window-start">已知窗口起点（北京时间）</label>
+              <input type="datetime-local" id="grok-window-start" class="time-input" step="60" />
+              <button type="button" id="grok-calculate" class="btn btn-dark">按 5 小时计算</button>
+            </div>
+            <div class="calc-arrow" aria-hidden="true">➔</div>
+            <div class="calc-result-box" aria-live="polite">
+              <div class="result-label">假设窗口结束时间（北京时间）</div>
+              <div class="result-time" id="grok-calc-result">—</div>
+              <div class="result-tips" id="grok-calc-tips">输入已知起点后点击计算按钮。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Events Table -->
+        <div class="history-section">
+          <div class="history-header">
+            <h2 class="history-title">Grok 重置与重置卡记录</h2>
+            <span class="history-count">最多 30 条已读取记录 · 北京时间</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="radar-table">
+              <thead>
+                <tr>
+                  <th>日期 (北京时间)</th>
+                  <th>类型</th>
+                  <th>适用范围</th>
+                  <th>触发原因 / 说明</th>
+                  <th>距今</th>
+                  <th>出处</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grok.events.length === 0 && <tr><td colspan="6">暂无可用事件记录。</td></tr>}
+                {grok.events.map((e) => (
+                  <tr>
+                    <td class="cell-date">{e.landedAtBeijing}</td>
+                    <td>
+                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>{e.typeLabelZh}</span>
+                    </td>
+                    <td class="cell-scope">{e.scopeZh}</td>
+                    <td class="cell-reason">{e.reasonZh}</td>
+                    <td class="cell-timeago">{e.timeAgoZh}</td>
+                    <td class="cell-src">
+                      {e.postUrl ? (
+                        <a href={e.postUrl} target="_blank" rel="noreferrer" class="src-link">
+                          推文 ↗
+                        </a>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weekly Quota & Pacing Calculator -->
+      <section id="weekly-calculator-app" class="planner-section">
+        <div class="section-badge-tag">额度规划工具</div>
+        <div class="planner-header">
+          <div>
+            <h2 class="section-title">每周额度规划计算器</h2>
+            <p class="section-sub">填入当前已用比例和你的个人重置时间，实时推算这周额度够不够用、什么时候耗尽，以及每天建议的消耗预算。</p>
+          </div>
+          <div class="calc-presets">
+            <button type="button" class="calc-preset-btn active" data-preset="claude">Claude (周限额)</button>
+            <button type="button" class="calc-preset-btn" data-preset="codex">Codex (周限额)</button>
+            <button type="button" class="calc-preset-btn" data-preset="grok">Grok (周限额)</button>
+            <button type="button" class="calc-preset-btn" data-preset="cursor">Cursor (月度 500 次)</button>
+          </div>
+        </div>
+
+        <div class="planner-body">
+          <div class="planner-controls">
+            <div class="control-card">
+              <label class="control-label" for="weekly-used-slider">
+                <span>当前周期已用比例</span>
+                <span class="control-hint">在客户端查看并填入当前已消耗百分比</span>
+              </label>
+              <div class="range-wrap">
+                <input type="range" id="weekly-used-slider" min="0" max="100" value="35" class="custom-range" />
+                <div class="range-number-box">
+                  <input type="number" id="weekly-used-number" min="0" max="100" value="35" class="number-input" />
+                  <span class="unit">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="control-card">
+              <label class="control-label" for="weekly-reset-time">
+                <span>个人下次重置时间（北京时间）</span>
+                <span class="control-hint">在官方客户端看到的下一次额度刷新时间</span>
+              </label>
+              <input type="datetime-local" id="weekly-reset-time" class="time-input full-width" step="60" />
+            </div>
+          </div>
+
+          <div class="planner-results">
+            <div class="planner-metrics">
+              <div class="metric-card">
+                <span class="metric-label">消耗节奏评定</span>
+                <div class="metric-val"><span id="weekly-calc-badge" class="pace-badge badge-success">计算中...</span></div>
+                <span class="metric-hint">根据当前消耗速度评估</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">预计周期总消耗</span>
+                <div class="metric-val"><strong id="weekly-calc-burn">—</strong></div>
+                <span class="metric-hint">按当前速度持续消耗的总比例</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">建议每日消耗预算</span>
+                <div class="metric-val"><strong id="weekly-calc-budget">—</strong></div>
+                <span class="metric-hint">剩余额度均摊到每日</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">距离重置剩余</span>
+                <div class="metric-val"><strong id="weekly-calc-remaining">—</strong></div>
+                <span class="metric-hint">剩余可用时间</span>
+              </div>
+            </div>
+
+            <div class="planner-verdict-box">
+              <div class="verdict-icon">💡</div>
+              <p id="weekly-calc-summary" class="verdict-text">正在根据您的输入计算消耗节奏与剩余预算...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Multi-Channel Alerts Hub -->
+      <section class="notification-hub-section">
+        <div class="section-badge-tag">多渠道订阅与推送</div>
+        <h2 class="section-title">重置提醒与实时推送渠道</h2>
+        <p class="section-sub">支持订阅 RSS、接入飞书/企微/钉钉群机器人 Webhook，或直接开启本设备桌面即时通知，第一时间掌握额度满血时机。</p>
+
+        <div class="hub-cards-grid">
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">📡</span>
+              <div>
+                <h3 class="hub-title">RSS 实时订阅源</h3>
+                <span class="hub-tag">标准 RSS 2.0</span>
+              </div>
+            </div>
+            <p class="hub-desc">使用 NetNewsWire、Feedly、Follow 或微信读书等任意 RSS 阅读器订阅，每次出现全局重置或发卡时自动推送到收件箱。</p>
+            <div class="hub-action">
+              <input type="text" readonly value="https://www.tsalon.tech/whenreset/rss.xml" class="hub-input" id="rss-link-input" />
+              <button type="button" class="btn btn-outline" id="copy-rss-btn">复制链接</button>
+            </div>
+          </div>
+
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">🤖</span>
+              <div>
+                <h3 class="hub-title">飞书 / 企微群机器人 Webhook</h3>
+                <span class="hub-tag">自动化群告警</span>
+              </div>
+            </div>
+            <p class="hub-desc">通过 GitHub Actions 定时轮询我们开放的 <code>/api/reset/data</code> 接口，出现最新重置事件时自动通知团队群。</p>
+            <div class="hub-action">
+              <a href="https://github.com/Blackdcp/tsalon-web#whenreset-api" target="_blank" rel="noreferrer" class="btn btn-outline full-width">查看接口文档与 Actions 脚本 ↗</a>
+            </div>
+          </div>
+
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">🔔</span>
+              <div>
+                <h3 class="hub-title">浏览器桌面即时通知</h3>
+                <span class="hub-tag">免安装即开即用</span>
+              </div>
+            </div>
+            <p class="hub-desc">开启当前设备系统级桌面通知。只要浏览器保持该标签页后台运行，检测到最新重置时将直接弹窗提醒。</p>
+            <div class="hub-action">
+              <button type="button" class="btn btn-dark full-width" id="desktop-notification-btn">开启本设备桌面通知</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- FAQ & Strategy Section -->
       <section class="faq-section">
         <h2 class="faq-main-title">关于额度重置常见规则</h2>
@@ -333,6 +604,8 @@ const jsonLd = [
 
 <script>
   import { initResetWindowCalculator } from '../../lib/reset-window';
+  import { initWeeklyQuotaCalculator } from '../../lib/weekly-calculator';
+
   // Tab Switcher
   const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
   const sections = document.querySelectorAll<HTMLElement>('.provider-section');
@@ -355,6 +628,47 @@ const jsonLd = [
 
   initResetWindowCalculator('codex', 'zh');
   initResetWindowCalculator('claude', 'zh');
+  initResetWindowCalculator('grok', 'zh');
+  initWeeklyQuotaCalculator('zh');
+
+  // RSS Copy button
+  const copyBtn = document.getElementById('copy-rss-btn');
+  const rssInput = document.getElementById('rss-link-input') as HTMLInputElement | null;
+  if (copyBtn && rssInput) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(rssInput.value);
+        copyBtn.textContent = '已复制！';
+        setTimeout(() => { copyBtn.textContent = '复制链接'; }, 2000);
+      } catch (_) {
+        rssInput.select();
+      }
+    });
+  }
+
+  // Desktop Notification
+  const notifyBtn = document.getElementById('desktop-notification-btn');
+  if (notifyBtn) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      notifyBtn.textContent = '已开启桌面通知 ✓';
+      notifyBtn.classList.add('disabled');
+    }
+    notifyBtn.addEventListener('click', async () => {
+      if (!('Notification' in window)) {
+        alert('您的浏览器不支持桌面通知');
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        notifyBtn.textContent = '已开启桌面通知 ✓';
+        new Notification('WhenReset 雷达', {
+          body: '桌面通知已就绪，当出现新额度重置时将在此弹窗提醒。',
+        });
+      } else {
+        alert('通知权限已被拒绝，请在浏览器站点设置中允许通知。');
+      }
+    });
+  }
 </script>
 
 <style>
@@ -408,7 +722,7 @@ const jsonLd = [
   }
 
   .hero-desc {
-    max-width: 680px;
+    max-width: 720px;
     color: var(--text-secondary);
     font-size: var(--text-15);
     line-height: 1.6;
@@ -547,14 +861,6 @@ const jsonLd = [
     color: #2563eb;
   }
 
-  .card-value.accent {
-    color: #059669;
-  }
-
-  .card-value.warn {
-    color: #ea580c;
-  }
-
   .time-sub {
     font-size: 1.1rem;
     font-weight: var(--font-weight-normal);
@@ -586,12 +892,6 @@ const jsonLd = [
     color: #2563eb;
     margin-top: var(--space-2);
     text-decoration: underline;
-  }
-
-  .text-truncate {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* Window time calculator */
@@ -657,6 +957,11 @@ const jsonLd = [
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-default);
     background: var(--background-subtle);
+  }
+
+  .time-input.full-width {
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .calc-arrow {
@@ -794,6 +1099,241 @@ const jsonLd = [
     text-decoration: underline;
   }
 
+  /* Section badge tag */
+  .section-badge-tag {
+    display: inline-block;
+    font-size: var(--text-11);
+    font-family: var(--font-mono);
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: var(--space-2);
+  }
+
+  .section-title {
+    font-size: var(--text-24);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-2);
+  }
+
+  .section-sub {
+    font-size: var(--text-14);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-6);
+    max-width: 680px;
+  }
+
+  /* Weekly Planner Section */
+  .planner-section {
+    margin-top: var(--space-16);
+    padding: var(--space-8);
+    background: #fafafa;
+    border: 1px solid var(--border-default);
+  }
+
+  .planner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+
+  .calc-presets {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .calc-preset-btn {
+    font-size: var(--text-12);
+    padding: 6px 14px;
+    border: 1px solid var(--border-default);
+    background: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .calc-preset-btn:hover {
+    border-color: var(--color-ink-950);
+  }
+
+  .calc-preset-btn.active {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
+  }
+
+  .planner-body {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: var(--space-8);
+  }
+
+  .planner-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .control-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-5);
+  }
+
+  .control-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-13);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-3);
+  }
+
+  .control-hint {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    font-weight: normal;
+  }
+
+  .range-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .custom-range {
+    flex: 1;
+    height: 6px;
+    cursor: pointer;
+  }
+
+  .range-number-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    padding: 2px 8px;
+  }
+
+  .number-input {
+    width: 48px;
+    border: none;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-weight: bold;
+    font-size: 1rem;
+    text-align: right;
+  }
+
+  .planner-results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .planner-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+  }
+
+  .metric-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .metric-label {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-1);
+  }
+
+  .metric-val {
+    font-size: 1.4rem;
+    color: var(--color-ink-950);
+    margin-bottom: var(--space-1);
+  }
+
+  .metric-hint {
+    font-size: var(--text-10);
+    color: var(--text-secondary);
+    margin-top: auto;
+  }
+
+  .pace-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: var(--text-12);
+    font-weight: bold;
+    border-radius: 4px;
+  }
+
+  .badge-success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+  .badge-info { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+  .badge-warning { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .badge-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-due { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
+  .badge-neutral { background: #f3f4f6; color: #6b7280; }
+
+  .planner-verdict-box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-4);
+  }
+
+  .verdict-icon { font-size: 1.4rem; }
+  .verdict-text { font-size: var(--text-13); margin: 0; color: var(--text-secondary); line-height: 1.5; }
+
+  /* Hub section */
+  .notification-hub-section {
+    margin-top: var(--space-16);
+  }
+
+  .hub-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+  }
+
+  .hub-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hub-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .hub-icon { font-size: 1.8rem; }
+  .hub-title { font-size: var(--text-16); font-weight: bold; margin: 0 0 2px; }
+  .hub-tag { font-size: var(--text-10); font-family: var(--font-mono); color: var(--text-tertiary); }
+  .hub-desc { font-size: var(--text-12); color: var(--text-secondary); line-height: 1.5; margin: 0 0 var(--space-5); flex: 1; }
+  .hub-action { display: flex; gap: var(--space-2); align-items: center; }
+  .hub-input { flex: 1; font-size: var(--text-11); font-family: var(--font-mono); padding: 6px 8px; border: 1px solid var(--border-default); background: var(--background-subtle); min-width: 0; }
+  .btn-outline { border: 1px solid var(--border-default); background: #fff; color: var(--color-ink-950); padding: 6px 12px; font-size: var(--text-12); cursor: pointer; white-space: nowrap; }
+  .btn-outline:hover { background: var(--background-subtle); }
+  .full-width { width: 100%; text-align: center; box-sizing: border-box; }
+  .disabled { opacity: 0.6; cursor: default; }
+
   /* FAQ Section */
   .faq-section {
     margin-top: var(--space-20);
@@ -845,7 +1385,7 @@ const jsonLd = [
     .alert-banner { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; }
     .alert-content { min-width: 0; overflow-wrap: anywhere; }
     .alert-btn { grid-column: 2; justify-self: start; max-width: 100%; white-space: normal; }
-    .provider-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .provider-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .tab-btn { min-width: 0; justify-content: center; padding: var(--space-3); }
     .tab-badge { display: none; }
     .stats-bento {
@@ -857,6 +1397,12 @@ const jsonLd = [
     }
     .calc-arrow {
       display: none;
+    }
+    .planner-body {
+      grid-template-columns: 1fr;
+    }
+    .hub-cards-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>
