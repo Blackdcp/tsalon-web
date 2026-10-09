@@ -1,5 +1,5 @@
 ---
-title: Agent 安全正在走向运行时
+title: Agent 安全正在走向运行时：从执行隔离到行为记录
 summary: 当大量 Agent 获得代码执行、文件读写与外部 API 权限后，错误会沿任务链进入真实系统。行业正从单纯依靠模型监控，转向由执行隔离、任务循环与客观记录支撑的运行时安全。
 type: insight
 publishedAt: 2026-10-09
@@ -15,7 +15,7 @@ coverAlt: Agent 安全正在走向运行时：从执行隔离到行为记录
 draft: false
 allowSingleLocale: true
 seo:
-  title: Agent 安全正在走向运行时
+  title: Agent 安全正在走向运行时：从执行隔离到行为记录
   description: 当大量 Agent 协同执行并调用外部能力，安全防线必须深入运行时。剖析任务循环编排、隔离沙箱与执行轨迹审计的核心分工。
 ---
 
