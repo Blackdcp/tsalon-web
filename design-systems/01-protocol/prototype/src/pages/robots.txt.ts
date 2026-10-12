@@ -29,6 +29,7 @@ export const GET: APIRoute = ({ site }) => {
     '',
     ...AI_CRAWLERS.map((bot) => `User-agent: ${bot}\nAllow: /\nDisallow: /api/\n`),
     'Sitemap: ' + origin + '/sitemap.xml',
+    'Sitemap: ' + origin + '/sitemap-0.xml',
     'Sitemap: ' + origin + '/sitemap-index.xml',
     '',
     '# Machine-readable content for AI retrieval',

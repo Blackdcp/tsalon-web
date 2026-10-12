@@ -11,12 +11,14 @@ const targets = [
 
 let copied = 0;
 for (const dir of targets) {
-  const src = join(dir, 'sitemap-index.xml');
+  const urlsetSrc = join(dir, 'sitemap-0.xml');
+  const indexSrc = join(dir, 'sitemap-index.xml');
   const dest = join(dir, 'sitemap.xml');
+  const src = existsSync(urlsetSrc) ? urlsetSrc : indexSrc;
   if (existsSync(src)) {
     copyFileSync(src, dest);
     copied++;
   }
 }
 
-console.log(`postbuild-sitemap: copied sitemap-index.xml to sitemap.xml in ${copied} locations.`);
+console.log(`postbuild-sitemap: copied sitemap to sitemap.xml in ${copied} locations.`);
