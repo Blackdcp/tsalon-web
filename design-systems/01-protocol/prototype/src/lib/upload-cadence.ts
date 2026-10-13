@@ -6,6 +6,10 @@ export const DEVICE_UPLOAD_DAILY_LIMIT = 2;
 const LEGACY_SUCCESS_WINDOW_SECONDS = 23 * 60 * 60;
 
 export interface DeviceUploadLease { owner: string }
+export interface DeviceUploadSkip {
+  reason: 'upload_in_flight' | 'daily_upload_limit';
+  retryAfterSeconds: number;
+}
 
 function dailyWindow(now: number) {
   const day = beijingDateString(new Date(now));
@@ -17,7 +21,9 @@ function dailyWindow(now: number) {
 // successful upload today counts as one; a recent in-flight attempt keeps its
 // cooldown. Initialization, quota check and lease acquisition must be atomic.
 const CLAIM_UPLOAD = `
-  if redis.call('EXISTS', KEYS[2]) == 1 then return 0 end
+  if redis.call('EXISTS', KEYS[2]) == 1 then
+    return {0, 1, math.max(1, redis.call('TTL', KEYS[2]))}
+  end
   local count = redis.call('GET', KEYS[3])
   if not count then
     local legacy = tonumber(redis.call('GET', KEYS[1]))
@@ -25,7 +31,9 @@ const CLAIM_UPLOAD = `
     if legacy then
       local ttl = redis.call('PTTL', KEYS[1])
       if tonumber(ARGV[2]) - legacy < tonumber(ARGV[5]) * 1000
-        and ttl <= tonumber(ARGV[5]) * 1000 then return 0 end
+        and ttl <= tonumber(ARGV[5]) * 1000 then
+        return {0, 1, math.max(1, math.ceil(ttl / 1000))}
+      end
       -- Legacy values contain the start time, but success reset the TTL to 23h.
       -- Recover completion time so uploads spanning midnight count today.
       local completedAt = tonumber(ARGV[2]) + ttl - tonumber(ARGV[7]) * 1000
@@ -34,19 +42,24 @@ const CLAIM_UPLOAD = `
     count = tostring(initial)
     redis.call('SET', KEYS[3], count, 'EX', ARGV[4])
   end
-  if tonumber(count) >= tonumber(ARGV[6]) then return 0 end
+  if tonumber(count) >= tonumber(ARGV[6]) then return {0, 2, tonumber(ARGV[4])} end
   redis.call('SET', KEYS[2], ARGV[1], 'EX', ARGV[5])
-  return 1
+  return {1, 0, 0}
 `;
 
-// Only the lease owner may charge a success and release the device. Failures
-// leave the short lease to expire, avoiding storms from stale agent schedules.
+// Only the lease owner may charge a success and release the device. Explicit
+// failures release immediately; the TTL recovers workers that crash or time out.
 const COMPLETE_UPLOAD = `
   if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
   local count = tonumber(redis.call('GET', KEYS[2])) or 0
   redis.call('SET', KEYS[2], tostring(count + 1), 'EX', ARGV[2])
   redis.call('DEL', KEYS[1])
   return 1
+`;
+
+const RELEASE_UPLOAD = `
+  if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+  return redis.call('DEL', KEYS[1])
 `;
 
 function uploadKeys(userId: string, deviceId: string, day: string) {
@@ -71,7 +84,7 @@ export async function claimDeviceUploadWindow(
   userId: string,
   deviceId: string,
   now = Date.now(),
-): Promise<DeviceUploadLease | null> {
+): Promise<DeviceUploadLease | DeviceUploadSkip> {
   const window = dailyWindow(now);
   const keys = uploadKeys(userId, deviceId, window.day);
   const lease = { owner: randomUUID() };
@@ -82,7 +95,20 @@ export async function claimDeviceUploadWindow(
     lease.owner, now, window.start, window.ttl,
     DEVICE_UPLOAD_IN_FLIGHT_SECONDS, DEVICE_UPLOAD_DAILY_LIMIT, LEGACY_SUCCESS_WINDOW_SECONDS,
   );
-  return claimed === 1 ? lease : null;
+  return claimed[0] === 1 ? lease : {
+    reason: claimed[1] === 1 ? 'upload_in_flight' : 'daily_upload_limit',
+    retryAfterSeconds: Number(claimed[2]),
+  };
+}
+
+export async function releaseDeviceUploadWindow(
+  redis: any,
+  userId: string,
+  deviceId: string,
+  lease: DeviceUploadLease,
+): Promise<void> {
+  const keys = uploadKeys(userId, deviceId, '');
+  await redis.eval(RELEASE_UPLOAD, 1, keys.lock, lease.owner);
 }
 
 export async function completeDeviceUploadWindow(

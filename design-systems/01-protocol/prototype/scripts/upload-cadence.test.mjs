@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+import * as cadence from '../src/lib/upload-cadence.ts';
+import * as uploadBody from '../src/lib/upload-body.ts';
+import * as uploadError from '../src/lib/upload-error.ts';
 import {
-  claimDeviceUploadWindow, completeDeviceUploadWindow,
+  claimDeviceUploadWindow as claimWithReason, completeDeviceUploadWindow, releaseDeviceUploadWindow,
   deviceUploadWindowKey, normalizeUploadDeviceId,
 } from '../src/lib/upload-cadence.ts';
 import { startLocalRedis } from './helpers/local-redis.mjs';
@@ -12,6 +18,11 @@ const morning = Date.parse('2026-10-13T09:17:00+08:00');
 before(async () => { server = await startLocalRedis(); redis = server.redis; });
 after(async () => { await server?.stop(); });
 beforeEach(async () => { await redis.flushdb(); });
+
+async function claimDeviceUploadWindow(...args) {
+  const result = await claimWithReason(...args);
+  return 'owner' in result ? result : null;
+}
 
 async function upload(now = morning, user = 'u1', device = 'd1') {
   const lease = await claimDeviceUploadWindow(redis, user, device, now);
@@ -58,7 +69,7 @@ test('a request crossing midnight counts on the day it successfully completes', 
   assert.equal(await claimDeviceUploadWindow(redis, 'u1', 'd1', beforeMidnight + 3000), null);
 });
 
-test('a failed upload keeps the cooldown but consumes no success allowance', async () => {
+test('an abandoned worker keeps the crash cooldown but consumes no success allowance', async () => {
   const abandoned = await claimDeviceUploadWindow(redis, 'u1', 'd1', morning);
   assert.ok(abandoned);
   assert.equal(await claimDeviceUploadWindow(redis, 'u1', 'd1', morning), null);
@@ -72,10 +83,66 @@ test('a failed upload keeps the cooldown but consumes no success allowance', asy
   assert.ok(retry);
   // An old worker must not release or complete the newer worker's lease.
   await completeDeviceUploadWindow(redis, 'u1', 'd1', abandoned, morning + 1800000);
+  await releaseDeviceUploadWindow(redis, 'u1', 'd1', abandoned);
   assert.equal(await claimDeviceUploadWindow(redis, 'u1', 'd1', morning + 1800000), null);
   await completeDeviceUploadWindow(redis, 'u1', 'd1', retry, morning + 1800000);
   await upload(morning + 1801000);
   assert.equal(await claimDeviceUploadWindow(redis, 'u1', 'd1', morning + 1802000), null);
+});
+
+function uploadEndpoint(updateTokenUsage) {
+  const source = readFileSync(new URL('../src/pages/api/rank/upload.ts', import.meta.url), 'utf8');
+  const code = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const exports = {};
+  vm.runInNewContext(code, {
+    exports, Response, console: { error() {} },
+    require(name) {
+      if (name.endsWith('/kv')) return { kv: redis, getUserIdByToken: async () => 'u1', updateTokenUsage };
+      if (name.endsWith('/codex-ledger.ts')) return { storeAccountAuditWithTimeout: async () => null };
+      if (name.endsWith('/upload-cadence.ts')) return cadence;
+      if (name.endsWith('/upload-body.ts')) return uploadBody;
+      if (name.endsWith('/upload-error.ts')) return uploadError;
+      throw new Error(`Unexpected import: ${name}`);
+    },
+  });
+  return () => exports.POST({ request: new Request('https://local.test/api/rank/upload/', {
+    method: 'POST', body: JSON.stringify({ token: 'test-only', device_id: 'd1', data: { cherry: 1 } }),
+  }) });
+}
+
+test('an explicit upload failure releases its lock and allows immediate corrected retry', async () => {
+  let calls = 0;
+  const post = uploadEndpoint(async () => {
+    if (++calls === 1) throw new Error('Invalid Codex ledger record');
+    return {};
+  });
+  assert.equal((await post()).status, 400);
+  const corrected = await (await post()).json();
+  assert.equal(corrected.skipped, undefined, '400 must not leave a 30-minute lock');
+  assert.equal(corrected.message, 'Tokens updated');
+  assert.equal((await (await post()).json()).message, 'Tokens updated');
+  const limited = await (await post()).json();
+  assert.equal(limited.code, 'daily_upload_limit');
+  assert.equal(limited.retryable, false);
+  assert.equal(calls, 3, 'failed attempt must not consume either success allowance');
+});
+
+test('a simultaneous request reports in-flight explicitly and cannot run the update', async () => {
+  const started = Promise.withResolvers();
+  const finish = Promise.withResolvers();
+  let calls = 0;
+  const post = uploadEndpoint(async () => { calls++; started.resolve(); await finish.promise; return {}; });
+  const first = post();
+  await started.promise;
+  try {
+    const blocked = await (await post()).json();
+    assert.equal(blocked.code, 'upload_in_flight');
+    assert.equal(blocked.retryable, true);
+    assert.ok(blocked.retry_after_seconds > 0);
+    assert.equal(calls, 1);
+  } finally { finish.resolve(); await first; }
 });
 
 test('a successful legacy upload today leaves one allowance, even if just completed', async () => {

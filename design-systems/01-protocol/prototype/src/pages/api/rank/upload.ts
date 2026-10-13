@@ -3,13 +3,14 @@ import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 import { storeAccountAuditWithTimeout } from '../../../lib/codex-ledger.ts';
 import { readUploadJson, UploadBodyError } from '../../../lib/upload-body.ts';
 import { classifyUploadError } from '../../../lib/upload-error.ts';
-import { claimDeviceUploadWindow, completeDeviceUploadWindow, normalizeUploadDeviceId } from '../../../lib/upload-cadence.ts';
+import { claimDeviceUploadWindow, completeDeviceUploadWindow, releaseDeviceUploadWindow, normalizeUploadDeviceId } from '../../../lib/upload-cadence.ts';
 
 const REQUIRED_SCHEDULE_VERSION = 3;
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
+  let releaseUpload: (() => Promise<void>) | undefined;
   try {
     const body = await readUploadJson(request);
     const { token, data, device_id, reset, history_complete_tools } = body;
@@ -40,17 +41,23 @@ export const POST: APIRoute = async ({ request }) => {
     // Allow two successful uploads per device per Beijing calendar day. Claim
     // before expensive reads/writes; stale schedules and concurrent requests skip.
     const uploadLease = await claimDeviceUploadWindow(kv, userId, actualDeviceId);
-    if (!uploadLease) {
+    if ('reason' in uploadLease) {
+      const inFlight = uploadLease.reason === 'upload_in_flight';
       return new Response(JSON.stringify({
         success: true,
         skipped: true,
-        message: 'Upload already running or daily limit reached (2 per Beijing day)',
+        message: inFlight ? 'Another upload is still running; retry shortly'
+          : 'Daily upload limit reached (2 successful uploads per Beijing day)',
+        code: uploadLease.reason,
+        retryable: inFlight,
+        retry_after_seconds: uploadLease.retryAfterSeconds,
         required_schedule_version: REQUIRED_SCHEDULE_VERSION,
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    releaseUpload = () => releaseDeviceUploadWindow(kv, userId, actualDeviceId, uploadLease);
 
     // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.
     const rawInfo = await kv.get(`user:${userId}:info`);
@@ -100,6 +107,7 @@ export const POST: APIRoute = async ({ request }) => {
       },
     );
     await completeDeviceUploadWindow(kv, userId, actualDeviceId, uploadLease);
+    releaseUpload = undefined;
 
     let officialDelta = null;
     if (accountAudit) {
@@ -125,6 +133,9 @@ export const POST: APIRoute = async ({ request }) => {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
+    // A rejected payload or failed update must not lock out a corrected retry.
+    // Compare-owner release cannot delete another worker's newer lease.
+    try { await releaseUpload?.(); } catch (releaseError) { console.error(releaseError); }
     console.error(error);
     if (error instanceof UploadBodyError) {
       return new Response(JSON.stringify({ success: false, message: error.message, schema_version: 5, required_schedule_version: REQUIRED_SCHEDULE_VERSION }), {
