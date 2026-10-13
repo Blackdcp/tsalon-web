@@ -8,12 +8,11 @@ import os from 'os';
 import path from 'path';
 import readline from 'readline';
 import { createHash } from 'crypto';
-import { gzipSync } from 'zlib';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import { spawn } from 'child_process';
-import { normalizeCodexUsage, readOfficialCodexAudit, scanCodexLedger } from './codex-ledger.mjs';
+import { encodeUploadPayload, normalizeCodexUsage, readOfficialCodexAudit, scanCodexLedger } from './codex-ledger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -786,15 +785,15 @@ async function main() {
   }
 
   try {
-    const payloadJson = JSON.stringify(payload);
-    const compressedPayload = gzipSync(payloadJson);
+    const encoded = encodeUploadPayload(payload);
+    console.log(`Uploading ${payload.codex_ledger?.records?.length || 0} ledger records (${encoded.encoding}, ${encoded.body.length} bytes).`);
     const resp = await fetch(`${host}/api/rank/upload/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Encoding': 'gzip',
+        'Content-Encoding': encoded.encoding,
       },
-      body: compressedPayload,
+      body: encoded.body,
     });
     const result = await resp.json();
     try {
@@ -804,17 +803,24 @@ async function main() {
     } catch (error) {
       console.log(`Could not queue scheduler repair; the server-side upload guard remains active: ${error}`);
     }
-    if (result && result.success) {
+    if (result?.skipped) {
+      console.log(`⏭️ Upload skipped: ${result.message || result.code || 'No data was written'}`);
+    } else if (result && result.success) {
       console.log('✅ Successfully uploaded token data to T Salon Leaderboard!');
+      if (result.codex) {
+        console.log(`Server confirmed ${result.codex.turns} canonical Codex turns, ${result.codex.total} total tokens.`);
+      }
       if (result.official_delta) {
         const delta = result.official_delta;
         console.log(`🔎 Official Codex audit: official ${Number(delta.official_lifetime_tokens || 0).toLocaleString()} / local ${Number(delta.ledger_lifetime_tokens || 0).toLocaleString()} / difference ${Number(delta.difference_tokens || 0).toLocaleString()} tokens`);
       }
     } else {
       console.log(`❌ Upload failed: ${result && result.message ? result.message : 'unknown error'}`);
+      process.exitCode = 1;
     }
   } catch (e) {
     console.log(`❌ Failed to connect to server: ${e}`);
+    process.exitCode = 1;
   }
 }
 

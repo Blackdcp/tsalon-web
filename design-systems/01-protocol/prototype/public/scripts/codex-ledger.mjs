@@ -2,9 +2,30 @@ import { createHash, createHmac } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { brotliCompressSync, gzipSync, constants as zlibConstants } from 'node:zlib';
 
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
 const TIER_COUNTERS = ['net_new_input', 'cache_read', 'cache_write', 'output'];
+
+export function encodeUploadPayload(payload) {
+  const json = Buffer.from(JSON.stringify(payload));
+  if (json.length > 64 * 1024 * 1024) throw new Error('Upload JSON exceeds 64 MiB; no records were dropped');
+  let body = gzipSync(json);
+  let encoding = 'gzip';
+  if (body.length > 1024 * 1024) {
+    const brotli = brotliCompressSync(json, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 4 } });
+    if (brotli.length < body.length) { body = brotli; encoding = 'br'; }
+  }
+  // Stay below Vercel's 4.5 MB request boundary; preserve every record.
+  if (body.length > 4 * 1024 * 1024) throw new Error('Compressed upload exceeds 4 MiB; no records were dropped');
+  return { body, encoding, jsonBytes: json.length };
+}
+
+function derivedCounters(counters) {
+  const input = counters.net_new_input + counters.cache_read + counters.cache_write;
+  return { ...counters, input_total: input, total: input + counters.output,
+    norm: counters.net_new_input + counters.output };
+}
 const CANONICAL_MODELS = new Set([
   'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
   'claude-fable-5', 'claude-3-5-sonnet', 'gemini-2.5-pro',
@@ -205,7 +226,9 @@ export function normalizeCodexUsage(raw = {}) {
 
 function usageDelta(current, previous) {
   if (!previous || current.total < previous.total) return current;
-  return Object.fromEntries(COUNTERS.map((key) => [key, Math.max(0, current[key] - previous[key])]));
+  // Component corrections may be negative. Clamp components, then recompute
+  // derived counters so input + output always reconciles with the turn total.
+  return derivedCounters(Object.fromEntries(COUNTERS.map((key) => [key, Math.max(0, current[key] - previous[key])])));
 }
 
 function hash(value) {
@@ -222,7 +245,7 @@ function normalizeCachedModelId(raw) {
 }
 
 function sanitizedCachedCounters(raw) {
-  return Object.fromEntries(COUNTERS.map((key) => [key, Number(raw?.[key]) || 0]));
+  return derivedCounters(Object.fromEntries(COUNTERS.map((key) => [key, Number(raw?.[key]) || 0])));
 }
 
 function sanitizedCachedTiers(raw) {
@@ -258,6 +281,14 @@ function sanitizedCachedRecord(raw) {
 function sanitizedCachedRecords(raw) {
   if (!Array.isArray(raw)) return null;
   return raw.map(sanitizedCachedRecord).filter(Boolean);
+}
+
+function cachedCountersNeedRepair(records) {
+  return Array.isArray(records) && records.some((record) =>
+    [record, ...Object.values(record?.daily || {})].some((usage) => {
+      const repaired = sanitizedCachedCounters(usage);
+      return ['input_total', 'total', 'norm'].some((key) => Number(usage?.[key]) !== repaired[key]);
+    }));
 }
 
 function emptyCounters() {
@@ -432,6 +463,9 @@ export async function scanCodexLedger(home, options = {}) {
       size: Number(rawCached?.size) || 0,
       mtimeMs: Number(rawCached?.mtimeMs) || 0,
       records: cachedRecords,
+      // A corrected component delta may cross a pricing threshold. Only the
+      // original event boundaries can reconstruct the right pricing tiers.
+      needsReparse: Boolean(rawCached?.needsReparse || cachedCountersNeedRepair(rawCached?.records)),
     } : null;
     let stat;
     try { stat = fs.statSync(filePath); } catch (error) {
@@ -449,7 +483,7 @@ export async function scanCodexLedger(home, options = {}) {
       options.onProgress?.({ current: index + 1, total: files.length });
       continue;
     }
-    const cacheHit = cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs;
+    const cacheHit = !cached?.needsReparse && cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs;
     const parsed = cacheHit ? null : parseSessionFile(filePath, relativePath);
     let records = cacheHit ? cached.records : parsed.records;
     if (cacheHit) {

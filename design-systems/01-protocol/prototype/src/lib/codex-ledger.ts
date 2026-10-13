@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
 import { PRICING_SNAPSHOT_DATE, normalizeModelId, priceUsage } from './token-pricing.mjs';
-import { aggregateCanonicalTurns, reconcileDeviceTurns, validateTurnRecord } from './tokenrank-domain.mjs';
+import { aggregateCanonicalTurns, reconcileDeviceTurns, validateTurnRecord, MAX_RECORDS } from './tokenrank-domain.mjs';
 
 export interface CodexLedgerPayload {
   version: 5;
@@ -31,7 +31,6 @@ export interface SyncCodexLedgerOptions {
 }
 
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
-const MAX_RECORDS = 50_000;
 const REDIS_CHUNK_SIZE = 500;
 const GENERATION_STAGING_TTL_SECONDS = 24 * 60 * 60;
 const GENERATION_READER_GRACE_SECONDS = 60 * 60;

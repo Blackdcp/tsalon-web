@@ -2,7 +2,7 @@ import { normalizeModelId, priceUsage, PRICING_SNAPSHOT_DATE } from './token-pri
 
 const COUNTERS = Object.freeze(['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm']);
 const TIER_COUNTERS = Object.freeze(['net_new_input', 'cache_read', 'cache_write', 'output']);
-const MAX_RECORDS = 50_000;
+export const MAX_RECORDS = 100_000;
 const MAX_TOKENS_PER_TURN = 1e12;
 const MAX_MODEL_LENGTH = 128;
 const MAX_DAILY_DAYS = 3_660;

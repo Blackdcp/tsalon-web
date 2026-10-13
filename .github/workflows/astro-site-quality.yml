@@ -28,6 +28,7 @@ jobs:
       - run: npm run test:auth
       - run: sudo apt-get update && sudo apt-get install -y redis-server
       - run: npm run test:upload-cadence
+      - run: npm run test:large-upload
       - run: npm run test:site:http
       - run: npm run build
       - run: npm run site:links
