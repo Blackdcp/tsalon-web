@@ -106,3 +106,23 @@ test('staging is isolated, bounded, idempotent and rejects conflicting parts', a
   await parts.stageUploadPart(redis, 'u1', 'd1', stage(0, [record], next));
   await assert.rejects(parts.stageUploadPart(redis, 'u1', 'd1', stage(1, [record])), /Invalid Codex ledger/);
 });
+
+test('frozen parts are read in bounded Redis responses', async () => {
+  const records = Array.from({ length: 200 }, (_, i) => turnRecord(`bounded-${i}`, i + 1));
+  await parts.stageUploadPart(redis, 'u1', 'd1', stage(0, records.slice(0, 100)));
+  await parts.stageUploadPart(redis, 'u1', 'd1', stage(1, records.slice(100)));
+  const first = await redis.hget(parts.uploadPartsKey('u1', 'd1'), 'part:0');
+  const second = await redis.hget(parts.uploadPartsKey('u1', 'd1'), 'part:1');
+  const limit = Math.max(first.length, second.length) + 256;
+  const bounded = new Proxy(redis, { get(target, name) {
+    const method = target[name];
+    if (typeof method !== 'function') return method;
+    return async (...args) => {
+      const result = await method.apply(target, args);
+      assert.ok(Buffer.byteLength(JSON.stringify(result)) <= limit, 'Redis response exceeded one part');
+      return result;
+    };
+  } });
+  const restored = await parts.readUploadParts(bounded, 'u1', 'd1', batch, 'bounded-owner');
+  assert.deepEqual(restored.map(r => r.turn_key), records.map(r => r.turn_key));
+});

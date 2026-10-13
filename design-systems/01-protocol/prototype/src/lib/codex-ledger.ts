@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
+import { stageChunkedString, readChunkedString } from './redis-chunks.ts';
 
 import { PRICING_SNAPSHOT_DATE, normalizeModelId, priceUsage } from './token-pricing.mjs';
 import { aggregateCanonicalTurns, reconcileDeviceTurns, restoreCanonicalEnvelope, validateTurnRecord, MAX_RECORDS } from './tokenrank-domain.mjs';
@@ -398,7 +399,7 @@ async function loadGenerationTimeseries(
   redis: RedisLike,
   prefix: string,
 ): Promise<Record<string, string[]> | null> {
-  const rawBlob = await redis.get(generationTimeseriesBlobKey(prefix)) as string | null;
+  const rawBlob = await readChunkedString(redis, generationTimeseriesBlobKey(prefix)) as string | null;
   return rawBlob === null ? null : parseTimeseriesBlob(rawBlob);
 }
 
@@ -455,9 +456,9 @@ export async function readCodexLedgerView(redis: RedisLike, userId: string): Pro
   if (generation) {
     const prefix = generationPrefix(userId, generation);
     const [rawTurnsBlob, rawSummary, rawState] = await Promise.all([
-      redis.get(generationTurnsBlobKey(prefix)),
-      redis.get(`${prefix}:summary`),
-      redis.get(`${prefix}:state`),
+      readChunkedString(redis, generationTurnsBlobKey(prefix)),
+      readChunkedString(redis, `${prefix}:summary`),
+      readChunkedString(redis, `${prefix}:state`),
     ]);
     let turns: CanonicalTurns;
     if (rawTurnsBlob !== null) {
@@ -466,7 +467,7 @@ export async function readCodexLedgerView(redis: RedisLike, userId: string): Pro
       const rawTurns = await redis.hgetall(`${prefix}:turns`);
       // Compaction publishes the blob before deleting the Hash. Re-read after
       // HGETALL so a reader spanning that transition cannot observe no turns.
-      const compactedBlob = await redis.get(generationTurnsBlobKey(prefix));
+      const compactedBlob = await readChunkedString(redis, generationTurnsBlobKey(prefix));
       turns = compactedBlob === null ? parseTurns(rawTurns) : parseTurnsBlob(compactedBlob);
     }
     return {
@@ -684,7 +685,7 @@ async function compactActiveLegacyGeneration(redis: RedisLike, userId: string, v
   const pointerKey = generationPointerKey(userId);
   const turnsHashKey = `${view.prefix}:turns`;
   const turnsBlobKey = generationTurnsBlobKey(view.prefix);
-  const existingBlob = await redis.get(turnsBlobKey);
+  const existingBlob = await readChunkedString(redis, turnsBlobKey);
   if (existingBlob !== null) {
     parseTurnsBlob(existingBlob);
     return;
@@ -704,7 +705,7 @@ async function compactActiveLegacyGeneration(redis: RedisLike, userId: string, v
   );
   if (started === -1) throw new Error('Codex ledger active generation changed during compaction');
   if (started === 0) {
-    const completedBlob = await redis.get(turnsBlobKey);
+    const completedBlob = await readChunkedString(redis, turnsBlobKey);
     if (completedBlob !== null) {
       parseTurnsBlob(completedBlob);
       return;
@@ -712,14 +713,14 @@ async function compactActiveLegacyGeneration(redis: RedisLike, userId: string, v
     throw new Error('Codex ledger active generation storage changed during compaction');
   }
   if (started === 2) {
-    const winningBlob = await redis.get(turnsBlobKey);
+    const winningBlob = await readChunkedString(redis, turnsBlobKey);
     if (winningBlob === null) throw new Error('Codex ledger active generation storage changed during compaction');
     parseTurnsBlob(winningBlob);
     return;
   }
   if (started !== 1) throw new Error('Failed to begin active Codex ledger compaction');
 
-  const stored = await redis.get(turnsBlobKey);
+  const stored = await readChunkedString(redis, turnsBlobKey);
   try {
     if (stored !== serialized) throw new Error('blob mismatch');
     parseTurnsBlob(stored);
@@ -856,13 +857,13 @@ export async function syncCodexLedger(
   const timeseriesBlobKey = generationTimeseriesBlobKey(prefix);
   const summaryKey = `${prefix}:summary`;
   const stateKey = `${prefix}:state`;
-  const stagedKeys = [turnsBlobKey, timeseriesBlobKey, summaryKey, stateKey];
+  const stagedKeys: string[] = [];
   let activationStarted = false;
   try {
-    await redis.set(turnsBlobKey, serializeTurnsBlob(canonical), 'EX', GENERATION_STAGING_TTL_SECONDS);
-    await redis.set(timeseriesBlobKey, serializeTimeseriesBlob(timeseries), 'EX', GENERATION_STAGING_TTL_SECONDS);
-    await redis.set(summaryKey, JSON.stringify(summary), 'EX', GENERATION_STAGING_TTL_SECONDS);
-    await redis.set(stateKey, JSON.stringify(nextState), 'EX', GENERATION_STAGING_TTL_SECONDS);
+    await stageChunkedString(redis, turnsBlobKey, serializeTurnsBlob(canonical), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
+    await stageChunkedString(redis, timeseriesBlobKey, serializeTimeseriesBlob(timeseries), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
+    await stageChunkedString(redis, summaryKey, JSON.stringify(summary), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
+    await stageChunkedString(redis, stateKey, JSON.stringify(nextState), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
 
     const operations: RedisCommitOperations = {
       sets: [[generationPointerKey(userId), generation]],

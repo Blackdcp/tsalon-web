@@ -20,7 +20,7 @@
     "test:site:http": "node --test scripts/canonical-redirect.test.mjs",
     "test:auth": "node --test scripts/github-oauth-config.test.mjs scripts/github-signin.test.mjs",
     "test:upload-cadence": "node --test scripts/upload-cadence.test.mjs",
-    "test:large-upload": "node --test scripts/upload-body.test.mjs scripts/large-upload.test.mjs scripts/upload-parts.test.mjs",
+    "test:large-upload": "node --test scripts/upload-body.test.mjs scripts/large-upload.test.mjs scripts/upload-parts.test.mjs scripts/redis-chunks.test.mjs",
     "events:sync": "node scripts/sync-huodongxing-events.mjs",
     "baidu:submit": "node scripts/baidu-submit.mjs",
     "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs scripts/token-agent-installers.test.mjs scripts/tokenrank-domain.test.mjs scripts/codex-ledger-store.test.mjs scripts/redis-generation.test.mjs scripts/tokenrank-metrics.test.mjs scripts/tokenrank-upload.test.mjs scripts/upload-body.test.mjs scripts/upload-cadence.test.mjs",

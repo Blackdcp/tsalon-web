@@ -45,15 +45,12 @@ local owner = redis.call('HGET', KEYS[1], 'owner')
 if owner and owner ~= ARGV[2] then return {} end
 local count = tonumber(redis.call('HGET', KEYS[1], 'count')) or 0
 if count < 1 or count > 64 then return {} end
-local parts = {}
 for index = 0, count - 1 do
-  local part = redis.call('HGET', KEYS[1], 'part:' .. index)
-  if not part then return {} end
-  parts[#parts + 1] = part
+  if redis.call('HEXISTS', KEYS[1], 'part:' .. index) ~= 1 then return 0 end
 end
 redis.call('HSET', KEYS[1], 'owner', ARGV[2])
 redis.call('EXPIRE', KEYS[1], ARGV[3])
-return parts
+return count
 `;
 export async function stageUploadPart(redis: any, user: string, device: string, part: any) {
   if (!part || !validId(part.id) || !Number.isInteger(part.count) || part.count < 1 || part.count > MAX_PARTS
@@ -72,10 +69,17 @@ export async function stageUploadPart(redis: any, user: string, device: string, 
 }
 export async function readUploadParts(redis: any, user: string, device: string, id: string, owner = 'test-reader') {
   if (!validId(id)) invalid();
-  const parts = await redis.eval(READ, 1, uploadPartsKey(user, device), id, owner, TTL);
-  if (!Array.isArray(parts) || !parts.length || parts.length > MAX_PARTS) invalid();
+  const key = uploadPartsKey(user, device);
+  const count = await redis.eval(READ, 1, key, id, owner, TTL);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_PARTS) invalid();
   const records: any[] = [];
-  for (const part of parts) {
+  for (let index = 0; index < count; index++) {
+    // Freeze the complete batch first, then read one bounded response at a time.
+    // Checking ownership on each read also fails closed after expiry/replacement.
+    const part = await redis.eval(`if redis.call('HGET', KEYS[1], 'id') ~= ARGV[1]
+      or redis.call('HGET', KEYS[1], 'owner') ~= ARGV[2] then return false end
+      return redis.call('HGET', KEYS[1], ARGV[3])`, 1, key, id, owner, `part:${index}`);
+    if (typeof part !== 'string') invalid();
     const decoded = JSON.parse(gunzipSync(Buffer.from(part, 'base64'), { maxOutputLength: MAX_PART_BYTES }).toString('utf8'));
     if (!Array.isArray(decoded) || decoded.length > 10000) invalid();
     for (const record of decoded) records.push(record);
