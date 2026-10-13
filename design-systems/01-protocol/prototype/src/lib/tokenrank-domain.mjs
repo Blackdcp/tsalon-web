@@ -2,7 +2,7 @@ import { normalizeModelId, priceUsage, PRICING_SNAPSHOT_DATE } from './token-pri
 
 const COUNTERS = Object.freeze(['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm']);
 const TIER_COUNTERS = Object.freeze(['net_new_input', 'cache_read', 'cache_write', 'output']);
-export const MAX_RECORDS = 100_000;
+export const MAX_RECORDS = 200_000;
 const MAX_TOKENS_PER_TURN = 1e12;
 const MAX_MODEL_LENGTH = 128;
 const MAX_DAILY_DAYS = 3_660;
@@ -204,14 +204,27 @@ function canonicalVersions(envelope) {
 
 function materializeEnvelope(versions) {
   const sourceDevices = Object.keys(versions).sort(compareStrings);
+  for (const deviceId of sourceDevices) versions[deviceId].daily = Object.fromEntries(Object.entries(versions[deviceId].daily));
   const winner = sourceDevices
     .map((deviceId) => ({ deviceId, record: versions[deviceId] }))
     .sort((left, right) => compareRecords(left.record, right.record, left.deviceId, right.deviceId))[0];
   return {
-    record: structuredClone(winner.record),
-    device_versions: Object.assign(emptyMap(), Object.fromEntries(sourceDevices.map((deviceId) => [deviceId, structuredClone(versions[deviceId])]))),
+    // These versions are already owned, validated copies. The canonical winner
+    // is a read-only view of one version, not another full copy of its history.
+    record: winner.record,
+    device_versions: Object.assign(emptyMap(), Object.fromEntries(sourceDevices.map(id => [id, versions[id]]))),
     source_devices: sourceDevices,
   };
+}
+
+export function restoreCanonicalEnvelope(envelope) {
+  if (!isObject(envelope?.device_versions)) return null;
+  const versions = canonicalVersions(envelope);
+  if (!Object.keys(versions).length || Object.keys(versions).length !== Object.keys(envelope.device_versions).length) return null;
+  const restored = materializeEnvelope(versions);
+  // Match JSON-decoded v1 maps; fromEntries also safely preserves __proto__ IDs.
+  restored.device_versions = Object.fromEntries(Object.entries(restored.device_versions));
+  return restored;
 }
 
 function sortedCanonical(turns) {
@@ -226,18 +239,15 @@ export function reconcileDeviceTurns(existing = {}, deviceId, incoming = []) {
   if (records.some((record) => record === null)) return sortedCanonical(structuredClone(existing));
 
   const next = emptyMap();
-  const incomingKeys = new Set(records.map((record) => record.turn_key));
   for (const [key, envelope] of Object.entries(existing)) {
-    const versions = canonicalVersions(envelope);
-    if (!(deviceId in versions) || incomingKeys.has(key)) {
-      if (Object.keys(versions).length) next[key] = materializeEnvelope(versions);
-      continue;
-    }
-    delete versions[deviceId];
+    // Full sync replaces this device completely. Avoid copying its old large
+    // manifest only to overwrite every version with incoming records below.
+    const remaining = Object.fromEntries(Object.entries(envelope?.device_versions || {}).filter(([id]) => id !== deviceId));
+    const versions = canonicalVersions({ device_versions: remaining });
     if (Object.keys(versions).length) next[key] = materializeEnvelope(versions);
   }
   for (const record of records) {
-    const versions = canonicalVersions(next[record.turn_key]);
+    const versions = next[record.turn_key]?.device_versions || emptyMap();
     versions[deviceId] = record;
     next[record.turn_key] = materializeEnvelope(versions);
   }

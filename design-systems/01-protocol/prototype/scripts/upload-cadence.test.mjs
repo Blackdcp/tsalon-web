@@ -6,6 +6,7 @@ import ts from 'typescript';
 import * as cadence from '../src/lib/upload-cadence.ts';
 import * as uploadBody from '../src/lib/upload-body.ts';
 import * as uploadError from '../src/lib/upload-error.ts';
+import * as uploadParts from '../src/lib/upload-parts.ts';
 import {
   claimDeviceUploadWindow as claimWithReason, completeDeviceUploadWindow, releaseDeviceUploadWindow,
   deviceUploadWindowKey, normalizeUploadDeviceId,
@@ -104,6 +105,7 @@ function uploadEndpoint(updateTokenUsage) {
       if (name.endsWith('/upload-cadence.ts')) return cadence;
       if (name.endsWith('/upload-body.ts')) return uploadBody;
       if (name.endsWith('/upload-error.ts')) return uploadError;
+      if (name.endsWith('/upload-parts.ts')) return uploadParts;
       throw new Error(`Unexpected import: ${name}`);
     },
   });

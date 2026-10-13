@@ -259,7 +259,8 @@ test('generation turns blob round-trips canonical envelopes with the versioned g
   const rawBlob = await redis.get(`${view.prefix}:turns:gzip-base64-v1`);
   assert.equal(typeof rawBlob, 'string');
   const decoded = JSON.parse(gunzipSync(Buffer.from(rawBlob, 'base64')).toString('utf8'));
-  assert.equal(decoded.schema, 'codex-ledger-turns-v1');
+  assert.equal(decoded.schema, 'codex-ledger-turns-v2');
+  assert.equal(decoded.turns[alpha.turn_key].record, undefined, 'do not serialize the winning record twice');
   assert.deepEqual(Object.keys(decoded.turns), [alpha.turn_key, beta.turn_key].sort());
   assert.deepEqual(Object.keys(view.turns), [alpha.turn_key, beta.turn_key].sort());
   assert.deepEqual(view.turns[alpha.turn_key].source_devices, ['windows']);

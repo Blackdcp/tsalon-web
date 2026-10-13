@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
 import { PRICING_SNAPSHOT_DATE, normalizeModelId, priceUsage } from './token-pricing.mjs';
-import { aggregateCanonicalTurns, reconcileDeviceTurns, validateTurnRecord, MAX_RECORDS } from './tokenrank-domain.mjs';
+import { aggregateCanonicalTurns, reconcileDeviceTurns, restoreCanonicalEnvelope, validateTurnRecord, MAX_RECORDS } from './tokenrank-domain.mjs';
 
 export interface CodexLedgerPayload {
   version: 5;
@@ -38,11 +38,11 @@ const ACCOUNT_AUDIT_TTL_SECONDS = 120 * 24 * 60 * 60;
 const ACCOUNT_AUDIT_WRITE_TIMEOUT_MS = 250;
 const MAX_ACCOUNT_AUDIT_BYTES = 192 * 1024;
 const MAX_ACCOUNT_AUDIT_USER_ID_LENGTH = 128;
-const CODEX_LEDGER_TURNS_BLOB_SCHEMA = 'codex-ledger-turns-v1';
+const CODEX_LEDGER_TURNS_BLOB_SCHEMA = 'codex-ledger-turns-v2';
 const CODEX_LEDGER_TURNS_BLOB_SUFFIX = ':turns:gzip-base64-v1';
 const CODEX_LEDGER_TIMESERIES_BLOB_SCHEMA = 'codex-ledger-timeseries-v1';
 const CODEX_LEDGER_TIMESERIES_BLOB_SUFFIX = ':timeseries:gzip-base64-v1';
-const MAX_CODEX_LEDGER_TURNS_JSON_BYTES = 128 * 1024 * 1024;
+const MAX_CODEX_LEDGER_TURNS_JSON_BYTES = 192 * 1024 * 1024;
 const MAX_CODEX_LEDGER_TURNS_BASE64_LENGTH = Math.ceil(MAX_CODEX_LEDGER_TURNS_JSON_BYTES * 4 / 3) + 4;
 const MAX_CODEX_LEDGER_TIMESERIES_JSON_BYTES = 128 * 1024 * 1024;
 const MAX_CODEX_LEDGER_TIMESERIES_BASE64_LENGTH = Math.ceil(MAX_CODEX_LEDGER_TIMESERIES_JSON_BYTES * 4 / 3) + 4;
@@ -305,7 +305,10 @@ function generationTimeseriesBlobKey(prefix: string) {
 }
 
 function serializeTurnsBlob(turns: CanonicalTurns): string {
-  const serialized = JSON.stringify({ schema: CODEX_LEDGER_TURNS_BLOB_SCHEMA, turns });
+  // Winner/source_devices are derived from the full per-device versions. Keep
+  // each original version once on disk and rebuild the envelope when reading.
+  const stored = Object.fromEntries(Object.entries(turns).map(([key, value]) => [key, { device_versions: value.device_versions }]));
+  const serialized = JSON.stringify({ schema: CODEX_LEDGER_TURNS_BLOB_SCHEMA, turns: stored });
   if (Buffer.byteLength(serialized) > MAX_CODEX_LEDGER_TURNS_JSON_BYTES) {
     throw new Error('Codex ledger turns blob is too large');
   }
@@ -333,7 +336,7 @@ function parseTurnsBlob(raw: string): CanonicalTurns {
     const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(decoded));
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
       || Object.keys(parsed).length !== 2
-      || parsed.schema !== CODEX_LEDGER_TURNS_BLOB_SCHEMA
+      || ![CODEX_LEDGER_TURNS_BLOB_SCHEMA, 'codex-ledger-turns-v1'].includes(parsed.schema)
       || !parsed.turns || typeof parsed.turns !== 'object' || Array.isArray(parsed.turns)) {
       throw new Error('invalid schema');
     }
@@ -343,7 +346,9 @@ function parseTurnsBlob(raw: string): CanonicalTurns {
         || !envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
         throw new Error('invalid turn envelope');
       }
-      turns[turnKey] = envelope;
+      const restored = parsed.schema === CODEX_LEDGER_TURNS_BLOB_SCHEMA ? restoreCanonicalEnvelope(envelope) : envelope;
+      if (!restored) throw new Error('invalid stored device versions');
+      turns[turnKey] = restored;
     }
     return turns;
   } catch {
@@ -818,14 +823,17 @@ export async function syncCodexLedger(
   if (payload.manifest_hash !== expectedManifestHash) throw new Error('Invalid Codex ledger payload');
 
   const previousView = await readCodexLedgerView(redis, userId);
-  const existing = previousView.turns;
-  const incoming = payload.records.map(validateTurnRecord);
-  if (incoming.some((record) => !record)) throw new Error('Invalid Codex ledger record');
-  const validIncoming = incoming as Record<string, any>[];
+  let existing = previousView.turns;
+  // Reconciliation validates and owns its copies. Check here without retaining
+  // another complete normalized ledger alongside the request and old view.
+  for (const record of payload.records) if (!validateTurnRecord(record)) throw new Error('Invalid Codex ledger record');
+  const validIncoming = payload.records;
 
   await compactActiveLegacyGeneration(redis, userId, previousView);
 
   const canonical = reconcileDeviceTurns(existing, deviceId, validIncoming);
+  previousView.turns = Object.create(null);
+  existing = Object.create(null);
   const manifest = {
     manifest_hash: payload.manifest_hash,
     turn_keys: validIncoming.map((record) => record.turn_key).sort(),

@@ -238,7 +238,10 @@ export async function updateTokenUsageWithRedis(
   // Mac and Windows commonly upload on the same half-hour boundary. Serialize
   // per-user rebuilds so one device cannot overwrite the other device's list
   // rewrite. A crashed invocation self-recovers when the short TTL expires.
-  const updateLease = await acquireUserUpdateLease(kv, userId);
+  // A large full sync has synchronous validation/compression phases during
+  // which the heartbeat cannot run. Keep them fenced on slower cloud CPUs too.
+  // A small upload from another device also rebuilds the existing large view.
+  const updateLease = await acquireUserUpdateLease(kv, userId, { leaseMs: 120000 });
 
   try {
     let codexSummary: Record<string, any> | null = null;

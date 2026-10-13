@@ -132,6 +132,30 @@ test('a 61,317-turn full sync survives transport and Redis with every turn key r
 
 test('ledger record limits still reject unbounded manifests', async () => {
   const payload = ledgerPayload([]);
-  payload.records = Array(100001).fill({});
+  payload.records = Array(200001).fill({});
   await assert.rejects(syncCodexLedger(null, 'u1', 'd1', payload), /Invalid Codex ledger payload/);
+});
+
+test('client stages full original records then sends one commit request', async () => {
+  assert.equal(typeof agent.sendUploadPayload, 'function');
+  const records = Array.from({ length: 30001 }, (_, i) => turnRecord(`batch-${i}`, i + 1));
+  const staged = [];
+  let commits = 0;
+  const payload = { token: 'test', device_id: 'd1', data: {}, codex_ledger: ledgerPayload(records) };
+  const result = await agent.sendUploadPayload('https://test', payload, async (url, options) => {
+    const body = await readUploadJson(new Request(url, options));
+    if (body.upload_part) {
+      assert.equal(commits, 0);
+      staged.push(...body.upload_part.records);
+      return Response.json({ success: true, staged: true });
+    }
+    commits++;
+    assert.match(body.codex_ledger.upload_id, /^[a-f0-9]{32}$/);
+    assert.equal(body.codex_ledger.records, undefined);
+    assert.equal(body.codex_ledger.manifest_hash, payload.codex_ledger.manifest_hash);
+    return Response.json({ success: true });
+  });
+  assert.equal(result.success, true);
+  assert.equal(commits, 1);
+  assert.deepEqual(staged, JSON.parse(JSON.stringify(records)));
 });

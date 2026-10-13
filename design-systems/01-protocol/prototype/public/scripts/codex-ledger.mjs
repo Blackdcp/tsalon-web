@@ -1,4 +1,4 @@
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +20,46 @@ export function encodeUploadPayload(payload) {
   // Stay below Vercel's 4.5 MB request boundary; preserve every record.
   if (body.length > 4 * 1024 * 1024) throw new Error('Compressed upload exceeds 4 MiB; no records were dropped');
   return { body, encoding, jsonBytes: json.length };
+}
+
+export async function sendUploadPayload(host, payload, fetcher = globalThis.fetch, onProgress = () => {}) {
+  async function send(body, label) {
+    const encoded = encodeUploadPayload(body);
+    onProgress(`${label} (${encoded.encoding}, ${encoded.body.length} bytes).`);
+    const response = await fetcher(`${host}/api/rank/upload/`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Encoding': encoded.encoding }, body: encoded.body,
+    });
+    return response.json();
+  }
+  const records = payload.codex_ledger?.records;
+  if (!Array.isArray(records) || records.length <= 30000) {
+    try { encodeUploadPayload(payload); return await send(payload, `Uploading ${records?.length || 0} ledger records`); }
+    catch (error) { if (!Array.isArray(records) || !/exceeds/.test(error.message)) throw error; }
+  }
+  if (records.length > 200000) throw new Error('Ledger exceeds 200000 records; no records were dropped');
+  const parts = [];
+  function split(chunk) {
+    const json = Buffer.from(JSON.stringify(chunk));
+    if (json.length <= 8 * 1024 * 1024 && gzipSync(json, { level: 1 }).length <= 2 * 1024 * 1024) {
+      parts.push(chunk); return;
+    }
+    if (chunk.length <= 1) throw new Error('Ledger record exceeds upload capacity; no records were dropped');
+    const middle = Math.ceil(chunk.length / 2);
+    split(chunk.slice(0, middle)); split(chunk.slice(middle));
+  }
+  for (let start = 0; start < records.length; start += 10000) split(records.slice(start, start + 10000));
+  if (parts.length > 64) throw new Error('Ledger exceeds batch capacity; no records were dropped');
+  const id = randomUUID().replaceAll('-', '');
+  for (let index = 0; index < parts.length; index++) {
+    const result = await send({ token: payload.token, device_id: payload.device_id,
+      upload_part: { id, index, count: parts.length, records: parts[index] } }, `Uploading part ${index + 1}/${parts.length}`);
+    if (!result?.success || !result.staged) throw new Error(result?.message || 'Upload part was not accepted');
+  }
+  const commit = { ...payload, codex_ledger: { ...payload.codex_ledger, records: undefined, upload_id: id } };
+  // Only staged commits have a durable idempotency receipt. Reuse the same ID
+  // after a lost response instead of spending another daily success allowance.
+  try { return await send(commit, `Committing ${records.length} complete ledger records`); }
+  catch { return await send(commit, 'Retrying the same upload commit'); }
 }
 
 function derivedCounters(counters) {

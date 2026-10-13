@@ -51,6 +51,15 @@ const CLAIM_UPLOAD = `
 // failures release immediately; the TTL recovers workers that crash or time out.
 const COMPLETE_UPLOAD = `
   if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+  if KEYS[3] then
+    if redis.call('HGET', KEYS[3], 'id') ~= ARGV[3]
+      or redis.call('HGET', KEYS[3], 'owner') ~= ARGV[1] then return -1 end
+    redis.call('HSET', KEYS[3], 'receipt', ARGV[4])
+    redis.call('SET', KEYS[4], ARGV[4], 'EX', 86400)
+    redis.call('HDEL', KEYS[3], 'owner')
+    for index = 0, 63 do redis.call('HDEL', KEYS[3], 'part:' .. index) end
+    redis.call('EXPIRE', KEYS[3], 86400)
+  end
   local count = tonumber(redis.call('GET', KEYS[2])) or 0
   redis.call('SET', KEYS[2], tostring(count + 1), 'EX', ARGV[2])
   redis.call('DEL', KEYS[1])
@@ -117,9 +126,16 @@ export async function completeDeviceUploadWindow(
   deviceId: string,
   lease: DeviceUploadLease,
   now = Date.now(),
+  receipt?: { key: string; receiptKey: string; batchId: string; value: string },
 ): Promise<void> {
   // Count on the Beijing date of completion, including requests crossing midnight.
   const window = dailyWindow(now);
   const keys = uploadKeys(userId, deviceId, window.day);
-  await redis.eval(COMPLETE_UPLOAD, 2, keys.lock, keys.daily, lease.owner, window.ttl);
+  if (receipt) {
+    const completed = await redis.eval(COMPLETE_UPLOAD, 4, keys.lock, keys.daily, receipt.key, receipt.receiptKey,
+      lease.owner, window.ttl, receipt.batchId, receipt.value);
+    if (completed !== 1) throw new Error('Upload completion lease was lost');
+  } else {
+    await redis.eval(COMPLETE_UPLOAD, 2, keys.lock, keys.daily, lease.owner, window.ttl);
+  }
 }

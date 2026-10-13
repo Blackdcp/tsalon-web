@@ -3,6 +3,7 @@ import { getUserIdByToken, updateTokenUsage, kv } from '../../../lib/kv';
 import { storeAccountAuditWithTimeout } from '../../../lib/codex-ledger.ts';
 import { readUploadJson, UploadBodyError } from '../../../lib/upload-body.ts';
 import { classifyUploadError } from '../../../lib/upload-error.ts';
+import { stageUploadPart, readUploadParts, readUploadReceipt, releaseUploadParts, uploadPartsKey, uploadReceiptKey } from '../../../lib/upload-parts.ts';
 import { claimDeviceUploadWindow, completeDeviceUploadWindow, releaseDeviceUploadWindow, normalizeUploadDeviceId } from '../../../lib/upload-cadence.ts';
 
 const REQUIRED_SCHEDULE_VERSION = 3;
@@ -11,6 +12,7 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   let releaseUpload: (() => Promise<void>) | undefined;
+  let releaseParts: (() => Promise<void>) | undefined;
   try {
     const body = await readUploadJson(request);
     const { token, data, device_id, reset, history_complete_tools } = body;
@@ -38,10 +40,25 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ success: false, message: 'Reset requires the maintenance API' }), { status: 403 });
     }
 
+    if (body.upload_part) {
+      await stageUploadPart(kv, userId, actualDeviceId, body.upload_part);
+      return Response.json({ success: true, staged: true });
+    }
+    const uploadId = codexLedger?.upload_id;
+    if (uploadId !== undefined) {
+      if (codexLedger.records !== undefined) throw new Error('Invalid Codex ledger upload batch');
+      const receipt = await readUploadReceipt(kv, userId, actualDeviceId, uploadId);
+      if (receipt) return Response.json(receipt);
+    }
+
     // Allow two successful uploads per device per Beijing calendar day. Claim
     // before expensive reads/writes; stale schedules and concurrent requests skip.
     const uploadLease = await claimDeviceUploadWindow(kv, userId, actualDeviceId);
     if ('reason' in uploadLease) {
+      if (uploadId !== undefined) {
+        const completed = await readUploadReceipt(kv, userId, actualDeviceId, uploadId);
+        if (completed) return Response.json(completed);
+      }
       const inFlight = uploadLease.reason === 'upload_in_flight';
       return new Response(JSON.stringify({
         success: true,
@@ -58,6 +75,16 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
     releaseUpload = () => releaseDeviceUploadWindow(kv, userId, actualDeviceId, uploadLease);
+    if (uploadId !== undefined) {
+      const completed = await readUploadReceipt(kv, userId, actualDeviceId, uploadId);
+      if (completed) {
+        await releaseUpload();
+        releaseUpload = undefined;
+        return Response.json(completed);
+      }
+      releaseParts = () => releaseUploadParts(kv, userId, actualDeviceId, uploadId, uploadLease.owner);
+      codexLedger.records = await readUploadParts(kv, userId, actualDeviceId, uploadId, uploadLease.owner);
+    }
 
     // Since our token agent doesn't send name/image, we need to get it from KV where auth saved it.
     const rawInfo = await kv.get(`user:${userId}:info`);
@@ -106,9 +133,6 @@ export const POST: APIRoute = async ({ request }) => {
         codexLedger,
       },
     );
-    await completeDeviceUploadWindow(kv, userId, actualDeviceId, uploadLease);
-    releaseUpload = undefined;
-
     let officialDelta = null;
     if (accountAudit) {
       const ledgerLifetimeTokens = Number(result?.codex?.total) || 0;
@@ -120,7 +144,7 @@ export const POST: APIRoute = async ({ request }) => {
       };
     }
 
-    return new Response(JSON.stringify({
+    const receipt = {
       success: true,
       message: 'Tokens updated',
       schema_version: 5,
@@ -128,13 +152,22 @@ export const POST: APIRoute = async ({ request }) => {
       pricing_snapshot_date: result?.pricing_snapshot_date ?? null,
       official_delta: officialDelta,
       required_schedule_version: REQUIRED_SCHEDULE_VERSION,
-    }), {
+    };
+    // The receipt and daily count are one atomic operation. A lost response can
+    // be retried without publishing partial data or spending a second allowance.
+    await completeDeviceUploadWindow(kv, userId, actualDeviceId, uploadLease, Date.now(), uploadId === undefined ? undefined : {
+      key: uploadPartsKey(userId, actualDeviceId), receiptKey: uploadReceiptKey(userId, actualDeviceId, uploadId), batchId: uploadId, value: JSON.stringify(receipt),
+    });
+    releaseUpload = undefined;
+    releaseParts = undefined;
+    return new Response(JSON.stringify(receipt), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     // A rejected payload or failed update must not lock out a corrected retry.
     // Compare-owner release cannot delete another worker's newer lease.
+    try { await releaseParts?.(); } catch (releaseError) { console.error(releaseError); }
     try { await releaseUpload?.(); } catch (releaseError) { console.error(releaseError); }
     console.error(error);
     if (error instanceof UploadBodyError) {

@@ -12,7 +12,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import { spawn } from 'child_process';
-import { encodeUploadPayload, normalizeCodexUsage, readOfficialCodexAudit, scanCodexLedger } from './codex-ledger.mjs';
+import { sendUploadPayload, normalizeCodexUsage, readOfficialCodexAudit, scanCodexLedger } from './codex-ledger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -785,17 +785,7 @@ async function main() {
   }
 
   try {
-    const encoded = encodeUploadPayload(payload);
-    console.log(`Uploading ${payload.codex_ledger?.records?.length || 0} ledger records (${encoded.encoding}, ${encoded.body.length} bytes).`);
-    const resp = await fetch(`${host}/api/rank/upload/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Encoding': encoded.encoding,
-      },
-      body: encoded.body,
-    });
-    const result = await resp.json();
+    const result = await sendUploadPayload(host, payload, globalThis.fetch, message => console.log(message));
     try {
       if (await queueScheduleUpgrade(result, { home, host, token })) {
         console.log('Scheduler repair queued; future uploads will run once daily.');
