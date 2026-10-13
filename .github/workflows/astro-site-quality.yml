@@ -25,6 +25,7 @@ jobs:
       - run: npm run content:validate
       - run: node --test scripts/indexnow-submit.test.mjs
       - run: npm run test:site
+      - run: npm run test:auth
       - run: npm run test:site:http
       - run: npm run build
       - run: npm run site:links
