@@ -315,7 +315,9 @@ export function aggregateRankEvents(events = []) {
     toolTokens.raw_total += total;
     toolTokens.norm += norm;
     toolTokens.cost += cost;
-    toolTokens.in += Number(event?.inTokens) || 0;
+    // Tool profiles use inclusive input; ledger events historically used net
+    // input while other sources used inclusive input. Derive one stable basis.
+    toolTokens.in += Math.max(0, total - (Number(event?.outTokens) || 0));
     toolTokens.out += Number(event?.outTokens) || 0;
     toolTokens.cache_read += Number(event?.cacheReadTokens) || 0;
     toolTokens.cache_write += Number(event?.cacheWriteTokens) || 0;
@@ -377,11 +379,12 @@ export function summarizeRankWindow(events = [], metric = 'total') {
 export function personalRankPresentation(time = 'today', events = [], profileTokens = {}) {
   const presentation = { toolsUsed: 0, inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
   if (time === 'all') {
-    const tools = Object.entries(profileTokens || {}).filter(([tool]) => tool !== 'total' && tool !== 'history');
+    const tools = Object.entries(profileTokens || {}).filter(([tool, raw]) => tool !== 'total' && tool !== 'history'
+      && (typeof raw === 'number' ? raw : Number(raw?.raw_total ?? raw?.total)) > 0);
     presentation.toolsUsed = tools.length;
     for (const [, raw] of tools) {
       if (!raw || typeof raw !== 'object') continue;
-      presentation.inTokens += Number(raw.in) || 0;
+      presentation.inTokens += Math.max(0, (Number(raw.in) || 0) - (Number(raw.cache_read) || 0) - (Number(raw.cache_write) || 0));
       presentation.outTokens += Number(raw.out) || 0;
       presentation.cacheRead += Number(raw.cache_read) || 0;
       presentation.cacheWrite += Number(raw.cache_write) || 0;
@@ -389,14 +392,44 @@ export function personalRankPresentation(time = 'today', events = [], profileTok
     return presentation;
   }
 
-  presentation.toolsUsed = new Set((events || []).map((event) => String(event?.tool || '')).filter(Boolean)).size;
+  presentation.toolsUsed = new Set((events || []).filter(event => rankEventMetric(event, 'total') > 0)
+    .map((event) => String(event?.tool || '')).filter(Boolean)).size;
   for (const event of events || []) {
-    presentation.inTokens += Number(event?.inTokens) || 0;
+    presentation.inTokens += Math.max(0, rankEventMetric(event, 'norm') - (Number(event?.outTokens) || 0));
     presentation.outTokens += Number(event?.outTokens) || 0;
     presentation.cacheRead += Number(event?.cacheReadTokens) || 0;
     presentation.cacheWrite += Number(event?.cacheWriteTokens) || 0;
   }
   return presentation;
+}
+
+export function rankBreakdowns(time, events = [], profileTokens = {}, metric = 'total') {
+  /** @type {Record<string, number>} */
+  const tools = {};
+  /** @type {Record<string, number>} */
+  const models = {};
+  const add = (target, key, amount) => { if (amount > 0) target[key] = (target[key] || 0) + amount; };
+  if (time === 'all') {
+    for (const [tool, raw] of Object.entries(profileTokens)) {
+      if (tool === 'total' || tool === 'history') continue;
+      const value = typeof raw === 'number' ? (metric === 'cost' ? 0 : raw) : Number(raw?.[metric]) || 0;
+      add(tools, tool, value);
+      let attributed = 0;
+      for (const [model, usage] of Object.entries(raw?.models || {})) {
+        const amount = Number(usage?.[metric]) || 0;
+        add(models, model, amount);
+        attributed += amount;
+      }
+      add(models, raw?.model || 'unknown', Math.max(0, value - attributed));
+    }
+  } else {
+    for (const event of events) {
+      const value = rankEventMetric(event, metric);
+      add(tools, event.tool || 'unknown', value);
+      add(models, event.model || 'unknown', value);
+    }
+  }
+  return { tools, models };
 }
 
 const RANK_TIMES = new Set(['today', 'yesterday', '3d', '7d', '30d', '90d', 'all']);

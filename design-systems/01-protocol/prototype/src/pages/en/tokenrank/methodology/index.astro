@@ -107,8 +107,8 @@ const jsonLd = [
               </tr>
               <tr>
                 <td>Normalized</td>
-                <td>Net token consumption after removing cache reads</td>
-                <td>How much computation actually happened</td>
+                <td>Total minus cache reads and writes: new input plus output</td>
+                <td>How much non-cached input and output was recorded</td>
               </tr>
               <tr>
                 <td>Estimated cost</td>
@@ -123,10 +123,12 @@ const jsonLd = [
       <section class="methodology-section">
         <h2>Time bucketing</h2>
         <p>
-          All data is bucketed by <strong>Beijing time (UTC+8)</strong>. Daily usage is the delta between the current
-          cumulative value and that device's previous snapshot, so a day only has a record if the device uploaded data
-          for it.
+          All data is bucketed by <strong>Beijing time (UTC+8)</strong>. Last N days includes today and the preceding N−1 days;
+          yesterday covers yesterday alone. Codex uses original usage event dates and deduplicates copied turns across devices and forks.
+          All-time and period totals share the same records. Account snapshots are used only for comparison, never to overwrite ranked totals.
+          Other tools use historical records when available, otherwise the cumulative difference between uploads.
         </p>
+        <p>Dashboard totals cover the Top 100 for the selected ranking metric. Cache read share is cache reads divided by total tokens. Generation time is estimated as output divided by 80 tokens/sec, not measured duration. All-time personal charts and daily tables show up to 365 days.</p>
       </section>
 
       <section class="methodology-section">

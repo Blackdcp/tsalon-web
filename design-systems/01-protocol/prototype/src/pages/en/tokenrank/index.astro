@@ -125,7 +125,6 @@ const formatAmountStr = (num: any) => {
 };
 
 // --- Calculate Dynamic Global Metrics for Dashboard ---
-let globalTokens = 0;
 let globalRawTokens = 0;
 let globalEffectiveTokens = 0;
 let globalCost = 0;
@@ -135,8 +134,10 @@ const toolCounts: Record<string, number> = {};
 
 leaderboard.forEach(user => {
   Object.entries(user.tokens).forEach(([tool, amount]: [string, any]) => {
-    if (tool === 'total') return;
-    toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+    if (tool === 'total' || tool === 'history') return;
+    const volume = typeof amount === 'number' ? amount : Number(amount?.raw_total ?? amount?.total) || 0;
+    if (volume <= 0) return;
+    toolCounts[tool] = (toolCounts[tool] || 0) + volume;
 
     if (typeof amount === 'number') {
       globalRawTokens += amount;
@@ -150,7 +151,6 @@ leaderboard.forEach(user => {
       globalOutputTokens += amount.out || 0;
     }
   });
-  globalTokens += Number(user.metrics?.total) || 0;
   globalCost += Number(user.metrics?.cost) || 0;
 });
 
@@ -159,9 +159,8 @@ const globalSelected = leaderboard.reduce((sum, user) => sum + rankValue(user), 
 const metricLabel = metricFilter === 'norm' ? 'No cache' : metricFilter === 'cost' ? 'Estimated cost' : 'With cache';
 const secondaryLabel = secondaryMetric === 'cost' ? 'Estimated cost' : 'With cache';
 const activeToolsCount = Object.keys(toolCounts).length;
-const conversations = Math.floor(globalTokens / 200_000);
 const effectiveTokens = globalEffectiveTokens;
-let topTool = 'codex';
+let topTool = 'none';
 let maxCount = 0;
 Object.entries(toolCounts).forEach(([tool, count]) => {
   if (count > maxCount) { maxCount = count; topTool = tool; }
@@ -169,11 +168,8 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
 
 const averageGenerationSpeed = 80; // 80 tokens/sec
 const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) / 60);
-const timeDays = timeFilter === 'all' ? 30 : (parseInt(timeFilter.replace('d', '')) || 1);
-const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
-const timeLabel = timeFilter === 'today' ? 'Today' : timeFilter === 'yesterday' ? 'Yesterday' : timeFilter === 'all' ? 'All-time' : `Last ${timeDays} days`;
+const timeLabel = timeFilter === 'today' ? 'Today' : timeFilter === 'yesterday' ? 'Yesterday' : timeFilter === 'all' ? 'All-time' : `Last ${parseInt(timeFilter, 10)} days`;
 const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
-const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
 ---
 
 <BaseLayout alternatePath="/tokenrank/" languageSwitchPath={`/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="Token Leaderboard — T Salon" description="AI coding usage reported by community participants, shown with cache, without cache, and as estimated cost, with methodology and data notes." image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
@@ -216,7 +212,7 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 3 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">Billable Tokens <span class="help-icon">?</span></span>
+          <span class="bc-title">Tokens Excluding Cache <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {(effectiveTokens / 1_000_000_000).toFixed(2)} <span class="bc-unit">B</span>
@@ -227,12 +223,12 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 4 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">Conversations <span class="help-icon">?</span></span>
+          <span class="bc-title">Output Tokens <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {conversations.toLocaleString()} <span class="bc-unit">chats</span>
+          {formatAmountStr(globalOutputTokens)}
         </div>
-        <div class="bc-subtext">4,000 tokens avg</div>
+        <div class="bc-subtext">Generated output in this window</div>
       </div>
 
       <!-- Card 5 -->
@@ -249,18 +245,18 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 6 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">AI Time <span class="help-icon" title={`Total time the model spent actively generating, counted per generation — not your time online. Basis: ${averageGenerationSpeed} tokens/sec`}>?</span></span>
+          <span class="bc-title">Est. Generation Time <span class="help-icon" title={`Estimate from output token count, not measured duration. Basis: ${averageGenerationSpeed} tokens/sec`}>?</span></span>
         </div>
         <div class="bc-value">
           {aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="bc-unit">{aiUnit}</span>
         </div>
-        <div class="bc-subtext">Daily avg {dailyAiTimeMinutes >= 60 ? (dailyAiTimeMinutes / 60).toFixed(1) : dailyAiTimeMinutes} {dailyAiUnit}</div>
+        <div class="bc-subtext">Output ÷ {averageGenerationSpeed} tokens/sec</div>
       </div>
 
       <!-- Card 7 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">Cache Hit Rate <span class="help-icon">?</span></span>
+          <span class="bc-title">Cache Read Share <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {globalCacheHitRate} <span class="bc-unit">%</span>
@@ -271,12 +267,12 @@ const dailyAiUnit = dailyAiTimeMinutes >= 60 ? 'h' : 'm';
       <!-- Card 8 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">Active Users <span class="help-icon">?</span></span>
+          <span class="bc-title">Ranked Developers <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {stats.totalUsers} <span class="bc-unit">devs</span>
         </div>
-        <div class="bc-subtext">Total developers onboarded</div>
+        <div class="bc-subtext">Developers in this window · Top 100</div>
       </div>
     </div>
 

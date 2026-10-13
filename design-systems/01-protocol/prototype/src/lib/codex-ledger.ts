@@ -93,18 +93,13 @@ export interface CodexLedgerView {
   state: CodexLedgerGenerationState;
 }
 
-const generationTimeseriesByView = new WeakMap<CodexLedgerView, Promise<Record<string, string[]> | null>>();
+const generationTimeseriesByView = new WeakMap<CodexRankView, Promise<Record<string, string[]> | null>>();
 
 export interface CodexAccountAudit {
   account_audit_key: string;
   lifetime_tokens: number;
   daily_buckets: Array<{ date: string; tokens: number }>;
   observed_at: string;
-}
-
-interface CodexAccountAuditTotals {
-  lifetime: number;
-  daily: Record<string, number>;
 }
 
 function validAuditDate(value: unknown): value is string {
@@ -213,29 +208,6 @@ export async function storeAccountAuditWithTimeout(
   } finally {
     if (timeout) clearTimeout(timeout);
   }
-}
-
-async function readAccountAuditTotals(redis: RedisLike, userId: string): Promise<CodexAccountAuditTotals | null> {
-  const keys = await scanKeys(redis, `user:${userId}:codex:audit:*`);
-  if (!keys.length) return null;
-  const daily: Record<string, number> = Object.create(null);
-  let lifetime = 0;
-  let found = false;
-  for (const key of keys) {
-    const raw = await redis.get(key);
-    if (raw === null) continue;
-    try {
-      const audit = sanitizeAccountAudit(JSON.parse(raw));
-      lifetime += audit.lifetime_tokens;
-      for (const bucket of audit.daily_buckets) daily[bucket.date] = (daily[bucket.date] || 0) + bucket.tokens;
-      found = true;
-    } catch {
-      // An old or malformed audit must never block a normal ledger upload.
-    }
-  }
-  if (!found || !Number.isSafeInteger(lifetime)
-    || Object.values(daily).some((tokens) => !Number.isSafeInteger(tokens))) return null;
-  return { lifetime, daily };
 }
 
 function emptyAggregate(): UsageAggregate {
@@ -474,7 +446,7 @@ export async function readCodexLedgerView(redis: RedisLike, userId: string): Pro
       generation,
       prefix,
       turns,
-      summary: parseJsonObject(rawSummary) as CodexLedgerSummary | null,
+      summary: coherentSummary(rawSummary),
       state: parseGenerationState(rawState),
     };
   }
@@ -488,7 +460,7 @@ export async function readCodexLedgerView(redis: RedisLike, userId: string): Pro
     generation: null,
     prefix: null,
     turns: parseTurns(rawTurns),
-    summary: parseJsonObject(rawSummary) as CodexLedgerSummary | null,
+    summary: coherentSummary(rawSummary),
     state,
   };
 }
@@ -497,11 +469,11 @@ export async function readCodexLedgerTimeseries(
   redis: RedisLike,
   userId: string,
   date: string,
-  view?: CodexLedgerView,
+  view?: CodexRankView,
 ): Promise<string[]> {
-  const resolved = view ?? await readCodexLedgerView(redis, userId);
+  const resolved = view ?? await readCodexRankView(redis, userId);
   const legacy = await redis.lrange(`user:${userId}:timeseries:${date}`, 0, -1) as string[];
-  if (!resolved.generation || !resolved.prefix) return legacy;
+  if (!resolved.generation || !resolved.prefix) return coherentLedgerEvents(legacy);
 
   const migratedDevices = new Set(Object.keys(resolved.state.devices));
   const kept = legacy.filter((raw) => {
@@ -520,7 +492,7 @@ export async function readCodexLedgerTimeseries(
   const canonical = generationTimeseries === null
     ? await redis.lrange(`${resolved.prefix}:timeseries:${date}`, 0, -1) as string[]
     : generationTimeseries[date] ?? [];
-  return [...kept, ...canonical];
+  return [...kept, ...coherentLedgerEvents(canonical)];
 }
 
 export async function replaceRedisList(
@@ -572,89 +544,70 @@ function parseEvent(raw: string) {
   }
 }
 
-function buildCodexLedgerTimeseries(
-  canonical: CanonicalTurns,
-  auditDaily: Record<string, number> = Object.create(null),
-): Map<string, string[]> {
+function buildCodexLedgerTimeseries(canonical: CanonicalTurns): Map<string, string[]> {
   const byDate = new Map<string, string[]>();
   for (const [date, models] of Object.entries(canonicalDailyModels(canonical))) {
-    const events: string[] = [];
-    const usages = Object.entries(models);
-    const officialTotal = auditDaily[date];
-    const localTotal = usages.reduce((total, [, usage]) => total + Number(usage.total || 0), 0);
-    // An app-server audit covers only the account currently signed in there.
-    // It must not make a cross-device, cross-account local ledger smaller.
-    const reconciledTotal = Number.isSafeInteger(officialTotal)
-      ? Math.max(officialTotal, localTotal)
-      : null;
-    let remainingOfficialTotal = reconciledTotal;
-    for (let index = 0; index < usages.length; index++) {
-      const [model, usage] = usages[index];
-      const rawTokens = remainingOfficialTotal === null
-        ? usage.total
-        : index === usages.length - 1
-          ? remainingOfficialTotal
-          : localTotal > 0
-            ? Math.floor((reconciledTotal ?? 0) * (Number(usage.total || 0) / localTotal))
-            : 0;
-      if (remainingOfficialTotal !== null) remainingOfficialTotal -= rawTokens;
-      events.push(JSON.stringify({
-        timestamp: new Date(`${date}T00:00:00.000Z`).getTime(),
-        tool: 'codex',
-        model,
-        tokens: usage.norm,
-        // The audit is a lower-bound check for one active account; local model
-        // data preserves the aggregate across devices and accounts.
-        rawTokens,
-        normTokens: usage.norm,
-        inTokens: usage.net_new_input,
-        outTokens: usage.output,
-        cacheReadTokens: usage.cache_read,
-        cacheWriteTokens: usage.cache_write,
-        cacheHit: usage.cache_read > 0,
-        source: 'codex-ledger-v5',
-        costUsd: usage.cost,
-        pricingEstimated: usage.estimated,
-        pricingSnapshotDate: PRICING_SNAPSHOT_DATE,
-      }));
-    }
-    byDate.set(date, events);
-  }
-  for (const [date, rawTokens] of Object.entries(auditDaily)) {
-    if (byDate.has(date)) continue;
-    byDate.set(date, [JSON.stringify({
-      timestamp: new Date(`${date}T00:00:00.000Z`).getTime(),
-      tool: 'codex',
-      model: 'unknown',
-      tokens: 0,
-      rawTokens,
-      normTokens: 0,
-      inTokens: 0,
-      outTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      cacheHit: false,
-      source: 'codex-ledger-v5',
-      costUsd: 0,
-      pricingEstimated: true,
+    byDate.set(date, Object.entries(models).map(([model, usage]) => JSON.stringify({
+      timestamp: new Date(date + 'T00:00:00.000Z').getTime(),
+      tool: 'codex', model, tokens: usage.norm, rawTokens: usage.total,
+      normTokens: usage.norm, inTokens: usage.net_new_input, outTokens: usage.output,
+      cacheReadTokens: usage.cache_read, cacheWriteTokens: usage.cache_write,
+      cacheHit: usage.cache_read > 0, source: 'codex-ledger-v5',
+      costUsd: usage.cost, pricingEstimated: usage.estimated,
       pricingSnapshotDate: PRICING_SNAPSHOT_DATE,
-    })]);
+    })));
   }
   return byDate;
 }
 
-function applyAccountAuditTotals(summary: CodexLedgerSummary, audit: CodexAccountAuditTotals | null): CodexLedgerSummary {
-  if (!audit) return summary;
-  const daily = structuredClone(summary.daily);
-  for (const [date, total] of Object.entries(audit.daily)) {
-    daily[date] ||= emptyAggregate();
-    daily[date].total = Math.max(Number(daily[date].total) || 0, total);
+// Account snapshots used to overwrite total alone. Rebuild the read view from
+// the original daily counters, without rewriting records or loading all turns.
+function coherentSummary(raw: string | null): CodexLedgerSummary | null {
+  const summary = parseJsonObject(raw) as CodexLedgerSummary | null;
+  const completeCounters = (usage: Record<string, any>) => usage &&
+    ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write'].every(key =>
+      typeof usage[key] === 'number' && Number.isFinite(usage[key]) && Number(usage[key]) >= 0);
+  if (!summary?.daily || !completeCounters(summary.lifetime)
+    || !Object.values(summary.daily).every(completeCounters)) return summary;
+  const lifetime = emptyAggregate();
+  const daily: CodexLedgerSummary['daily'] = Object.create(null);
+  for (const [date, source] of Object.entries(summary.daily)) {
+    const usage: UsageAggregate = { ...source, total: Number(source.input_total) + Number(source.output),
+      norm: Number(source.net_new_input) + Number(source.output) };
+    if (usage.total === 0) continue; // audit-only dates have no measured usage
+    daily[date] = usage;
+    addAggregate(lifetime, usage, Number(usage.cost) || 0, Boolean(usage.estimated));
   }
-  return {
-    ...summary,
-    lifetime: { ...summary.lifetime, total: audit.lifetime },
-    daily,
-  };
+  return { ...summary, lifetime, daily };
+}
+
+function coherentLedgerEvents(events: string[]): string[] {
+  return events.flatMap(raw => {
+    const event = parseEvent(raw);
+    if (event?.source !== 'codex-ledger-v5') return [raw];
+    if (!['normTokens', 'cacheReadTokens', 'cacheWriteTokens'].every(key =>
+      typeof event[key] === 'number' && Number.isFinite(event[key]) && event[key] >= 0)) return [raw];
+    const total = (Number(event.normTokens) || 0) + (Number(event.cacheReadTokens) || 0)
+      + (Number(event.cacheWriteTokens) || 0);
+    return total > 0 ? [JSON.stringify({ ...event, rawTokens: total })] : [];
+  });
+}
+
+export type CodexRankView = Omit<CodexLedgerView, 'turns'>;
+
+export async function readCodexRankView(redis: RedisLike, userId: string): Promise<CodexRankView> {
+  const generation = await redis.get(generationPointerKey(userId));
+  if (generation) {
+    const prefix = generationPrefix(userId, generation);
+    const [summary, state] = await Promise.all([
+      readChunkedString(redis, prefix + ':summary'), readChunkedString(redis, prefix + ':state'),
+    ]);
+    return { generation, prefix, summary: coherentSummary(summary), state: parseGenerationState(state) };
+  }
+  const [summary, state] = await Promise.all([
+    redis.get('user:' + userId + ':codex:summary'), readLegacyGenerationState(redis, userId),
+  ]);
+  return { generation: null, prefix: null, summary: coherentSummary(summary), state };
 }
 
 async function scanKeys(redis: RedisLike, pattern: string): Promise<string[]> {
@@ -840,10 +793,8 @@ export async function syncCodexLedger(
     turn_keys: validIncoming.map((record) => record.turn_key).sort(),
   };
 
-  const localSummary = aggregateCanonicalTurns(canonical);
-  const auditTotals = await readAccountAuditTotals(redis, userId);
-  const summary = applyAccountAuditTotals(localSummary, auditTotals);
-  const timeseries = buildCodexLedgerTimeseries(canonical, auditTotals?.daily);
+  const summary = aggregateCanonicalTurns(canonical);
+  const timeseries = buildCodexLedgerTimeseries(canonical);
   const nextState = emptyGenerationState();
   for (const [previousDeviceId, previousDevice] of Object.entries(previousView.state.devices)) {
     nextState.devices[previousDeviceId] = structuredClone(previousDevice);

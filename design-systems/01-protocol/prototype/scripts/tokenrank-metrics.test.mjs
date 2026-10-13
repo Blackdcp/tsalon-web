@@ -101,9 +101,30 @@ test('personal page presentation never leaks lifetime tools or composition into 
   });
   assert.deepEqual(domain.personalRankPresentation('all', [], profileTokens), {
     toolsUsed: 1,
-    inTokens: 900,
+    inTokens: 500,
     outTokens: 100,
     cacheRead: 400,
     cacheWrite: 0,
   });
+});
+
+test('period and lifetime compositions count cached input once and ignore zero tools', () => {
+  const event = { tool:'codex', source:'codex-ledger-v5', rawTokens:1000, normTokens:600,
+    inTokens:500, outTokens:100, cacheReadTokens:400, cacheWriteTokens:0, costUsd:1 };
+  const aggregate = domain.aggregateRankEvents([event]);
+  aggregate.tokens.empty = { total:0, in:0, out:0 };
+  assert.equal(aggregate.tokens.codex.in, 900);
+  const period = domain.personalRankPresentation('30d', [event], {});
+  const lifetime = domain.personalRankPresentation('all', [], aggregate.tokens);
+  assert.deepEqual(lifetime, period);
+  assert.equal(period.inTokens + period.outTokens + period.cacheRead + period.cacheWrite, 1000);
+  assert.equal(lifetime.toolsUsed, 1);
+});
+
+
+test('model breakdown preserves measured models and empty periods never borrow lifetime usage', () => {
+  const profile = {total:1000,codex:{total:1000,norm:500,cost:2,models:{'gpt-a':{total:700,norm:300,cost:1.5},'gpt-b':{total:300,norm:200,cost:0.5}}}};
+  assert.deepEqual(domain.rankBreakdowns('today',[],profile),{tools:{},models:{}});
+  assert.deepEqual(domain.rankBreakdowns('all',[],profile),{tools:{codex:1000},models:{'gpt-a':700,'gpt-b':300}});
+  assert.deepEqual(domain.rankBreakdowns('all',[],profile,'cost'),{tools:{codex:2},models:{'gpt-a':1.5,'gpt-b':0.5}});
 });

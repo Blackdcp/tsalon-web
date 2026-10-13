@@ -1,9 +1,9 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
-import { kv, getUserAnalytics } from '../../../../lib/kv';
+import { getUserRankData, getLeaderboard, getUserAnalytics } from '../../../../lib/kv';
 import { beijingDateString, beijingDateNDaysAgo } from '../../../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../../../lib/token-pricing.mjs';
-import { personalRankPresentation, rankEventMetric, rankMetricsFromTokens, resolveRankQuery, summarizeRankWindow } from '../../../../lib/tokenrank-domain.mjs';
+import { rankBreakdowns, personalRankPresentation, rankEventMetric, rankMetricsFromTokens, resolveRankQuery, summarizeRankWindow } from '../../../../lib/tokenrank-domain.mjs';
 
 export const prerender = false;
 
@@ -24,12 +24,11 @@ else if (timeFilter === '90d') days = 90;
 else if (timeFilter === 'all') days = 365;
 
 // Verify user exists
-const userDataStr = await kv?.get(`user:${id}:data`);
-if (!userDataStr) {
+const userData = await getUserRankData(id as string);
+if (!userData) {
   return Astro.redirect('/en/tokenrank');
 }
-const userData = JSON.parse(userDataStr);
-const profileMetrics = userData.metrics || rankMetricsFromTokens(userData.tokens);
+const profileMetrics: Record<string, number> = userData.metrics || rankMetricsFromTokens(userData.tokens);
 
 // --- Derived, per-user facts to replace the old hardcoded label ---
 let joinDays = 0;
@@ -57,11 +56,9 @@ if (userData.tokens) {
 }
 const topToolLabel = topTool ? (TOOL_LABELS[topTool] || topTool) : '';
 
-let lifetimeRank: number | null = null;
-if (kv) {
-  const r = await kv.zrevrank(`leaderboard:${metricFilter}`, id as string);
-  if (typeof r === 'number') lifetimeRank = r + 1;
-}
+const lifetimeRows = await getLeaderboard(Number.MAX_SAFE_INTEGER, 'all', metricFilter);
+const rankIndex = lifetimeRows.findIndex(row => row.userId === id);
+const lifetimeRank = rankIndex >= 0 ? rankIndex + 1 : null;
 
 // Fetch analytics
 const rawEvents = await getUserAnalytics(id as string, days);
@@ -149,20 +146,14 @@ const windowLabel = timeFilter === 'all' ? 'available event window (up to 365 da
 const dailyMap: Record<string, any> = {};
 events.forEach(e => {
   const d = beijingDateString(new Date(e.timestamp));
-  if (!dailyMap[d]) dailyMap[d] = { tokens: 0, total: 0, cost: 0, cache: 0, sessions: 0, tools: {} as Record<string, number> };
+  if (!dailyMap[d]) dailyMap[d] = { tokens: 0, total: 0, cost: 0, cache: 0, output: 0, tools: {} as Record<string, number> };
   dailyMap[d].tokens += eventMetric(e);
   dailyMap[d].total += eventTotal(e);
   dailyMap[d].cost += eventCost(e);
+  dailyMap[d].output += Number(e.outTokens) || 0;
   dailyMap[d].cache += Number(e.cacheReadTokens) || 0;
   dailyMap[d].tools[e.tool] = (dailyMap[d].tools[e.tool] || 0) + eventMetric(e);
 });
-// Deterministic session estimate: ~200k tokens per session, min 1 when active.
-const AVG_TOKENS_PER_SESSION = 200_000;
-for (const d of Object.keys(dailyMap)) {
-  const dayTokens = dailyMap[d].total;
-  dailyMap[d].sessions = dayTokens > 0 ? Math.max(1, Math.round(dayTokens / AVG_TOKENS_PER_SESSION)) : 0;
-}
-
 // Real period composition (in/out/cache) straight from events; fall back to the
 // persistent user breakdown when the timeseries window has expired (e.g. 'all').
 const periodInTokens = presentation.inTokens;
@@ -171,8 +162,6 @@ const periodCacheRead = presentation.cacheRead;
 const periodCacheWrite = presentation.cacheWrite;
 // AI time = actual generated (output) tokens / 80 tok per second, in minutes.
 const aiTimeMinutes = periodOutTokens > 0 ? Math.floor(periodOutTokens / 80 / 60) : 0;
-const totalConversations = Object.values(dailyMap).reduce((s, d) => s + (d.sessions || 0), 0);
-const avgTokensPerConv = totalConversations > 0 ? windowMetricTotal / totalConversations : 0;
 
 // Token composition percentages (replaces the hardcoded 6.4/0.7/92.8 split).
 const compSum = periodInTokens + periodOutTokens + periodCacheRead + periodCacheWrite;
@@ -194,7 +183,7 @@ for (const [date, data] of Object.entries(dailyMap)) {
 // Streak
 let activeStreak = 0;
 for (let i = 0; i < days; i++) {
-  const dStr = beijingDateNDaysAgo(i);
+  const dStr = beijingDateNDaysAgo(i + (timeFilter === 'yesterday' ? 1 : 0));
   if (dailyMap[dStr] && dailyMap[dStr].total > 0) {
     activeStreak++;
   } else {
@@ -241,43 +230,9 @@ for(let i=days-1; i>=0; i--) {
 const dailyUsage = lastXDays.map(date => dailyMap[date]?.tokens || 0);
 const dailyCost = lastXDays.map(date => dailyMap[date]?.cost || 0);
 
-const toolBreakdown: Record<string, number> = {};
-const modelBreakdown: Record<string, number> = {};
-
-// For 'all' mode, prefer the persistent userData (timeseries events have a 31-day
-// TTL so they miss any tool whose data is older than that).
-if (timeFilter === 'all' && userData && userData.tokens) {
-  Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
-    if (tool === 'total' || tool === 'history') return;
-    const tot = typeof rawVal === 'object' && rawVal !== null
-      ? Number(rawVal[metricFilter] ?? rawVal.total) || 0
-      : (metricFilter === 'cost' ? 0 : Number(rawVal) || 0);
-    toolBreakdown[tool] = tot;
-    let mod = 'unknown';
-    if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') mod = 'gpt-5.6-sol';
-    else if (tool === 'antigravity') mod = 'gemini-2.5-pro';
-    else if (tool === 'claude') mod = 'claude-3-5-sonnet';
-    modelBreakdown[mod] = (modelBreakdown[mod] || 0) + tot;
-  });
-} else if (events.length > 0) {
-  events.forEach(e => {
-    toolBreakdown[e.tool] = (toolBreakdown[e.tool] || 0) + eventMetric(e);
-    modelBreakdown[e.model] = (modelBreakdown[e.model] || 0) + eventMetric(e);
-  });
-} else if (userData && userData.tokens) {
-  Object.entries(userData.tokens).forEach(([tool, rawVal]: [string, any]) => {
-    if (tool === 'total' || tool === 'history') return;
-    const tot = typeof rawVal === 'object' && rawVal !== null
-      ? Number(rawVal[metricFilter] ?? rawVal.total) || 0
-      : (metricFilter === 'cost' ? 0 : Number(rawVal) || 0);
-    toolBreakdown[tool] = tot;
-    let mod = 'unknown';
-    if (tool === 'codex' || tool === 'cursor' || tool === 'codex_proxy') mod = 'gpt-5.6-sol';
-    else if (tool === 'antigravity') mod = 'gemini-2.5-pro';
-    else if (tool === 'claude') mod = 'claude-3-5-sonnet';
-    modelBreakdown[mod] = (modelBreakdown[mod] || 0) + tot;
-  });
-}
+const breakdown = rankBreakdowns(timeFilter, events, userData.tokens, metricFilter);
+const toolBreakdown: Record<string, number> = breakdown.tools;
+const modelBreakdown: Record<string, number> = breakdown.models;
 
 const toolKeys = Object.keys(toolBreakdown).sort((a,b) => toolBreakdown[b] - toolBreakdown[a]);
 const toolValues = toolKeys.map(k => toolBreakdown[k]);
@@ -347,17 +302,17 @@ const chartData = {
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">Billable Tokens ❔</span>
+          <span class="label">Tokens Excluding Cache ❔</span>
         </div>
         <div class="value">{freshTokensObj.val}<span class="unit">{freshTokensObj.unit}</span></div>
         <div class="subtext">{(periodRawTokens > 0 ? (freshTokens / periodRawTokens * 100).toFixed(1) : 0)}% of raw tokens</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">Conversations ❔</span>
+          <span class="label">Output Tokens ❔</span>
         </div>
-        <div class="value">{totalConversations.toLocaleString()} <span class="unit">chats</span></div>
-        <div class="subtext">{formatAmountStr(avgTokensPerConv)} avg</div>
+        <div class="value">{formatAmountStr(periodOutTokens, 'total')}</div>
+        <div class="subtext">Generated output in this window</div>
       </div>
 
       <div class="stat-card">
@@ -369,14 +324,14 @@ const chartData = {
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">AI Time ❔</span>
+          <span class="label">Est. Generation Time ❔</span>
         </div>
         <div class="value">{aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="unit">{aiUnit}</span></div>
-        <div class="subtext">Est. at 80 tokens/sec of active generation</div>
+        <div class="subtext">Output ÷ 80 tokens/sec · estimate</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">Cache Hit Rate{timeFilter === 'all' ? ' (lifetime)' : ''} ❔</span>
+          <span class="label">Cache Read Share{timeFilter === 'all' ? ' (lifetime)' : ''} ❔</span>
         </div>
         <div class="value">{cacheHitRate}<span class="unit">%</span></div>
         <div class="subtext">Cache read {formatAmountStr(cacheReadTokensTotal, 'total')}</div>
@@ -386,7 +341,7 @@ const chartData = {
           <span class="label">Active Streak ❔</span>
         </div>
         <div class="value">{activeStreak} <span class="unit">days</span></div>
-        <div class="subtext">Since joining {joinDate}</div>
+        <div class="subtext">Through {timeFilter === 'yesterday' ? yesterdayDateStr : todayDateStr} · selected window</div>
       </div>
     </div>
 
@@ -498,8 +453,8 @@ const chartData = {
               {tableTools.map(t => <th>{t === 'codex' ? 'Codex' : t === 'antigravity' ? 'Antigravity' : t === 'codex_proxy' ? 'Codex' : t.charAt(0).toUpperCase() + t.slice(1)}</th>)}
               <th>{metricLabel}</th>
               <th>Cost</th>
-              <th>Sessions</th>
-              <th>Hit rate</th>
+              <th>Output tokens</th>
+              <th>Cache read share</th>
             </tr>
           </thead>
           <tbody>
@@ -513,7 +468,7 @@ const chartData = {
                   {tableTools.map(t => <td>{dData.tools[t] > 0 ? formatAmountStr(dData.tools[t], metricFilter) : '—'}</td>)}
                   <td class="td-total">{formatAmountStr(dData.tokens, metricFilter)}</td>
                   <td>${dData.cost.toFixed(2)}</td>
-                  <td>{dData.sessions}</td>
+                  <td>{formatAmountStr(dData.output, 'total')}</td>
                   <td>
                     <div class="hit-rate-cell">
                       <span>{hitRate.toFixed(1)}%</span>

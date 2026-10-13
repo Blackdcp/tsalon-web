@@ -89,7 +89,7 @@ const seoJsonLd = [
     '@type': 'Dataset',
     name: 'T Salon TokenRank — AI 编程 Token 消耗数据集',
     description:
-      '由 T Salon 第一方采集的 AI 编程工具真实 Token 消耗数据集。开发者通过开源上报 agent 提交本地用量，数据按北京时间分桶，提供含缓存总量、不含缓存量与预估费用三种口径，并统计缓存命中率与工具分布。',
+      '由 T Salon 第一方采集的 AI 编程工具真实 Token 消耗数据集。开发者通过开源上报 agent 提交本地用量，数据按北京时间分桶，提供含缓存总量、不含缓存量与预估费用三种口径，并统计缓存读占比率与工具分布。',
     url: tokenRankUrl,
     creator: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
     publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
@@ -123,7 +123,6 @@ const formatAmountStr = (num: any) => {
 };
 
 // --- Calculate Dynamic Global Metrics for Dashboard ---
-let globalTokens = 0;
 let globalRawTokens = 0;
 let globalEffectiveTokens = 0;
 let globalCost = 0;
@@ -133,8 +132,10 @@ const toolCounts: Record<string, number> = {};
 
 leaderboard.forEach(user => {
   Object.entries(user.tokens).forEach(([tool, amount]: [string, any]) => {
-    if (tool === 'total') return;
-    toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+    if (tool === 'total' || tool === 'history') return;
+    const volume = typeof amount === 'number' ? amount : Number(amount?.raw_total ?? amount?.total) || 0;
+    if (volume <= 0) return;
+    toolCounts[tool] = (toolCounts[tool] || 0) + volume;
     
     if (typeof amount === 'number') {
       globalRawTokens += amount;
@@ -148,7 +149,6 @@ leaderboard.forEach(user => {
       globalOutputTokens += amount.out || 0;
     }
   });
-  globalTokens += Number(user.metrics?.total) || 0;
   globalCost += Number(user.metrics?.cost) || 0;
 });
 
@@ -157,9 +157,8 @@ const globalSelected = leaderboard.reduce((sum, user) => sum + rankValue(user), 
 const metricLabel = metricFilter === 'norm' ? '不含缓存' : metricFilter === 'cost' ? '预估费用' : '含缓存';
 const secondaryLabel = secondaryMetric === 'cost' ? '预估费用' : '含缓存';
 const activeToolsCount = Object.keys(toolCounts).length;
-const conversations = Math.floor(globalTokens / 200_000);
 const effectiveTokens = globalEffectiveTokens;
-let topTool = 'codex';
+let topTool = '无';
 let maxCount = 0;
 Object.entries(toolCounts).forEach(([tool, count]) => {
   if (count > maxCount) { maxCount = count; topTool = tool; }
@@ -167,8 +166,6 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
 
 const averageGenerationSpeed = 80; // 80 tokens/sec
 const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) / 60);
-const timeDays = timeFilter === 'all' ? 30 : (parseInt(timeFilter.replace('d', '')) || 1);
-const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
 ---
 
 <BaseLayout alternatePath="/en/tokenrank/" languageSwitchPath={`/en/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="AI 编程 Token 用量排行榜与统计口径 — T Salon" description="查看社区参与者主动上报的 AI 编程 Token 用量排行，可切换含缓存、不含缓存和预估费用等指标，并阅读统计口径与数据说明。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
@@ -212,7 +209,7 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <!-- Card 3 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">有效 token <span class="help-icon">?</span></span>
+          <span class="bc-title">不含缓存 token <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {(effectiveTokens / 100_000_000).toFixed(2)} <span class="bc-unit">亿</span>
@@ -223,12 +220,12 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <!-- Card 4 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">对话次数 <span class="help-icon">?</span></span>
+          <span class="bc-title">输出 token <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
-          {conversations.toLocaleString()} <span class="bc-unit">次</span>
+          {formatAmountStr(globalOutputTokens)}
         </div>
-        <div class="bc-subtext">次均 4,000 tokens</div>
+        <div class="bc-subtext">所选时间范围内的生成输出</div>
       </div>
 
       <!-- Card 5 -->
@@ -245,12 +242,12 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <!-- Card 6 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">AI 耗时 <span class="help-icon" title={`模型实际生成内容的耗时累计（按每轮生成计时），不含等待输入的空闲，非使用者在线时长。\n当前估算基准：${averageGenerationSpeed} tokens/秒`}>?</span></span>
+          <span class="bc-title">预估生成时长 <span class="help-icon" title={`根据输出 token 换算的估计值，不代表实测耗时。\n当前估算基准：${averageGenerationSpeed} tokens/秒`}>?</span></span>
         </div>
         <div class="bc-value">
           {aiTimeMinutes >= 60 ? (aiTimeMinutes / 60).toFixed(1) : aiTimeMinutes} <span class="bc-unit">{aiTimeMinutes >= 60 ? '小时' : '分钟'}</span>
         </div>
-        <div class="bc-subtext">日均 {dailyAiTimeMinutes >= 60 ? (dailyAiTimeMinutes / 60).toFixed(1) : dailyAiTimeMinutes} {dailyAiTimeMinutes >= 60 ? '小时' : '分钟'}</div>
+        <div class="bc-subtext">输出量 ÷ {averageGenerationSpeed} tokens/秒</div>
       </div>
 
       <!-- Card 7 -->
@@ -267,12 +264,12 @@ const dailyAiTimeMinutes = Math.floor(aiTimeMinutes / timeDays);
       <!-- Card 8 -->
       <div class="bento-card">
         <div class="bc-header">
-          <span class="bc-title">连续活跃 <span class="help-icon">?</span></span>
+          <span class="bc-title">榜单人数 <span class="help-icon">?</span></span>
         </div>
         <div class="bc-value">
           {stats.totalUsers} <span class="bc-unit">人</span>
         </div>
-        <div class="bc-subtext">累计接入开发者</div>
+        <div class="bc-subtext">所选时间范围内的 Top 100 用户</div>
       </div>
     </div>
 

@@ -4,6 +4,7 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 
 import {
   readCodexLedgerTimeseries,
+  readCodexRankView,
   readCodexLedgerView,
   replaceRedisList,
   storeAccountAudit,
@@ -82,7 +83,7 @@ test('a single-account audit cannot reduce the cross-account local Codex daily t
   const [event] = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
   assert.equal(JSON.parse(event).rawTokens, 500);
   assert.equal(summary.daily['2026-08-18'].total, 500);
-  assert.equal(summary.lifetime.total, 2_000);
+  assert.equal(summary.lifetime.total, 500);
 });
 
 test('official audits cannot reduce the locally aggregated multi-account daily total', async () => {
@@ -107,10 +108,10 @@ test('official audits cannot reduce the locally aggregated multi-account daily t
   const [event] = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
   assert.equal(JSON.parse(event).rawTokens, 900);
   assert.equal(summary.daily['2026-08-18'].total, 900);
-  assert.equal(summary.lifetime.total, 5_000);
+  assert.equal(summary.lifetime.total, 900);
 });
 
-test('official account audit raises a lower local Codex daily total', async () => {
+test('account snapshots never overwrite any ranked ledger counters', async () => {
   const redis = new FakeRedis();
   await storeAccountAudit(redis, 'u1', {
     account_audit_key: 'e'.repeat(64),
@@ -124,8 +125,9 @@ test('official account audit raises a lower local Codex daily total', async () =
   ]));
 
   const [event] = await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18');
-  assert.equal(JSON.parse(event).rawTokens, 500);
-  assert.equal(summary.daily['2026-08-18'].total, 500);
+  assert.equal(JSON.parse(event).rawTokens, 200);
+  assert.equal(summary.daily['2026-08-18'].total, 200);
+  assert.equal(summary.lifetime.total, 200);
 });
 
 test('account audit storage rejects email, malformed keys, and invalid daily buckets', async () => {
@@ -1116,4 +1118,96 @@ test('successful generation publication removes only equivalent pre-generation C
   assert.equal(await redis.get('user:u1:device:mac:codex-manifest'), null);
   assert.equal(await redis.get('user:u1:device:bad:codex-ledger-version'), 'not-v5');
   assert.equal(await redis.get('user:u1:device:bad:codex-manifest'), '{bad-json');
+});
+
+
+test('existing audit-mixed generations project coherent lifetime and daily counters without loading turns', async () => {
+  const redis = new FakeRedis();
+  await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([turnRecord('existing', 900)]));
+  const generation = await redis.get('user:u1:codex:active-generation');
+  const prefix = 'user:u1:codex:generation:' + generation;
+  const summary = JSON.parse(await redis.get(prefix + ':summary'));
+  summary.lifetime.total = 30;
+  summary.daily['2026-08-18'].total = 2_000;
+  await redis.set(prefix + ':summary', JSON.stringify(summary));
+  const tsKey = prefix + ':timeseries:gzip-base64-v1';
+  const ts = JSON.parse(gunzipSync(Buffer.from(await redis.get(tsKey), 'base64')));
+  ts.dates['2026-08-18'] = ts.dates['2026-08-18'].map(raw => JSON.stringify({ ...JSON.parse(raw), rawTokens: 2_000 }));
+  await redis.set(tsKey, gzipSync(JSON.stringify(ts)).toString('base64'));
+  const get = redis.get.bind(redis);
+  redis.get = key => {
+    assert.equal(key.includes(':turns'), false, 'rank reads must not fetch the full ledger');
+    return get(key);
+  };
+  const view = await readCodexRankView(redis, 'u1');
+  const events = (await readCodexLedgerTimeseries(redis, 'u1', '2026-08-18', view)).map(JSON.parse);
+  assert.equal(view.summary.lifetime.total, 900);
+  assert.equal(view.summary.daily['2026-08-18'].total, 900);
+  assert.equal(events.reduce((sum,e) => sum + e.rawTokens, 0), 900);
+  assert.equal(view.summary.lifetime.total, view.summary.lifetime.norm + view.summary.lifetime.cache_read + view.summary.lifetime.cache_write);
+  assert.equal(JSON.parse(await get(prefix + ':summary')).lifetime.total, 30, 'read compatibility never rewrites storage');
+});
+
+test('existing profiles replace audit-mixed Codex while preserving other tools and unmigrated devices', async () => {
+  const redis = new FakeRedis();
+  await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload([turnRecord('profile', 900)]));
+  await redis.set('user:u1:data', JSON.stringify({ userId:'u1', name:'One', tokens:{ total:150, codex:{total:100}, cherry:{total:50,norm:50,cost:0} } }));
+  await redis.set('user:u1:device:windows:data', JSON.stringify({tokens:{codex:{total:999_999}}}));
+  await redis.set('user:u1:device:older:data', JSON.stringify({tokens:{codex:{total:20, in:15, out:5}}}));
+  const row = await kvModule.getUserRankDataWithRedis(redis, 'u1');
+  assert.equal(row.tokens.codex.total, 920);
+  assert.equal(row.tokens.cherry.total, 50);
+  assert.equal(row.metrics.total, 970);
+  assert.equal(row.tokens.codex.total, row.tokens.codex.norm + row.tokens.codex.cache_read + row.tokens.codex.cache_write);
+});
+
+
+test('all time tabs and ranking metrics remain monotone after repairing old audit totals', async () => {
+  const redis = new FakeRedis();
+  redis.zrevrange = async (key, start, end) => {
+    const ids = [...(redis.sortedSets.get(key) || [])].sort((a,b) => b[1]-a[1]).map(([id])=>id);
+    return ids.slice(start, end === -1 ? undefined : end+1);
+  };
+  const date = (days) => new Date(Date.now()+8*3600000-days*86400000).toISOString().slice(0,10);
+  const records = [0,1,2,6,29,89,120].map((days,index) => {
+    const record = turnRecord('day-'+days, (index+1)*100);
+    record.daily = { [date(days)]: Object.values(record.daily)[0] };
+    return record;
+  });
+  await syncCodexLedger(redis, 'u1', 'windows', ledgerPayload(records));
+  const generation = await redis.get('user:u1:codex:active-generation');
+  const key = 'user:u1:codex:generation:' + generation + ':summary';
+  const summary = JSON.parse(await redis.get(key));
+  summary.lifetime.total = 10;
+  await redis.set(key, JSON.stringify(summary));
+  await redis.set('user:u1:data', JSON.stringify({userId:'u1',tokens:{total:10,codex:{total:10}}}));
+  await redis.set('user:u2:data', JSON.stringify({userId:'u2',tokens:{total:1000,other:{total:1000,norm:1000,cost:0.01}}}));
+  await redis.zadd('leaderboard:total',10,'u1');
+  await redis.zadd('leaderboard:total',1000,'u2');
+  for (const metric of ['total','norm','cost']) {
+    let previous = 0;
+    for (const time of ['today','3d','7d','30d','90d','all']) {
+      const rows = await kvModule.getLeaderboardWithRedis(redis,100,time,metric);
+      const row = rows.find(row => row.userId === 'u1');
+      assert.ok(row.metrics[metric] >= previous, metric+' '+time);
+      previous = row.metrics[metric];
+      for (const tool of Object.values(row.tokens).filter(value => typeof value === 'object')) {
+        assert.equal(tool.total, tool.norm+tool.cache_read+tool.cache_write);
+        assert.equal(tool.total, tool.in+tool.out);
+      }
+    }
+  }
+  const allTop = await kvModule.getLeaderboardWithRedis(redis,1,'all','total');
+  assert.equal(allTop[0].userId,'u1','sort corrected values before applying limit');
+  const yesterday = await kvModule.getLeaderboardWithRedis(redis,100,'yesterday','total');
+  assert.equal(yesterday[0].metrics.total,200);
+});
+
+test('audit-only empty ledger projects zero while incomplete legacy summaries remain untouched', async () => {
+  const redis = new FakeRedis();
+  const empty = {input_total:0,net_new_input:0,output:0,cache_read:0,cache_write:0,norm:0,cost:0,total:999};
+  await redis.set('user:u1:codex:summary', JSON.stringify({lifetime:empty,daily:{},models:{}}));
+  assert.equal((await readCodexRankView(redis,'u1')).summary.lifetime.total,0);
+  await redis.set('user:u1:codex:summary', JSON.stringify({lifetime:{total:999},daily:{},models:{}}));
+  assert.equal((await readCodexRankView(redis,'u1')).summary.lifetime.total,999);
 });

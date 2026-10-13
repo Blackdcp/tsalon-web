@@ -2,6 +2,7 @@ import Redis from 'ioredis';
 import {
   readCodexLedgerTimeseries,
   readCodexLedgerView,
+  readCodexRankView,
   replaceRedisList,
   syncCodexLedger,
   type CodexLedgerPayload,
@@ -793,24 +794,76 @@ export async function updateTokenUsageWithRedis(
   }
 }
 
+// Project old audit-mixed profiles onto the same measured ledger used by periods.
+// No original record is changed by a leaderboard read.
+export async function getUserRankDataWithRedis(redis: any, userId: string): Promise<UserRankData | null> {
+  const raw = await redis.get('user:' + userId + ':data');
+  if (!raw) return null;
+  const row = JSON.parse(raw) as UserRankData;
+  const view = await readCodexRankView(redis, userId);
+  if (view.summary?.lifetime && typeof view.summary.lifetime.input_total === 'number') {
+    const tokens = { ...row.tokens };
+    delete tokens.codex;
+    delete tokens.codex_proxy;
+    const codex = { total:0, raw_total:0, norm:0, in:0, out:0, cache_read:0, cache_write:0, cost:0 };
+    const add = (value: Record<string, any>) => {
+      for (const key of Object.keys(codex) as Array<keyof typeof codex>) codex[key] += Number(value[key]) || 0;
+    };
+    const prefix = 'user:' + userId + ':device:';
+    const deviceKeys: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, keys] = await redis.scan(cursor, 'MATCH', prefix + '*:data', 'COUNT', 500);
+      cursor = next;
+      deviceKeys.push(...keys);
+    } while (cursor !== '0');
+    const legacyKeys = [...new Set(deviceKeys)].filter(key => !view.state.devices[key.slice(prefix.length, -5)]);
+    if (legacyKeys.length) {
+      for (const rawDevice of await redis.mget(legacyKeys)) {
+        if (!rawDevice) continue;
+        const device = JSON.parse(rawDevice);
+        for (const tool of ['codex', 'codex_proxy']) {
+          if (device.tokens?.[tool]) add(normalizeToolTokens(tool, device.tokens[tool]));
+        }
+      }
+    }
+    const life = view.summary.lifetime;
+    add({ total:life.total, raw_total:life.total, norm:life.norm, in:life.input_total,
+      out:life.output, cache_read:life.cache_read, cache_write:life.cache_write, cost:life.cost });
+    tokens.codex = { ...codex, models: view.summary.models, pricing_snapshot_date: PRICING_SNAPSHOT_DATE, pricing_estimated: Boolean(life.estimated) };
+    tokens.total = Object.entries(tokens).reduce((sum,[tool,value]) => tool === 'total' || tool === 'history'
+      ? sum : sum + (typeof value === 'number' ? value : Number(value?.total) || 0), 0);
+    row.tokens = tokens;
+  }
+  row.metrics = rankMetricsFromTokens(row.tokens);
+  return row;
+}
+
+export async function getUserRankData(userId: string) {
+  return kv ? getUserRankDataWithRedis(kv, userId) : null;
+}
+
 async function readVisibleTimeseries(redis: any, userId: string, dates: string[]) {
-  const view = await readCodexLedgerView(redis, userId);
+  const view = await readCodexRankView(redis, userId);
   return Promise.all(dates.map((date) => readCodexLedgerTimeseries(redis, userId, date, view)));
 }
 
 export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetric = 'total'): Promise<UserRankData[]> {
+  return kv ? getLeaderboardWithRedis(kv, limit, time, metric) : [];
+}
+
+export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all', metric: RankMetric = 'total'): Promise<UserRankData[]> {
   if (!kv) return [];
 
-  // 'all' = lifetime ranking straight from the persistent ZSET.
+  // Old ZSET scores may have been replaced by account snapshots. Correct every
+  // candidate before sorting; truncating first would preserve an incorrect rank.
   if (time === 'all') {
-    const userIds = await kv.zrevrange(`leaderboard:${metric}`, 0, limit - 1);
-    if (!userIds || userIds.length === 0) return [];
-    const keys = userIds.map(id => `user:${id}:data`);
-    const results = await kv.mget(keys);
-    const list = results.filter(Boolean).map((res) => {
-      const row = JSON.parse(res as string);
-      return { ...row, metrics: row.metrics || rankMetricsFromTokens(row.tokens) };
-    });
+    const userIds: string[] = await kv.zrevrange('leaderboard:total', 0, -1);
+    const list: UserRankData[] = [];
+    for (let offset = 0; offset < userIds.length; offset += 4) {
+      const rows = await Promise.all(userIds.slice(offset, offset + 4).map(id => getUserRankDataWithRedis(kv, id)));
+      for (const row of rows) if (row) list.push(row);
+    }
     return sortRankRows(list, metric).slice(0, limit);
   }
 
@@ -837,7 +890,7 @@ export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetr
   }
   const window = new Set(targetDates);
 
-  const activeUserIds = await discoverActiveUserIds(window);
+  const activeUserIds = await discoverActiveUserIds(window, kv);
   if (activeUserIds.length === 0) return [];
 
   const baseDataResults = await kv.mget(activeUserIds.map(id => `user:${id}:data`));
@@ -848,7 +901,10 @@ export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetr
     }
   });
 
-  const tsResults = await Promise.all(activeUserIds.map((id) => readVisibleTimeseries(kv, id, targetDates)));
+  const tsResults: string[][][] = [];
+  for (let offset = 0; offset < activeUserIds.length; offset += 4) {
+    tsResults.push(...await Promise.all(activeUserIds.slice(offset, offset + 4).map(id => readVisibleTimeseries(kv, id, targetDates))));
+  }
 
   const aggregatedList: UserRankData[] = [];
   for (let userIndex = 0; userIndex < activeUserIds.length; userIndex++) {
@@ -880,7 +936,7 @@ export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetr
 
 // Scan timeseries keys and return the set of userIds that have data on any date
 // inside `window`. Uses SCAN (non-blocking). Key format: user:{userId}:timeseries:{date}.
-async function discoverActiveUserIds(window: Set<string>): Promise<string[]> {
+async function discoverActiveUserIds(window: Set<string>, kv: any): Promise<string[]> {
   if (!kv) return [];
   const ids = new Set<string>();
   let cursor = '0';
@@ -900,7 +956,7 @@ async function discoverActiveUserIds(window: Set<string>): Promise<string[]> {
     for (const key of keys) {
       const match = /^user:(.+):codex:active-generation$/.exec(key);
       if (!match) continue;
-      const view = await readCodexLedgerView(kv, match[1]);
+      const view = await readCodexRankView(kv, match[1]);
       if (view.state.dates.some((date) => window.has(date))) ids.add(match[1]);
     }
   } while (cursor !== '0');
@@ -916,14 +972,8 @@ export async function getGlobalStats(leaderboardData: UserRankData[] | null = nu
     return { totalUsers, totalTokens };
   }
   
-  const totalUsers = await kv.zcard(`leaderboard:${metric}`);
-  const allScores = await kv.zrange(`leaderboard:${metric}`, 0, -1, 'WITHSCORES');
-  let totalTokens = 0;
-  for (let i = 1; i < allScores.length; i += 2) {
-     totalTokens += Number(allScores[i]) || 0;
-  }
-  
-  return { totalUsers, totalTokens };
+  const rows = await getLeaderboard(Number.MAX_SAFE_INTEGER, 'all', metric);
+  return { totalUsers: rows.length, totalTokens: rows.reduce((sum,row) => sum + row.metrics[metric], 0) };
 }
 
 export async function getUserAnalytics(userId: string, days: number = 30) {

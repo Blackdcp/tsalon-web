@@ -396,6 +396,9 @@ async function getCodexTokens(home) {
   // 1. Native Codex JSONL is authoritative and retains anonymous per-turn data
   // for the v5 full-sync ledger. History stays in the old shape for compatibility.
   const ledger = await scanCodexLedger(home);
+  if (!ledger.authoritative && ledger.files.stale > 0) {
+    throw new Error('Codex cache migration is incomplete; original records were preserved and no upload was attempted.');
+  }
   tokens.codex = ledger.summary;
   tokens.ledger = { version: 5, full_sync: true, authoritative: ledger.authoritative, records: ledger.records };
   for (const record of ledger.records) {

@@ -9,9 +9,7 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     const { time, metric } = resolveRankQuery(new URL(request.url).searchParams);
     const leaderboard = await getLeaderboard(100, time, metric);
-    const stats = time === 'all'
-      ? await getGlobalStats(null, metric)
-      : await getGlobalStats(leaderboard, metric);
+    const stats = await getGlobalStats(leaderboard, metric);
 
     return new Response(JSON.stringify({
       success: true,

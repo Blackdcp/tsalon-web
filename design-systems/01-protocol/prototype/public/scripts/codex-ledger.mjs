@@ -399,7 +399,18 @@ function makeRecord(sessionId, turnId, model) {
   };
 }
 
-async function parseSessionFile(filePath, relativePath) {
+function endsInsideJsonString(text) {
+  let quoted = false;
+  let escaped = false;
+  for (const char of text) {
+    if (escaped) { escaped = false; continue; }
+    if (quoted && char === '\\') { escaped = true; continue; }
+    if (char === '"') quoted = !quoted;
+  }
+  return quoted;
+}
+
+async function parseSessionFile(filePath, relativePath, prefixBytes) {
   const records = new Map();
   let sessionId = null;
   let turnId = null;
@@ -407,22 +418,50 @@ async function parseSessionFile(filePath, relativePath) {
   let previous = null;
   let tokenEventSequence = 0;
   const seenLastUsage = new Set();
-  const input = fs.createReadStream(filePath, { encoding: 'utf8' });
+  const input = fs.createReadStream(filePath, { encoding: 'utf8', ...(prefixBytes ? { end: prefixBytes - 1 } : {}) });
   const lines = createInterface({ input, crlfDelay: Infinity });
+  let fragmented = '';
+  let fragmentLines = 0;
   try {
     for await (const line of lines) {
-      if (!line.trim()) continue;
+      if (!line.trim() && !fragmented) continue;
       let event;
-      try { event = JSON.parse(line); } catch (error) {
+      const json = fragmented ? `${fragmented}\\n${line}` : line;
+      if (fragmented && (fragmentLines >= 1000 || Buffer.byteLength(json) > 8 * 1024 * 1024)) {
+        return { status: 'invalid', records: [] };
+      }
+      try {
+        event = JSON.parse(json);
+        // Only text envelopes may be repaired. Never repair numeric usage,
+        // identity or turn boundaries, and never skip a malformed event.
+        if (fragmented && !(event.type === 'response_item' || event.type === 'compacted'
+          || (event.type === 'event_msg' && event.payload?.type !== 'token_count'))) {
+          throw new SyntaxError('Invalid fragmented usage');
+        }
+      } catch (error) {
+        const textEnvelope = /^\s*\{[^{}]*"type"\s*:\s*"(?:response_item|event_msg|compacted)"\s*[,}]/.test(json);
+        if (textEnvelope && endsInsideJsonString(json) && Buffer.byteLength(json) <= 8 * 1024 * 1024
+          && fragmentLines < 1000) {
+          fragmented = json;
+          fragmentLines++;
+          continue;
+        }
         console.warn(`Codex session ${hash(relativePath).slice(0, 16)}: ${error.name}`);
         return { status: 'invalid', records: [] };
       }
+      fragmented = '';
+      fragmentLines = 0;
       if (event.type === 'session_meta') {
-        sessionId = event.payload?.id || null;
-        turnId = null;
-        model = null;
-        previous = null;
-        tokenEventSequence = 0;
+        // session_id identifies the root shared by full-history forks. Metadata
+        // is also appended on resume; it is not a counter or turn boundary.
+        const nextSessionId = event.payload?.session_id || event.payload?.id || null;
+        if (nextSessionId !== sessionId) {
+          sessionId = nextSessionId;
+          turnId = null;
+          model = null;
+          previous = null;
+          tokenEventSequence = 0;
+        }
         continue;
       }
       if (event.type === 'turn_context') {
@@ -459,7 +498,7 @@ async function parseSessionFile(filePath, relativePath) {
       }
       addTier(record.pricing_tiers[tierName], delta);
     }
-    return { status: 'ok', records: [...records.values()] };
+    return fragmented ? { status: 'invalid', records: [] } : { status: 'ok', records: [...records.values()] };
   } catch (error) {
     return { status: error?.code === 'ENOENT' ? 'deleted' : 'unreadable', records: [] };
   } finally {
@@ -486,7 +525,7 @@ export async function scanCodexLedger(home, options = {}) {
   let cacheVersion = 0;
   try {
     const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-    if ([6, 7].includes(cache?.version) && cache.files && typeof cache.files === 'object') {
+    if ([6, 7, 8].includes(cache?.version) && cache.files && typeof cache.files === 'object') {
       cacheVersion = cache.version;
       cachedFiles = cache.files;
     }
@@ -502,8 +541,9 @@ export async function scanCodexLedger(home, options = {}) {
   for (let index = 0; index < files.length; index++) {
     const filePath = files[index];
     const relativePath = path.relative(sessionsDir, filePath);
-    const sourceKey = hash(`codex-session-cache-v7|${relativePath}`);
-    const rawCached = cacheVersion === 7 ? cachedFiles[sourceKey] : cachedFiles[relativePath];
+    const sourceKey = hash(`codex-session-cache-v8|${relativePath}`);
+    const rawCached = cacheVersion === 8 ? cachedFiles[sourceKey]
+      : cacheVersion === 7 ? cachedFiles[hash(`codex-session-cache-v7|${relativePath}`)] : cachedFiles[relativePath];
     const cachedRecords = sanitizedCachedRecords(rawCached?.records);
     const cached = cachedRecords ? {
       size: Number(rawCached?.size) || 0,
@@ -511,7 +551,7 @@ export async function scanCodexLedger(home, options = {}) {
       records: cachedRecords,
       // A corrected component delta may cross a pricing threshold. Only the
       // original event boundaries can reconstruct the right pricing tiers.
-      needsReparse: Boolean(rawCached?.needsReparse || cachedCountersNeedRepair(rawCached?.records)),
+      needsReparse: Boolean(cacheVersion !== 8 || rawCached?.needsReparse || cachedCountersNeedRepair(rawCached?.records)),
     } : null;
     let stat;
     try { stat = fs.statSync(filePath); } catch (error) {
@@ -519,6 +559,7 @@ export async function scanCodexLedger(home, options = {}) {
       if (error?.code === 'ENOENT') {
         deletedCount++;
       } else if (cached) {
+        if (cached.needsReparse) authoritative = false;
         staleCount++;
         usableFileCount++;
         nextCachedFiles[sourceKey] = cached;
@@ -545,9 +586,19 @@ export async function scanCodexLedger(home, options = {}) {
     } else {
       skippedCount++;
       if (cached) {
-        records = cached.records;
+        // A previous parser's totals are not a safe fallback. If an append was
+        // interrupted, reparse its known complete prefix using the new rules.
+        const prefix = cached.needsReparse && cached.size > 0 && cached.size < stat.size
+          ? await parseSessionFile(filePath, relativePath, cached.size) : null;
+        if (prefix?.status === 'ok') {
+          records = prefix.records;
+          nextCachedFiles[sourceKey] = { ...cached, records, needsReparse: false };
+        } else {
+          records = cached.records;
+          nextCachedFiles[sourceKey] = cached;
+          if (cached.needsReparse) authoritative = false;
+        }
         staleCount++;
-        nextCachedFiles[sourceKey] = cached;
       } else {
         records = [];
       }
@@ -561,7 +612,7 @@ export async function scanCodexLedger(home, options = {}) {
   try {
     fs.mkdirSync(cacheDir, { recursive: true });
     const temporary = `${cachePath}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify({ version: 7, files: nextCachedFiles }));
+    fs.writeFileSync(temporary, JSON.stringify({ version: 8, files: nextCachedFiles }));
     fs.renameSync(temporary, cachePath);
   } catch {}
   const existingFileCount = Math.max(0, files.length - deletedCount);

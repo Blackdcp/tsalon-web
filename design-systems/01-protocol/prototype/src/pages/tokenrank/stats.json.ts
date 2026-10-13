@@ -34,7 +34,8 @@ export const GET: APIRoute = async ({ site }) => {
 
   for (const user of leaderboard) {
     for (const [tool, amount] of Object.entries(user.tokens ?? {}) as [string, any][]) {
-      if (tool === 'total') continue;
+      if (tool === 'total' || tool === 'history') continue;
+      if ((typeof amount === 'number' ? amount : Number(amount?.raw_total ?? amount?.total) || 0) <= 0) continue;
       toolCounts[tool] = (toolCounts[tool] || 0) + 1;
       const value = typeof amount === 'number' ? amount : Number(amount?.raw_total ?? amount?.total) || 0;
       const norm = typeof amount === 'number' ? amount : Number(amount?.norm ?? amount?.total) || 0;
@@ -60,7 +61,7 @@ export const GET: APIRoute = async ({ site }) => {
     scope: { timeWindow: timeFilter, rankingMetric: metricFilter, sampleLimit: 100 },
     countingBases: {
       total: 'All token consumption including cache hits.',
-      normalized: 'Net token consumption after removing cache reads.',
+      normalized: 'Net token consumption after removing cache reads and cache writes.',
       estimatedCostUsd: 'Derived from the model pricing snapshot; an estimate, not a billed amount.',
     },
     totals: {

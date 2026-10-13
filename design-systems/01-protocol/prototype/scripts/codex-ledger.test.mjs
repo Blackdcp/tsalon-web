@@ -313,6 +313,79 @@ test('embedded session replays reset the baseline and last usage is fingerprint-
   assert.equal(scan.summary.total, 120);
 });
 
+test('repeated metadata preserves cumulative baseline, active turn and model', async (t) => {
+  const home = tempHome(t);
+  writeSession(home, 'resumed.jsonl', [
+    sessionMeta('root'), turnContext('turn-a', 'gpt-5.6-sol'),
+    tokenCount('2026-08-18T02:00:00Z', { input_tokens: 100, output_tokens: 10, cached_input_tokens: 80 }),
+    sessionMeta('root'),
+    tokenCount('2026-08-18T02:01:00Z', { input_tokens: 100, output_tokens: 10, cached_input_tokens: 80 }),
+    tokenCount('2026-08-18T02:02:00Z', { input_tokens: 150, output_tokens: 20, cached_input_tokens: 100 }),
+  ]);
+  const scan = await scanCodexLedger(home);
+  assert.equal(scan.summary.total, 170);
+  assert.equal(scan.records.length, 1);
+  assert.equal(scan.records[0].model, 'gpt-5.6-sol');
+  assert.equal(scan.records[0].daily['2026-08-18'].total, 170);
+});
+
+test('fork copies share root and turn identities while retaining each new child turn', async (t) => {
+  const home = tempHome(t);
+  const meta = id => ({...sessionMeta(id), payload:{id, session_id:'root', forked_from_id:id==='root'?null:'root'}});
+  const inherited = [meta('root'),turnContext('parent-turn','gpt-5.6-sol'),
+    tokenCount('2026-08-18T02:00:00Z',{input_tokens:100,output_tokens:0})];
+  writeSession(home,'parent.jsonl',inherited);
+  writeSession(home,'child-a.jsonl',[meta('child-a'),...inherited,meta('child-a'),turnContext('child-a-turn','gpt-5.6-sol'),
+    tokenCount('2026-08-18T03:00:00Z',{input_tokens:120,output_tokens:0})]);
+  writeSession(home,'child-b.jsonl',[meta('child-b'),...inherited,meta('child-b'),turnContext('child-b-turn','gpt-5.6-sol'),
+    tokenCount('2026-08-18T04:00:00Z',{input_tokens:130,output_tokens:0})]);
+  const scan=await scanCodexLedger(home);
+  assert.equal(scan.summary.total,150);
+  assert.equal(scan.records.length,3);
+});
+
+test('a real cumulative counter reset still counts the new usage after repeated metadata', async (t) => {
+  const home=tempHome(t);
+  writeSession(home,'reset.jsonl',[sessionMeta('root'),turnContext('before','gpt-5.6-sol'),
+    tokenCount('2026-08-18T02:00:00Z',{input_tokens:100,output_tokens:0}),sessionMeta('root'),
+    tokenCount('2026-08-18T03:00:00Z',{input_tokens:0,output_tokens:0}),turnContext('after','gpt-5.6-sol'),
+    tokenCount('2026-08-18T03:01:00Z',{input_tokens:25,output_tokens:0})]);
+  const scan=await scanCodexLedger(home);
+  assert.equal(scan.summary.total,125);
+});
+
+test('cache migration reparses a known good prefix after an interrupted append', async (t) => {
+  const home=tempHome(t), name='migration.jsonl';
+  writeTurn(home,name,'migrate','turn',100);
+  await scanCodexLedger(home);
+  const cachePath=path.join(home,'.tsalon','codex-session-cache-v5.json');
+  const cache=JSON.parse(fs.readFileSync(cachePath,'utf8'));
+  for(const file of Object.values(cache.files))file.needsReparse=true;
+  fs.writeFileSync(cachePath,JSON.stringify(cache));
+  fs.appendFileSync(path.join(home,'.codex','sessions','2026','08','18',name),'\n{"truncated":');
+  const migrated=await scanCodexLedger(home);
+  assert.equal(migrated.authoritative,true);
+  assert.equal(migrated.summary.total,100);
+  assert.equal(migrated.files.stale,1);
+});
+
+test('cache migration cannot publish a partial full sync when old records cannot be reparsed', async (t) => {
+  const home=tempHome(t), name='migration.jsonl';
+  writeTurn(home,name,'migrate','turn',100);
+  await scanCodexLedger(home);
+  const cachePath=path.join(home,'.tsalon','codex-session-cache-v5.json');
+  const cache=JSON.parse(fs.readFileSync(cachePath,'utf8'));
+  for(const file of Object.values(cache.files))file.needsReparse=true;
+  fs.writeFileSync(cachePath,JSON.stringify(cache));
+  fs.writeFileSync(path.join(home,'.codex','sessions','2026','08','18',name),'{broken');
+  writeTurn(home,'healthy.jsonl','healthy','healthy-turn',20);
+  const migrated=await scanCodexLedger(home);
+  assert.equal(migrated.authoritative,false);
+  assert.deepEqual(migrated.records,[]);
+  const kept=JSON.parse(fs.readFileSync(cachePath,'utf8'));
+  assert.ok(Object.values(kept.files).some(file=>file.needsReparse&&file.records[0].total===100));
+});
+
 test('long-context calls retain their model and use the long pricing tier', async (t) => {
   const home = tempHome(t);
   writeSession(home, 'long-context.jsonl', [
@@ -325,4 +398,41 @@ test('long-context calls retain their model and use the long pricing tier', asyn
     base: { net_new_input: 0, cache_read: 0, cache_write: 0, output: 0 },
     long: { net_new_input: 300000, cache_read: 0, cache_write: 0, output: 5 },
   });
+});
+
+test('embedded literal newlines in text events recover without skipping usage records', async (t) => {
+  const home = tempHome(t), name = 'multiline.jsonl';
+  writeTurn(home, name, 'multiline', 'turn-1', 100);
+  const file = path.join(home, '.codex', 'sessions', '2026', '08', '18', name);
+  fs.appendFileSync(file, '\n{"type":"response_item","payload":{"text":"first line\nsecond line"}}\n');
+  fs.appendFileSync(file, '{"type":"compacted","payload":{"message":"summary first\nsummary second"}}\n');
+  fs.appendFileSync(file, JSON.stringify(tokenCount('2026-08-18T03:00:00Z', {input_tokens:150,output_tokens:20,cached_input_tokens:20})) + '\n');
+  const result = await scanCodexLedger(home);
+  assert.equal(result.authoritative, true);
+  assert.equal(result.files.skipped, 0);
+  assert.equal(result.summary.total, 170);
+});
+
+test('fragmented numeric usage and truncated text remain invalid', async (t) => {
+  for (const [name, broken] of [
+    ['usage.jsonl','{"type":"event_msg","payload":{"type":"token_count","info":{"note":"bad\nline","total_token_usage":{"input_tokens":100,"output_tokens":0}}}}'],
+    ['truncated.jsonl','{"type":"response_item","payload":{"text":"unfinished'],
+  ]) {
+    const home=tempHome(t);
+    writeTurn(home,name,'broken','turn',100);
+    fs.appendFileSync(path.join(home,'.codex','sessions','2026','08','18',name),'\n'+broken);
+    const result=await scanCodexLedger(home);
+    assert.equal(result.authoritative,false);
+    assert.deepEqual(result.records,[]);
+  }
+});
+
+test('fragment recovery bounds also apply to the final closing line', async (t) => {
+  const home=tempHome(t), name='oversized.jsonl';
+  writeTurn(home,name,'bounded','turn',100);
+  fs.appendFileSync(path.join(home,'.codex','sessions','2026','08','18',name),
+    '\n{"type":"response_item","payload":{"text":"first\n'+'x'.repeat(8*1024*1024)+'"}}');
+  const result=await scanCodexLedger(home);
+  assert.equal(result.authoritative,false);
+  assert.deepEqual(result.records,[]);
 });

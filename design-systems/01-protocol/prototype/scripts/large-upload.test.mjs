@@ -159,3 +159,16 @@ test('client stages full original records then sends one commit request', async 
   assert.equal(commits, 1);
   assert.deepEqual(staged, JSON.parse(JSON.stringify(records)));
 });
+
+test('an unrecoverable old-cache migration stops the agent before any fallback upload', async t => {
+  const home=tempHome(t), name='unsafe.jsonl';
+  writeSession(home,name,[sessionMeta('unsafe'),turnContext('t','gpt-5.6-sol'),tokenCount('2026-10-13T01:00:00Z',{input_tokens:100,output_tokens:0})]);
+  await agent.scanCodexLedger(home);
+  const cachePath=path.join(home,'.tsalon','codex-session-cache-v5.json');
+  const cache=JSON.parse(fs.readFileSync(cachePath,'utf8'));
+  for(const file of Object.values(cache.files))file.needsReparse=true;
+  fs.writeFileSync(cachePath,JSON.stringify(cache));
+  fs.writeFileSync(path.join(home,'.codex','sessions','2026','08','18',name),'{broken');
+  const {getCodexTokens}=await import('../public/scripts/agent.mjs');
+  await assert.rejects(getCodexTokens(home), /Codex cache migration is incomplete/);
+});
