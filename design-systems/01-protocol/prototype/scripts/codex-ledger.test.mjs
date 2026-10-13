@@ -141,16 +141,16 @@ test('a cached file deleted between stat and read is removed from the authoritat
   await syncCodexLedger(redis, 'u1', 'mac', ledgerPayload(initial.records));
   fs.appendFileSync(filePath, '\n');
 
-  const originalReadFileSync = fs.readFileSync;
-  fs.readFileSync = function readAfterDelete(target, ...args) {
+  const originalCreateReadStream = fs.createReadStream;
+  fs.createReadStream = function readAfterDelete(target, ...args) {
     if (String(target) === filePath) fs.rmSync(filePath);
-    return originalReadFileSync.call(this, target, ...args);
+    return originalCreateReadStream.call(this, target, ...args);
   };
   let deleted;
   try {
     deleted = await scanCodexLedger(home);
   } finally {
-    fs.readFileSync = originalReadFileSync;
+    fs.createReadStream = originalCreateReadStream;
   }
 
   assert.equal(deleted.authoritative, true);

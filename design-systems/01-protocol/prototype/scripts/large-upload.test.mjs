@@ -45,6 +45,26 @@ test('component counter corrections produce consistent turn and daily totals', a
   assert.equal(result.summary.total, 2480, 'sum non-negative component deltas; never clamp derived total separately');
 });
 
+test('session scans stream JSONL instead of loading an entire multi-GB file', async t => {
+  const home = tempHome(t);
+  writeSession(home, 'streamed.jsonl', [sessionMeta('streamed'), turnContext('t', 'gpt-5.6-sol'),
+    { type: 'response_item', payload: { text: '中文'.repeat(40000) } },
+    tokenCount('2026-10-13T01:00:00Z', { input_tokens: 1465, output_tokens: 15 }),
+  ]);
+  const readFileSync = fs.readFileSync;
+  fs.readFileSync = function (target, ...args) {
+    if (String(target).endsWith('.jsonl')) throw new Error('Whole-file reads are disabled');
+    return readFileSync.call(this, target, ...args);
+  };
+  try {
+    const result = await agent.scanCodexLedger(home);
+    assert.equal(result.files.parsed, 1);
+    assert.equal(result.records.length, 1);
+    assert.equal(result.summary.total, 1480);
+    assert.ok(result.records.every(validateTurnRecord));
+  } finally { fs.readFileSync = readFileSync; }
+});
+
 test('old cached derived totals are repaired without changing keys or component counters', async t => {
   const home = tempHome(t);
   writeSession(home, 'cached.jsonl', [sessionMeta('cached'), turnContext('t', 'gpt-5.6-sol'),

@@ -2,6 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createInterface } from 'node:readline';
 import { brotliCompressSync, gzipSync, constants as zlibConstants } from 'node:zlib';
 
 const COUNTERS = ['input_total', 'net_new_input', 'output', 'cache_read', 'cache_write', 'total', 'norm'];
@@ -358,7 +359,7 @@ function makeRecord(sessionId, turnId, model) {
   };
 }
 
-function parseSessionFile(filePath, relativePath) {
+async function parseSessionFile(filePath, relativePath) {
   const records = new Map();
   let sessionId = null;
   let turnId = null;
@@ -366,60 +367,65 @@ function parseSessionFile(filePath, relativePath) {
   let previous = null;
   let tokenEventSequence = 0;
   const seenLastUsage = new Set();
-  let content = '';
-  try { content = fs.readFileSync(filePath, 'utf8'); } catch (error) {
+  const input = fs.createReadStream(filePath, { encoding: 'utf8' });
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  try {
+    for await (const line of lines) {
+      if (!line.trim()) continue;
+      let event;
+      try { event = JSON.parse(line); } catch (error) {
+        console.warn(`Codex session ${hash(relativePath).slice(0, 16)}: ${error.name}`);
+        return { status: 'invalid', records: [] };
+      }
+      if (event.type === 'session_meta') {
+        sessionId = event.payload?.id || null;
+        turnId = null;
+        model = null;
+        previous = null;
+        tokenEventSequence = 0;
+        continue;
+      }
+      if (event.type === 'turn_context') {
+        turnId = event.payload?.turn_id || null;
+        model = event.payload?.model || null;
+        continue;
+      }
+      const info = event.payload?.type === 'token_count' ? event.payload.info : null;
+      const cumulativeUsage = info?.total_token_usage;
+      const lastUsage = info?.last_token_usage;
+      const rawUsage = cumulativeUsage || lastUsage;
+      if (!sessionId || !rawUsage) continue;
+      tokenEventSequence += 1;
+      const fallbackTurnId = `fallback:${tokenEventSequence}:${typeof event.timestamp === 'string' ? event.timestamp : ''}`;
+      const recordTurnId = turnId || fallbackTurnId;
+      const current = normalizeCodexUsage(rawUsage);
+      const isLastUsage = !cumulativeUsage && Boolean(lastUsage);
+      const fingerprintTurnId = turnId || `fallback:${typeof event.timestamp === 'string' ? event.timestamp : ''}`;
+      const fingerprint = hash(`${sessionId}|${fingerprintTurnId}|${stableJson(rawUsage)}`);
+      if (isLastUsage && seenLastUsage.has(fingerprint)) continue;
+      if (isLastUsage) seenLastUsage.add(fingerprint);
+      const delta = isLastUsage ? current : usageDelta(current, previous);
+      if (!isLastUsage) previous = current;
+      const key = hash(`${sessionId}|${recordTurnId}`);
+      if (!records.has(key)) records.set(key, makeRecord(sessionId, recordTurnId, model));
+      const record = records.get(key);
+      addCounters(record, delta);
+      const day = beijingDate(event.timestamp);
+      const tierName = delta.input_total > 272_000 ? 'long' : 'base';
+      if (day) {
+        if (!record.daily[day]) record.daily[day] = emptyDailyUsage();
+        addCounters(record.daily[day], delta);
+        addTier(record.daily[day].pricing_tiers[tierName], delta);
+      }
+      addTier(record.pricing_tiers[tierName], delta);
+    }
+    return { status: 'ok', records: [...records.values()] };
+  } catch (error) {
     return { status: error?.code === 'ENOENT' ? 'deleted' : 'unreadable', records: [] };
+  } finally {
+    lines.close();
+    input.destroy();
   }
-  for (const line of content.split('\n')) {
-    if (!line.trim()) continue;
-    let event;
-    try { event = JSON.parse(line); } catch (error) {
-      console.warn(`Codex session ${hash(relativePath).slice(0, 16)}: ${error.name}`);
-      return { status: 'invalid', records: [] };
-    }
-    if (event.type === 'session_meta') {
-      sessionId = event.payload?.id || null;
-      turnId = null;
-      model = null;
-      previous = null;
-      tokenEventSequence = 0;
-      continue;
-    }
-    if (event.type === 'turn_context') {
-      turnId = event.payload?.turn_id || null;
-      model = event.payload?.model || null;
-      continue;
-    }
-    const info = event.payload?.type === 'token_count' ? event.payload.info : null;
-    const cumulativeUsage = info?.total_token_usage;
-    const lastUsage = info?.last_token_usage;
-    const rawUsage = cumulativeUsage || lastUsage;
-    if (!sessionId || !rawUsage) continue;
-    tokenEventSequence += 1;
-    const fallbackTurnId = `fallback:${tokenEventSequence}:${typeof event.timestamp === 'string' ? event.timestamp : ''}`;
-    const recordTurnId = turnId || fallbackTurnId;
-    const current = normalizeCodexUsage(rawUsage);
-    const isLastUsage = !cumulativeUsage && Boolean(lastUsage);
-    const fingerprintTurnId = turnId || `fallback:${typeof event.timestamp === 'string' ? event.timestamp : ''}`;
-    const fingerprint = hash(`${sessionId}|${fingerprintTurnId}|${stableJson(rawUsage)}`);
-    if (isLastUsage && seenLastUsage.has(fingerprint)) continue;
-    if (isLastUsage) seenLastUsage.add(fingerprint);
-    const delta = isLastUsage ? current : usageDelta(current, previous);
-    if (!isLastUsage) previous = current;
-    const key = hash(`${sessionId}|${recordTurnId}`);
-    if (!records.has(key)) records.set(key, makeRecord(sessionId, recordTurnId, model));
-    const record = records.get(key);
-    addCounters(record, delta);
-    const day = beijingDate(event.timestamp);
-    const tierName = delta.input_total > 272_000 ? 'long' : 'base';
-    if (day) {
-      if (!record.daily[day]) record.daily[day] = emptyDailyUsage();
-      addCounters(record.daily[day], delta);
-      addTier(record.daily[day].pricing_tiers[tierName], delta);
-    }
-    addTier(record.pricing_tiers[tierName], delta);
-  }
-  return { status: 'ok', records: [...records.values()] };
 }
 
 function preferRecord(current, candidate) {
@@ -484,7 +490,7 @@ export async function scanCodexLedger(home, options = {}) {
       continue;
     }
     const cacheHit = !cached?.needsReparse && cached?.size === stat.size && cached?.mtimeMs === stat.mtimeMs;
-    const parsed = cacheHit ? null : parseSessionFile(filePath, relativePath);
+    const parsed = cacheHit ? null : await parseSessionFile(filePath, relativePath);
     let records = cacheHit ? cached.records : parsed.records;
     if (cacheHit) {
       cachedCount++;
