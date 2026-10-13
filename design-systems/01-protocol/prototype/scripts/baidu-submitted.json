@@ -1,0 +1,59 @@
+{
+  "submitted": [
+    "https://www.tsalon.tech/",
+    "https://www.tsalon.tech/articles/",
+    "https://www.tsalon.tech/whenreset/",
+    "https://www.tsalon.tech/tokenrank/",
+    "https://www.tsalon.tech/events/",
+    "https://www.tsalon.tech/about/",
+    "https://www.tsalon.tech/articles/agent-security-runtime-governance/",
+    "https://www.tsalon.tech/articles/ai-quota-reset-radar-guide/",
+    "https://www.tsalon.tech/articles/ppio-agentic-cloud-claude-projects/",
+    "https://www.tsalon.tech/articles/deepseek-v41-flash-model-governance/",
+    "https://www.tsalon.tech/articles/openai-agents-api-long-task-memory/",
+    "https://www.tsalon.tech/articles/wardogs-wiki-verifiable-content-engineering/",
+    "https://www.tsalon.tech/articles/agent-swarm-sqlite/",
+    "https://www.tsalon.tech/articles/dreaming-ai-memory/",
+    "https://www.tsalon.tech/articles/memory-poisoning/",
+    "https://www.tsalon.tech/articles/nvidia-cosmos-edge/",
+    "https://www.tsalon.tech/articles/hf-ai-hack/",
+    "https://www.tsalon.tech/articles/ai-demo-to-production-recap/",
+    "https://www.tsalon.tech/history/",
+    "https://www.tsalon.tech/recordings/"
+  ],
+  "history": [
+    {
+      "date": "2026-10-12",
+      "count": 10,
+      "urls": [
+        "https://www.tsalon.tech/",
+        "https://www.tsalon.tech/articles/",
+        "https://www.tsalon.tech/whenreset/",
+        "https://www.tsalon.tech/tokenrank/",
+        "https://www.tsalon.tech/events/",
+        "https://www.tsalon.tech/about/",
+        "https://www.tsalon.tech/articles/agent-security-runtime-governance/",
+        "https://www.tsalon.tech/articles/ai-quota-reset-radar-guide/",
+        "https://www.tsalon.tech/articles/ppio-agentic-cloud-claude-projects/",
+        "https://www.tsalon.tech/articles/deepseek-v41-flash-model-governance/"
+      ]
+    },
+    {
+      "date": "2026-10-13",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/openai-agents-api-long-task-memory/",
+        "https://www.tsalon.tech/articles/wardogs-wiki-verifiable-content-engineering/",
+        "https://www.tsalon.tech/articles/agent-swarm-sqlite/",
+        "https://www.tsalon.tech/articles/dreaming-ai-memory/",
+        "https://www.tsalon.tech/articles/memory-poisoning/",
+        "https://www.tsalon.tech/articles/nvidia-cosmos-edge/",
+        "https://www.tsalon.tech/articles/hf-ai-hack/",
+        "https://www.tsalon.tech/articles/ai-demo-to-production-recap/",
+        "https://www.tsalon.tech/history/",
+        "https://www.tsalon.tech/recordings/"
+      ]
+    }
+  ]
+}
