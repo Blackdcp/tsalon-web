@@ -835,6 +835,12 @@ export async function getUserRankDataWithRedis(redis: any, userId: string): Prom
       ? sum : sum + (typeof value === 'number' ? value : Number(value?.total) || 0), 0);
     row.tokens = tokens;
   }
+  for (const [tool, value] of Object.entries(row.tokens || {})) {
+    if (tool === 'total' || tool === 'history' || !value || typeof value !== 'object') continue;
+    // Preserve recorded costs and components. Only standardize the inclusive
+    // input field, which older agents also used for non-cached input.
+    value.in = Math.max(0, (Number(value.raw_total ?? value.total) || 0) - (Number(value.out) || 0));
+  }
   row.metrics = rankMetricsFromTokens(row.tokens);
   return row;
 }

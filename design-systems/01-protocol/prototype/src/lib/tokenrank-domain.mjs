@@ -48,7 +48,10 @@ export function normalizeToolTokens(tool, raw) {
   const hasIn = Number.isFinite(Number(value.in));
   const hasOut = Number.isFinite(Number(value.out));
   const out = hasOut ? Number(value.out) : hasIn ? Math.max(0, total - Number(value.in)) : total * 0.1;
-  const input = hasIn ? Number(value.in) : Math.max(0, total - out);
+  // Some legacy clients supplied net input under `in`, and older synthetic
+  // splits rounded each side separately. Total and output define inclusive
+  // input unambiguously; cache is a subset of that input.
+  const input = Math.max(0, total - out);
   const netNewInput = Math.max(0, input - cacheRead - cacheWrite);
   const model = normalizeModelId(value.model || tool);
   const price = priceUsage(value.model || tool, {

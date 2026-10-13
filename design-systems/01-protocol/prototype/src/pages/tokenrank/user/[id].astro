@@ -334,7 +334,7 @@ const chartData = {
       </div>
       <div class="stat-card">
         <div class="stat-top">
-          <span class="label">缓存命中{timeFilter === 'all' ? '（历史）' : ''} ❔</span>
+          <span class="label">缓存读占比{timeFilter === 'all' ? '（历史）' : ''} ❔</span>
         </div>
         <div class="value">{cacheHitRate}<span class="unit">%</span></div>
         <div class="subtext">缓存读 {formatAmountStr(cacheReadTokensTotal, 'total')}</div>

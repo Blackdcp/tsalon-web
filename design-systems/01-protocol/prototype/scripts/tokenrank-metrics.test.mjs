@@ -128,3 +128,11 @@ test('model breakdown preserves measured models and empty periods never borrow l
   assert.deepEqual(domain.rankBreakdowns('all',[],profile),{tools:{codex:1000},models:{'gpt-a':700,'gpt-b':300}});
   assert.deepEqual(domain.rankBreakdowns('all',[],profile,'cost'),{tools:{codex:2},models:{'gpt-a':1.5,'gpt-b':0.5}});
 });
+
+test('legacy net-input uploads derive inclusive input and cache pricing from total minus output', () => {
+  const normalized=domain.normalizeToolTokens('claude',{total:1000,in:200,out:100,cache_read:700,cache_write:0});
+  assert.equal(normalized.in,900);
+  assert.equal(normalized.norm,300);
+  assert.equal(normalized.in+normalized.out,1000);
+  assert.ok(normalized.cost>0);
+});

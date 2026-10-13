@@ -1211,3 +1211,14 @@ test('audit-only empty ledger projects zero while incomplete legacy summaries re
   await redis.set('user:u1:codex:summary', JSON.stringify({lifetime:{total:999},daily:{},models:{}}));
   assert.equal((await readCodexRankView(redis,'u1')).summary.lifetime.total,999);
 });
+
+test('legacy net-input profiles and rounded synthetic splits use coherent inclusive input without repricing', async () => {
+  const redis=new FakeRedis();
+  await redis.set('user:u1:data',JSON.stringify({userId:'u1',tokens:{total:1011,
+    claude:{total:1000,raw_total:1000,norm:300,in:200,out:100,cache_read:700,cache_write:0,cost:1.23},
+    other:{total:11,norm:11,in:9,out:1,cache_read:0,cache_write:0,cost:0.04}}}));
+  const row=await kvModule.getUserRankDataWithRedis(redis,'u1');
+  assert.equal(row.tokens.claude.in,900);
+  assert.equal(row.tokens.other.in,10);
+  assert.equal(row.metrics.cost,1.27);
+});
