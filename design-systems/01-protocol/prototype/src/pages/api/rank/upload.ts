@@ -37,14 +37,14 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ success: false, message: 'Reset requires the maintenance API' }), { status: 403 });
     }
 
-    // Full ledger uploads rewrite historical data and are intentionally daily.
-    // Claim the device window before any profile reads, audits, scans, or writes
-    // so a stale minute-level scheduler costs only auth + this atomic SET.
-    if (!await claimDeviceUploadWindow(kv, userId, actualDeviceId)) {
+    // Allow two successful uploads per device per Beijing calendar day. Claim
+    // before expensive reads/writes; stale schedules and concurrent requests skip.
+    const uploadLease = await claimDeviceUploadWindow(kv, userId, actualDeviceId);
+    if (!uploadLease) {
       return new Response(JSON.stringify({
         success: true,
         skipped: true,
-        message: 'Already synchronized recently',
+        message: 'Upload already running or daily limit reached (2 per Beijing day)',
         required_schedule_version: REQUIRED_SCHEDULE_VERSION,
       }), {
         status: 200,
@@ -99,7 +99,7 @@ export const POST: APIRoute = async ({ request }) => {
         codexLedger,
       },
     );
-    await completeDeviceUploadWindow(kv, userId, actualDeviceId);
+    await completeDeviceUploadWindow(kv, userId, actualDeviceId, uploadLease);
 
     let officialDelta = null;
     if (accountAudit) {
