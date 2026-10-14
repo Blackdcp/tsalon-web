@@ -19,7 +19,17 @@
     "https://www.tsalon.tech/articles/hf-ai-hack/",
     "https://www.tsalon.tech/articles/ai-demo-to-production-recap/",
     "https://www.tsalon.tech/history/",
-    "https://www.tsalon.tech/recordings/"
+    "https://www.tsalon.tech/recordings/",
+    "https://www.tsalon.tech/articles/model-price-cut-agent-cost-evaluation/",
+    "https://www.tsalon.tech/articles/ai-agent-authorization-identity-boundary/",
+    "https://www.tsalon.tech/topics/ai/",
+    "https://www.tsalon.tech/topics/agent/",
+    "https://www.tsalon.tech/topics/engineering/",
+    "https://www.tsalon.tech/topics/security/",
+    "https://www.tsalon.tech/tokenrank/methodology/",
+    "https://www.tsalon.tech/tokenrank/connect/",
+    "https://www.tsalon.tech/contact/",
+    "https://www.tsalon.tech/articles/corki-remote-work-experience-recap/"
   ],
   "history": [
     {
@@ -53,6 +63,23 @@
         "https://www.tsalon.tech/articles/ai-demo-to-production-recap/",
         "https://www.tsalon.tech/history/",
         "https://www.tsalon.tech/recordings/"
+      ]
+    },
+    {
+      "date": "2026-10-14",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/model-price-cut-agent-cost-evaluation/",
+        "https://www.tsalon.tech/articles/ai-agent-authorization-identity-boundary/",
+        "https://www.tsalon.tech/topics/ai/",
+        "https://www.tsalon.tech/topics/agent/",
+        "https://www.tsalon.tech/topics/engineering/",
+        "https://www.tsalon.tech/topics/security/",
+        "https://www.tsalon.tech/tokenrank/methodology/",
+        "https://www.tsalon.tech/tokenrank/connect/",
+        "https://www.tsalon.tech/contact/",
+        "https://www.tsalon.tech/articles/corki-remote-work-experience-recap/"
       ]
     }
   ]
