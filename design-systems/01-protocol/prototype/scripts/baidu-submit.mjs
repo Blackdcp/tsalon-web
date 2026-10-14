@@ -123,6 +123,11 @@ async function main() {
     return;
   }
 
+  if (!firstRes.success || firstRes.success <= 0) {
+    console.log(`No URLs were accepted by Baidu (quota may be 0 for today). Response: ${JSON.stringify(firstRes)}`);
+    return;
+  }
+
   const newlySubmitted = [firstUrl];
   let remain = typeof firstRes.remain === 'number' ? firstRes.remain : 0;
 
