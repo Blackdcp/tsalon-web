@@ -57,6 +57,9 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
+  markdown: {
+    smartypants: false,
+  },
   integrations: [
     auth(),
     sitemap({
