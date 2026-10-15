@@ -29,7 +29,17 @@
     "https://www.tsalon.tech/tokenrank/methodology/",
     "https://www.tsalon.tech/tokenrank/connect/",
     "https://www.tsalon.tech/contact/",
-    "https://www.tsalon.tech/articles/corki-remote-work-experience-recap/"
+    "https://www.tsalon.tech/articles/corki-remote-work-experience-recap/",
+    "https://www.tsalon.tech/articles/du-zhenqiang-tidb-recap/",
+    "https://www.tsalon.tech/articles/guan-yijun-student-remote-work-recap/",
+    "https://www.tsalon.tech/articles/jiang-haoqun-open-source-remote-recap/",
+    "https://www.tsalon.tech/articles/qi-wei-remote-collaboration-recap/",
+    "https://www.tsalon.tech/articles/remote-work-questions-recap/",
+    "https://www.tsalon.tech/articles/shanghai-jake-lin-compose-mvi-recap/",
+    "https://www.tsalon.tech/articles/shanghai-wang-yu-rendering-engine-recap/",
+    "https://www.tsalon.tech/articles/shanghai-zhang-tao-android-coroutines-recap/",
+    "https://www.tsalon.tech/articles/shenzhen-cui-minghui-mpflutter-recap/",
+    "https://www.tsalon.tech/articles/shenzhen-fan-wenjie-webpack-performance-recap/"
   ],
   "history": [
     {
@@ -80,6 +90,23 @@
         "https://www.tsalon.tech/tokenrank/connect/",
         "https://www.tsalon.tech/contact/",
         "https://www.tsalon.tech/articles/corki-remote-work-experience-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-15",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/du-zhenqiang-tidb-recap/",
+        "https://www.tsalon.tech/articles/guan-yijun-student-remote-work-recap/",
+        "https://www.tsalon.tech/articles/jiang-haoqun-open-source-remote-recap/",
+        "https://www.tsalon.tech/articles/qi-wei-remote-collaboration-recap/",
+        "https://www.tsalon.tech/articles/remote-work-questions-recap/",
+        "https://www.tsalon.tech/articles/shanghai-jake-lin-compose-mvi-recap/",
+        "https://www.tsalon.tech/articles/shanghai-wang-yu-rendering-engine-recap/",
+        "https://www.tsalon.tech/articles/shanghai-zhang-tao-android-coroutines-recap/",
+        "https://www.tsalon.tech/articles/shenzhen-cui-minghui-mpflutter-recap/",
+        "https://www.tsalon.tech/articles/shenzhen-fan-wenjie-webpack-performance-recap/"
       ]
     }
   ]
