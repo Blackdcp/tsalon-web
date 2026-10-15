@@ -14,10 +14,7 @@ coverAlt: Memory Observability
 draft: false
 allowSingleLocale: true
 translationStatus: reviewed
-tldr:
-  - "Track memory quality across all four lifecycle phases: writing, retrieval, updating, and forgetting."
-  - "Instrument a minimal trace connecting request, authorized scope, retrieved memory IDs, prompt context, and user feedback."
-  - "Set up initial alerts for cross-scope exposure, stale corrections, and residual deletion before expanding dashboards."
+tldr: []
 seo:
   title: "Agent Memory Observability: 12 Production Metrics"
   description: A 12-metric framework for monitoring persistent agent memory across writing, retrieval, updates, and deletion in production environments.
@@ -29,13 +26,11 @@ citations:
     url: https://help.getzep.com/
 ---
 
-> A practical measurement plan for teams running persistent memory in production
-
-A support agent remembers a customer’s delivery preference. A coding agent carries a project convention into the next session. A research assistant picks up where it left off last week. These are the moments when persistent memory becomes useful.
+A support agent remembers a customer's delivery preference. A coding agent carries a project convention into the next session. A research assistant picks up where it left off last week. These are the moments when persistent memory becomes useful.
 
 When something goes wrong, teams need to understand what happened. Did the agent miss a relevant fact, retrieve an outdated one, or overlook a correction? Memory observability connects stored information to the tasks it is supposed to support.
 
-The following 12 metrics offer a practical framework for monitoring that lifecycle. They cover what enters memory, what comes back, how updates take effect, and whether remembering improves the user’s experience.
+The following 12 metrics offer a practical framework for monitoring that lifecycle. They cover what enters memory, what comes back, how updates take effect, and whether remembering improves the user's experience.
 
 ## 1. Writing: was the right thing stored?
 
@@ -49,7 +44,7 @@ The quality of a memory system starts with what it keeps. Saving every conversat
 
 Review a sample of memories from different sources and use cases. Look for information that is accurate, useful beyond the current exchange, and assigned to the right user or project. A temporary workaround should not quietly become a permanent instruction.
 
-For troubleshooting, keep a source reference, memory ID, scope, and timestamps. MemOS Cloud’s asynchronous processing provides task IDs and status checks, helping teams follow a write from submission through background processing. Pairing that status with a retrieval check shows when the information becomes usable.
+For troubleshooting, keep a source reference, memory ID, scope, and timestamps. MemOS Cloud's asynchronous processing provides task IDs and status checks, helping teams follow a write from submission through background processing. Pairing that status with a retrieval check shows when the information becomes usable.
 
 ## 2. Retrieval: did the right fact reach the right task?
 
@@ -65,7 +60,7 @@ Retrieval needs to bring back relevant information without overwhelming the mode
 
 A small labeled query set is a useful starting point. Include straightforward questions, requests that require several facts, and questions for which no memory should be returned.
 
-Keep historical questions separate from current-state questions. A previous address is useful when a user asks where they lived last year; it becomes a problem when the agent treats it as today’s shipping address.
+Keep historical questions separate from current-state questions. A previous address is useful when a user asks where they lived last year; it becomes a problem when the agent treats it as today's shipping address.
 
 Also inspect the context actually sent to the model. Applications often filter or shorten retrieval results, so the search response and the final prompt may tell different stories.
 
@@ -115,7 +110,7 @@ For writes, updates, and deletions, connect the memory ID to its source, actor, 
 
 This makes common failures easier to locate. A corrected fact may exist in storage but lose out during retrieval. The right memory may be retrieved and then dropped during prompt assembly. A model may receive the correct context and still choose the wrong action.
 
-Keep sensitive content behind access-controlled references rather than copying it into every logging system. Record how memory enters the prompt, too. Zep’s memory security guidance recommends treating retrieved content as untrusted reference data and keeping it separate from privileged instructions.
+Keep sensitive content behind access-controlled references rather than copying it into every logging system. Record how memory enters the prompt, too. Zep's memory security guidance recommends treating retrieved content as untrusted reference data and keeping it separate from privileged instructions.
 
 ## Where MemOS fits the measurement plan
 
@@ -129,7 +124,7 @@ MemOS provides several starting points for observing memory, depending on how a 
 
 These capabilities provide operational evidence for the measurement framework. The application supplies the task labels and outcome evaluation that connect memory behavior to user value.
 
-MemOS Cloud’s deletion API supports selected memories or a user’s memories within a project, as well as agent-wide deletion when independent agent memory is enabled. Alongside its update and feedback features, this gives teams practical operations to exercise when testing the full memory lifecycle.
+MemOS Cloud's deletion API supports selected memories or a user's memories within a project, as well as agent-wide deletion when independent agent memory is enabled. Alongside its update and feedback features, this gives teams practical operations to exercise when testing the full memory lifecycle.
 
 ## Three alerts worth implementing first
 
@@ -137,4 +132,4 @@ MemOS Cloud’s deletion API supports selected memories or a user’s memories w
 2. **Stale correction.** An updated fact fails to appear within the expected time. Check processing status, caches, and the version reaching the model.
 3. **Deletion residue.** Removed information remains accessible after the expected completion point. Trace the remaining record or derived copy.
 
-Start with a handful of representative tasks and these three alerts. Establish a baseline, then expand the dashboard where it helps explain real failures or guide product decisions. The most useful measurements are the ones that help a team make the agent’s next interaction better.
+Start with a handful of representative tasks and these three alerts. Establish a baseline, then expand the dashboard where it helps explain real failures or guide product decisions. The most useful measurements are the ones that help a team make the agent's next interaction better.
