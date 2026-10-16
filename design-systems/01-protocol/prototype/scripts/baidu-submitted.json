@@ -39,7 +39,17 @@
     "https://www.tsalon.tech/articles/shanghai-wang-yu-rendering-engine-recap/",
     "https://www.tsalon.tech/articles/shanghai-zhang-tao-android-coroutines-recap/",
     "https://www.tsalon.tech/articles/shenzhen-cui-minghui-mpflutter-recap/",
-    "https://www.tsalon.tech/articles/shenzhen-fan-wenjie-webpack-performance-recap/"
+    "https://www.tsalon.tech/articles/shenzhen-fan-wenjie-webpack-performance-recap/",
+    "https://www.tsalon.tech/articles/shenzhen-frontend-recap/",
+    "https://www.tsalon.tech/articles/shenzhen-guo-shuyu-flutter-web-recap/",
+    "https://www.tsalon.tech/articles/shenzhen-lu-yining-frontend-monitoring-recap/",
+    "https://www.tsalon.tech/articles/shenzhen-zhang-zeya-engineering-recap/",
+    "https://www.tsalon.tech/articles/tchat-1/",
+    "https://www.tsalon.tech/articles/tchat-10/",
+    "https://www.tsalon.tech/articles/tchat-11/",
+    "https://www.tsalon.tech/articles/tchat-12/",
+    "https://www.tsalon.tech/articles/tchat-13/",
+    "https://www.tsalon.tech/articles/tchat-14/"
   ],
   "history": [
     {
@@ -107,6 +117,23 @@
         "https://www.tsalon.tech/articles/shanghai-zhang-tao-android-coroutines-recap/",
         "https://www.tsalon.tech/articles/shenzhen-cui-minghui-mpflutter-recap/",
         "https://www.tsalon.tech/articles/shenzhen-fan-wenjie-webpack-performance-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/shenzhen-frontend-recap/",
+        "https://www.tsalon.tech/articles/shenzhen-guo-shuyu-flutter-web-recap/",
+        "https://www.tsalon.tech/articles/shenzhen-lu-yining-frontend-monitoring-recap/",
+        "https://www.tsalon.tech/articles/shenzhen-zhang-zeya-engineering-recap/",
+        "https://www.tsalon.tech/articles/tchat-1/",
+        "https://www.tsalon.tech/articles/tchat-10/",
+        "https://www.tsalon.tech/articles/tchat-11/",
+        "https://www.tsalon.tech/articles/tchat-12/",
+        "https://www.tsalon.tech/articles/tchat-13/",
+        "https://www.tsalon.tech/articles/tchat-14/"
       ]
     }
   ]
