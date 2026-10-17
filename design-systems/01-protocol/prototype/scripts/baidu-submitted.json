@@ -49,7 +49,17 @@
     "https://www.tsalon.tech/articles/tchat-11/",
     "https://www.tsalon.tech/articles/tchat-12/",
     "https://www.tsalon.tech/articles/tchat-13/",
-    "https://www.tsalon.tech/articles/tchat-14/"
+    "https://www.tsalon.tech/articles/tchat-14/",
+    "https://www.tsalon.tech/articles/tchat-15/",
+    "https://www.tsalon.tech/articles/tchat-16/",
+    "https://www.tsalon.tech/articles/tchat-17/",
+    "https://www.tsalon.tech/articles/tchat-2/",
+    "https://www.tsalon.tech/articles/tchat-3/",
+    "https://www.tsalon.tech/articles/tchat-4/",
+    "https://www.tsalon.tech/articles/tchat-5/",
+    "https://www.tsalon.tech/articles/tchat-6/",
+    "https://www.tsalon.tech/articles/tchat-7/",
+    "https://www.tsalon.tech/articles/tchat-8/"
   ],
   "history": [
     {
@@ -134,6 +144,23 @@
         "https://www.tsalon.tech/articles/tchat-12/",
         "https://www.tsalon.tech/articles/tchat-13/",
         "https://www.tsalon.tech/articles/tchat-14/"
+      ]
+    },
+    {
+      "date": "2026-10-18",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/tchat-15/",
+        "https://www.tsalon.tech/articles/tchat-16/",
+        "https://www.tsalon.tech/articles/tchat-17/",
+        "https://www.tsalon.tech/articles/tchat-2/",
+        "https://www.tsalon.tech/articles/tchat-3/",
+        "https://www.tsalon.tech/articles/tchat-4/",
+        "https://www.tsalon.tech/articles/tchat-5/",
+        "https://www.tsalon.tech/articles/tchat-6/",
+        "https://www.tsalon.tech/articles/tchat-7/",
+        "https://www.tsalon.tech/articles/tchat-8/"
       ]
     }
   ]
