@@ -59,7 +59,17 @@
     "https://www.tsalon.tech/articles/tchat-5/",
     "https://www.tsalon.tech/articles/tchat-6/",
     "https://www.tsalon.tech/articles/tchat-7/",
-    "https://www.tsalon.tech/articles/tchat-8/"
+    "https://www.tsalon.tech/articles/tchat-8/",
+    "https://www.tsalon.tech/articles/tchat-9/",
+    "https://www.tsalon.tech/articles/tchat-bill-cross-platform-career-recap/",
+    "https://www.tsalon.tech/articles/tchat-caolicheng-client-architecture-recap/",
+    "https://www.tsalon.tech/articles/tchat-career-transition-roundtable-recap/",
+    "https://www.tsalon.tech/articles/tchat-chenrenjian-pag-recap/",
+    "https://www.tsalon.tech/articles/tchat-daiming-llvm-learning-recap/",
+    "https://www.tsalon.tech/articles/tchat-fanwenjie-webpack-career-recap/",
+    "https://www.tsalon.tech/articles/tchat-fengyadong-apm-engineering-recap/",
+    "https://www.tsalon.tech/articles/tchat-kabi-mobile-architecture-recap/",
+    "https://www.tsalon.tech/articles/tchat-laolv-engineering-quality-recap/"
   ],
   "history": [
     {
@@ -161,6 +171,23 @@
         "https://www.tsalon.tech/articles/tchat-6/",
         "https://www.tsalon.tech/articles/tchat-7/",
         "https://www.tsalon.tech/articles/tchat-8/"
+      ]
+    },
+    {
+      "date": "2026-10-19",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/tchat-9/",
+        "https://www.tsalon.tech/articles/tchat-bill-cross-platform-career-recap/",
+        "https://www.tsalon.tech/articles/tchat-caolicheng-client-architecture-recap/",
+        "https://www.tsalon.tech/articles/tchat-career-transition-roundtable-recap/",
+        "https://www.tsalon.tech/articles/tchat-chenrenjian-pag-recap/",
+        "https://www.tsalon.tech/articles/tchat-daiming-llvm-learning-recap/",
+        "https://www.tsalon.tech/articles/tchat-fanwenjie-webpack-career-recap/",
+        "https://www.tsalon.tech/articles/tchat-fengyadong-apm-engineering-recap/",
+        "https://www.tsalon.tech/articles/tchat-kabi-mobile-architecture-recap/",
+        "https://www.tsalon.tech/articles/tchat-laolv-engineering-quality-recap/"
       ]
     }
   ]
