@@ -79,7 +79,17 @@
     "https://www.tsalon.tech/articles/tchat-yuhang-webassembly-career-recap/",
     "https://www.tsalon.tech/articles/tchat-yuu-linkedin-mobile-recap/",
     "https://www.tsalon.tech/articles/tchat-zhihu-tracking-ab-recap/",
-    "https://www.tsalon.tech/articles/tom-diverse-remote-team-recap/"
+    "https://www.tsalon.tech/articles/tom-diverse-remote-team-recap/",
+    "https://www.tsalon.tech/articles/wwdc22-day0-recap/",
+    "https://www.tsalon.tech/articles/wwdc22-day1-recap/",
+    "https://www.tsalon.tech/articles/wwdc22-day2-recap/",
+    "https://www.tsalon.tech/articles/wwdc22-day3-recap/",
+    "https://www.tsalon.tech/articles/wwdc22-day4-recap/",
+    "https://www.tsalon.tech/articles/wwdc22-day5-recap/",
+    "https://www.tsalon.tech/articles/wwdc23-developer-review-recap/",
+    "https://www.tsalon.tech/articles/wwdc23-swift-frameworks-opportunities-recap/",
+    "https://www.tsalon.tech/articles/xie-wenqing-collaborative-documents-recap/",
+    "https://www.tsalon.tech/articles/yang-fan-remote-startup-recap/"
   ],
   "history": [
     {
@@ -215,6 +225,23 @@
         "https://www.tsalon.tech/articles/tchat-yuu-linkedin-mobile-recap/",
         "https://www.tsalon.tech/articles/tchat-zhihu-tracking-ab-recap/",
         "https://www.tsalon.tech/articles/tom-diverse-remote-team-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-21",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/wwdc22-day0-recap/",
+        "https://www.tsalon.tech/articles/wwdc22-day1-recap/",
+        "https://www.tsalon.tech/articles/wwdc22-day2-recap/",
+        "https://www.tsalon.tech/articles/wwdc22-day3-recap/",
+        "https://www.tsalon.tech/articles/wwdc22-day4-recap/",
+        "https://www.tsalon.tech/articles/wwdc22-day5-recap/",
+        "https://www.tsalon.tech/articles/wwdc23-developer-review-recap/",
+        "https://www.tsalon.tech/articles/wwdc23-swift-frameworks-opportunities-recap/",
+        "https://www.tsalon.tech/articles/xie-wenqing-collaborative-documents-recap/",
+        "https://www.tsalon.tech/articles/yang-fan-remote-startup-recap/"
       ]
     }
   ]
