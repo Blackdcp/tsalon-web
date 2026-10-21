@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { stageChunkedString, readChunkedString } from './redis-chunks.ts';
+import { RANK_DATA_REVISION_KEY } from './rank-cache.ts';
 
 import { PRICING_SNAPSHOT_DATE, normalizeModelId, priceUsage } from './token-pricing.mjs';
 import { aggregateCanonicalTurns, reconcileDeviceTurns, restoreCanonicalEnvelope, validateTurnRecord, MAX_RECORDS } from './tokenrank-domain.mjs';
@@ -593,21 +594,61 @@ function coherentLedgerEvents(events: string[]): string[] {
   });
 }
 
-export type CodexRankView = Omit<CodexLedgerView, 'turns'>;
+interface CodexRankState {
+  devices: Record<string, { version: 5 }>;
+  dates: string[];
+}
+
+export type CodexRankView = Omit<CodexLedgerView, 'turns' | 'state'> & { state: CodexRankState };
+
+function projectRankState(state: CodexLedgerGenerationState): CodexRankState {
+  const devices: CodexRankState['devices'] = Object.create(null);
+  for (const deviceId of Object.keys(state.devices)) devices[deviceId] = { version: 5 };
+  return { devices, dates: state.dates };
+}
+
+function serializeRankState(state: CodexRankState) {
+  return JSON.stringify({ schema: 1, ...state });
+}
+
+function parseRankState(raw: string | null): CodexRankState | null {
+  const parsed = parseJsonObject(raw);
+  if (parsed?.schema !== 1 || !parsed.devices || typeof parsed.devices !== 'object'
+    || Array.isArray(parsed.devices) || !Array.isArray(parsed.dates)
+    || !parsed.dates.every((date: unknown) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))) return null;
+  const devices: CodexRankState['devices'] = Object.create(null);
+  for (const [id, device] of Object.entries(parsed.devices as Record<string, any>)) {
+    if (!id || device?.version !== 5) return null;
+    devices[id] = { version: 5 };
+  }
+  return { devices, dates: [...new Set<string>(parsed.dates)].sort() };
+}
+
+async function readRankState(redis: RedisLike, prefix: string): Promise<CodexRankState> {
+  const key = prefix + ':rank-state:v1';
+  const projected = parseRankState(await redis.get(key));
+  if (projected) return projected;
+  // Older immutable generations have no projection yet. Read their manifest
+  // once, preserve it exactly, and cache only the derived display metadata.
+  const state = projectRankState(parseGenerationState(await readChunkedString(redis, prefix + ':state')));
+  try { await redis.set(key, serializeRankState(state), 'EX', GENERATION_READER_GRACE_SECONDS); }
+  catch { /* Old generations must remain readable with read-only credentials. */ }
+  return state;
+}
 
 export async function readCodexRankView(redis: RedisLike, userId: string): Promise<CodexRankView> {
   const generation = await redis.get(generationPointerKey(userId));
   if (generation) {
     const prefix = generationPrefix(userId, generation);
     const [summary, state] = await Promise.all([
-      readChunkedString(redis, prefix + ':summary'), readChunkedString(redis, prefix + ':state'),
+      readChunkedString(redis, prefix + ':summary'), readRankState(redis, prefix),
     ]);
-    return { generation, prefix, summary: coherentSummary(summary), state: parseGenerationState(state) };
+    return { generation, prefix, summary: coherentSummary(summary), state };
   }
   const [summary, state] = await Promise.all([
     redis.get('user:' + userId + ':codex:summary'), readLegacyGenerationState(redis, userId),
   ]);
-  return { generation: null, prefix: null, summary: coherentSummary(summary), state };
+  return { generation: null, prefix: null, summary: coherentSummary(summary), state: projectRankState(state) };
 }
 
 async function scanKeys(redis: RedisLike, pattern: string): Promise<string[]> {
@@ -815,9 +856,10 @@ export async function syncCodexLedger(
     await stageChunkedString(redis, timeseriesBlobKey, serializeTimeseriesBlob(timeseries), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
     await stageChunkedString(redis, summaryKey, JSON.stringify(summary), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
     await stageChunkedString(redis, stateKey, JSON.stringify(nextState), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
+    await stageChunkedString(redis, prefix + ':rank-state:v1', serializeRankState(projectRankState(nextState)), GENERATION_STAGING_TTL_SECONDS, stagedKeys);
 
     const operations: RedisCommitOperations = {
-      sets: [[generationPointerKey(userId), generation]],
+      sets: [[generationPointerKey(userId), generation], [RANK_DATA_REVISION_KEY, randomUUID()]],
       persists: stagedKeys,
     };
     // After activation starts, a lost Redis response is ambiguous: the pointer
@@ -828,7 +870,7 @@ export async function syncCodexLedger(
       await options.commit(operations);
     } else {
       const transaction = redis.multi();
-      transaction.set(generationPointerKey(userId), generation);
+      for (const [key, value] of operations.sets!) transaction.set(key, value);
       for (const key of stagedKeys) transaction.persist(key);
       await executePipeline(transaction);
     }

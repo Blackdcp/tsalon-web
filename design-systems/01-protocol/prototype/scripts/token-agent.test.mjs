@@ -132,7 +132,7 @@ test('fallback-only CodexManager data stays on the legacy upload protocol', (t) 
 
   const result = spawnSync(process.execPath, ['public/scripts/agent.mjs', '--token', 'test-token', '--dry-run'], {
     cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
-    env: { ...process.env, HOME: home, CODEX_BINARY: path.join(home, 'missing-codex') },
+    env: { ...process.env, HOME: home, USERPROFILE: home, CODEX_BINARY: path.join(home, 'missing-codex') },
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);
@@ -160,7 +160,7 @@ test('an authoritative empty native scan sends an empty v5 manifest and suppress
 
   const result = spawnSync(process.execPath, ['public/scripts/agent.mjs', '--token', 'test-token', '--dry-run'], {
     cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
-    env: { ...process.env, HOME: home, CODEX_BINARY: path.join(home, 'missing-codex') },
+    env: { ...process.env, HOME: home, USERPROFILE: home, CODEX_BINARY: path.join(home, 'missing-codex') },
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);
@@ -190,7 +190,7 @@ test('a truncated native JSONL is non-authoritative and cannot publish a partial
 
   const result = spawnSync(process.execPath, ['public/scripts/agent.mjs', '--token', 'test-token', '--dry-run'], {
     cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
-    env: { ...process.env, HOME: home, CODEX_BINARY: path.join(home, 'missing-codex') },
+    env: { ...process.env, HOME: home, USERPROFILE: home, CODEX_BINARY: path.join(home, 'missing-codex') },
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);
@@ -211,7 +211,7 @@ test('dry-run sends the v5 ledger at top level without session paths or text', (
   ].join('\n'));
   const result = spawnSync(process.execPath, ['public/scripts/agent.mjs', '--token', 'test-token', '--dry-run'], {
     cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, HOME: home, USERPROFILE: home },
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);

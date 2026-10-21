@@ -23,9 +23,10 @@
     "test:large-upload": "node --test scripts/upload-body.test.mjs scripts/large-upload.test.mjs scripts/upload-parts.test.mjs scripts/redis-chunks.test.mjs",
     "events:sync": "node scripts/sync-huodongxing-events.mjs",
     "baidu:submit": "node scripts/baidu-submit.mjs",
-    "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs scripts/token-agent-installers.test.mjs scripts/tokenrank-domain.test.mjs scripts/codex-ledger-store.test.mjs scripts/redis-generation.test.mjs scripts/tokenrank-metrics.test.mjs scripts/tokenrank-upload.test.mjs scripts/upload-body.test.mjs scripts/upload-cadence.test.mjs",
+    "test:token-agent": "node --test scripts/codex-ledger.test.mjs scripts/token-agent.test.mjs scripts/token-agent-installers.test.mjs scripts/tokenrank-domain.test.mjs scripts/codex-ledger-store.test.mjs scripts/redis-generation.test.mjs scripts/tokenrank-metrics.test.mjs scripts/tokenrank-upload.test.mjs scripts/upload-body.test.mjs scripts/upload-cadence.test.mjs scripts/tokenrank-bandwidth.test.mjs",
     "test:tokenrank-domain": "node --test scripts/tokenrank-domain.test.mjs",
-    "test:tokenrank-store": "node --test scripts/codex-ledger-store.test.mjs scripts/tokenrank-domain.test.mjs"
+    "test:tokenrank-store": "node --test scripts/codex-ledger-store.test.mjs scripts/tokenrank-domain.test.mjs scripts/tokenrank-bandwidth.test.mjs",
+    "test:tokenrank-bandwidth": "node --test scripts/tokenrank-bandwidth.test.mjs scripts/tokenrank-cache-redis.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",

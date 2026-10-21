@@ -95,6 +95,6 @@ export const GET: APIRoute = async ({ site }) => {
   };
 
   return new Response(JSON.stringify(body, null, 2), {
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
   });
 };

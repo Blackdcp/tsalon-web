@@ -23,7 +23,8 @@ export const GET: APIRoute = async ({ request }) => {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=60, s-maxage=60'
+        // Freshness is controlled by the shared, upload-invalidated data cache.
+        'Cache-Control': 'no-store'
       }
     });
   } catch (error) {

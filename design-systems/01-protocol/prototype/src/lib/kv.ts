@@ -7,7 +7,9 @@ import {
   syncCodexLedger,
   type CodexLedgerPayload,
   type RedisCommitOperations,
+  type CodexRankView,
 } from './codex-ledger.ts';
+import { cachedRankRows, RANK_DATA_REVISION_KEY } from './rank-cache.ts';
 import { beijingDateString, beijingDateNDaysAgo } from './date.ts';
 import { PRICING_SNAPSHOT_DATE } from './token-pricing.mjs';
 import {
@@ -178,7 +180,7 @@ export async function acquireUserUpdateLease(
         1,
         lockKey,
         ownerId,
-        JSON.stringify(operations),
+        JSON.stringify({ ...operations, sets: [...(operations.sets ?? []), [RANK_DATA_REVISION_KEY, crypto.randomUUID()]] }),
       );
       if (committed !== 1) {
         lost = true;
@@ -849,8 +851,8 @@ export async function getUserRankData(userId: string) {
   return kv ? getUserRankDataWithRedis(kv, userId) : null;
 }
 
-async function readVisibleTimeseries(redis: any, userId: string, dates: string[]) {
-  const view = await readCodexRankView(redis, userId);
+async function readVisibleTimeseries(redis: any, userId: string, dates: string[], existingView?: CodexRankView) {
+  const view = existingView ?? await readCodexRankView(redis, userId);
   return Promise.all(dates.map((date) => readCodexLedgerTimeseries(redis, userId, date, view)));
 }
 
@@ -860,6 +862,12 @@ export async function getLeaderboard(limit = 100, time = 'all', metric: RankMetr
 
 export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all', metric: RankMetric = 'total'): Promise<UserRankData[]> {
   if (!kv) return [];
+  const date = new Date();
+  const rows = await cachedRankRows(kv, time, date, () => loadLeaderboardWithRedis(kv, time, date));
+  return sortRankRows(rows, metric).slice(0, limit);
+}
+
+async function loadLeaderboardWithRedis(kv: any, time: string, date: Date): Promise<UserRankData[]> {
 
   // Old ZSET scores may have been replaced by account snapshots. Correct every
   // candidate before sorting; truncating first would preserve an incorrect rank.
@@ -870,7 +878,7 @@ export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all'
       const rows = await Promise.all(userIds.slice(offset, offset + 4).map(id => getUserRankDataWithRedis(kv, id)));
       for (const row of rows) if (row) list.push(row);
     }
-    return sortRankRows(list, metric).slice(0, limit);
+    return list;
   }
 
   // Period views must rank by REAL activity inside the window — not by lifetime
@@ -887,7 +895,7 @@ export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all'
 
   const datesToFetch: string[] = [];
   for (let i = 0; i < days; i++) {
-    datesToFetch.push(beijingDateNDaysAgo(i));
+    datesToFetch.push(beijingDateNDaysAgo(i, date));
   }
 
   let targetDates = datesToFetch;
@@ -896,7 +904,8 @@ export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all'
   }
   const window = new Set(targetDates);
 
-  const activeUserIds = await discoverActiveUserIds(window, kv);
+  const rankViews = new Map<string, CodexRankView>();
+  const activeUserIds = await discoverActiveUserIds(window, kv, rankViews);
   if (activeUserIds.length === 0) return [];
 
   const baseDataResults = await kv.mget(activeUserIds.map(id => `user:${id}:data`));
@@ -909,7 +918,7 @@ export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all'
 
   const tsResults: string[][][] = [];
   for (let offset = 0; offset < activeUserIds.length; offset += 4) {
-    tsResults.push(...await Promise.all(activeUserIds.slice(offset, offset + 4).map(id => readVisibleTimeseries(kv, id, targetDates))));
+    tsResults.push(...await Promise.all(activeUserIds.slice(offset, offset + 4).map(id => readVisibleTimeseries(kv, id, targetDates, rankViews.get(id)))));
   }
 
   const aggregatedList: UserRankData[] = [];
@@ -937,12 +946,12 @@ export async function getLeaderboardWithRedis(kv: any, limit = 100, time = 'all'
   // Keyed by userId (never by display name) — two people sharing a name stay
   // separate, and a single user's multi-device data is already merged upstream
   // in updateTokenUsage.
-  return sortRankRows(aggregatedList, metric).slice(0, limit);
+  return aggregatedList;
 }
 
 // Scan timeseries keys and return the set of userIds that have data on any date
 // inside `window`. Uses SCAN (non-blocking). Key format: user:{userId}:timeseries:{date}.
-async function discoverActiveUserIds(window: Set<string>, kv: any): Promise<string[]> {
+async function discoverActiveUserIds(window: Set<string>, kv: any, rankViews: Map<string, CodexRankView>): Promise<string[]> {
   if (!kv) return [];
   const ids = new Set<string>();
   let cursor = '0';
@@ -963,6 +972,7 @@ async function discoverActiveUserIds(window: Set<string>, kv: any): Promise<stri
       const match = /^user:(.+):codex:active-generation$/.exec(key);
       if (!match) continue;
       const view = await readCodexRankView(kv, match[1]);
+      rankViews.set(match[1], view);
       if (view.state.dates.some((date) => window.has(date))) ids.add(match[1]);
     }
   } while (cursor !== '0');
