@@ -89,7 +89,17 @@
     "https://www.tsalon.tech/articles/wwdc23-developer-review-recap/",
     "https://www.tsalon.tech/articles/wwdc23-swift-frameworks-opportunities-recap/",
     "https://www.tsalon.tech/articles/xie-wenqing-collaborative-documents-recap/",
-    "https://www.tsalon.tech/articles/yang-fan-remote-startup-recap/"
+    "https://www.tsalon.tech/articles/yang-fan-remote-startup-recap/",
+    "https://www.tsalon.tech/events/archive/hdx-1703870201300/",
+    "https://www.tsalon.tech/events/archive/hdx-3711187585200/",
+    "https://www.tsalon.tech/events/archive/hdx-4704118639500/",
+    "https://www.tsalon.tech/events/archive/hdx-6704677921900/",
+    "https://www.tsalon.tech/events/archive/hdx-7732324341700/",
+    "https://www.tsalon.tech/events/archive/hdx-8699104705200/",
+    "https://www.tsalon.tech/events/hdx-2873441823200/",
+    "https://www.tsalon.tech/events/hdx-4876922233100/",
+    "https://www.tsalon.tech/events/hdx-7870619038900/",
+    "https://www.tsalon.tech/events/series/t-chat/"
   ],
   "history": [
     {
@@ -242,6 +252,23 @@
         "https://www.tsalon.tech/articles/wwdc23-swift-frameworks-opportunities-recap/",
         "https://www.tsalon.tech/articles/xie-wenqing-collaborative-documents-recap/",
         "https://www.tsalon.tech/articles/yang-fan-remote-startup-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-22",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/events/archive/hdx-1703870201300/",
+        "https://www.tsalon.tech/events/archive/hdx-3711187585200/",
+        "https://www.tsalon.tech/events/archive/hdx-4704118639500/",
+        "https://www.tsalon.tech/events/archive/hdx-6704677921900/",
+        "https://www.tsalon.tech/events/archive/hdx-7732324341700/",
+        "https://www.tsalon.tech/events/archive/hdx-8699104705200/",
+        "https://www.tsalon.tech/events/hdx-2873441823200/",
+        "https://www.tsalon.tech/events/hdx-4876922233100/",
+        "https://www.tsalon.tech/events/hdx-7870619038900/",
+        "https://www.tsalon.tech/events/series/t-chat/"
       ]
     }
   ]
