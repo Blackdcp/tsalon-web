@@ -99,7 +99,17 @@
     "https://www.tsalon.tech/events/hdx-2873441823200/",
     "https://www.tsalon.tech/events/hdx-4876922233100/",
     "https://www.tsalon.tech/events/hdx-7870619038900/",
-    "https://www.tsalon.tech/events/series/t-chat/"
+    "https://www.tsalon.tech/events/series/t-chat/",
+    "https://www.tsalon.tech/events/tchat-series-launch/",
+    "https://www.tsalon.tech/privacy/",
+    "https://www.tsalon.tech/recordings/corki-remote-work-experience/",
+    "https://www.tsalon.tech/recordings/du-zhenqiang-tidb/",
+    "https://www.tsalon.tech/recordings/guan-yijun-student-remote-work/",
+    "https://www.tsalon.tech/recordings/jiang-haoqun-open-source-remote/",
+    "https://www.tsalon.tech/recordings/lencx-chatgpt-open-source/",
+    "https://www.tsalon.tech/recordings/qi-wei-remote-collaboration/",
+    "https://www.tsalon.tech/recordings/remote-work-questions/",
+    "https://www.tsalon.tech/recordings/shanghai-mobile-practices/"
   ],
   "history": [
     {
@@ -269,6 +279,23 @@
         "https://www.tsalon.tech/events/hdx-4876922233100/",
         "https://www.tsalon.tech/events/hdx-7870619038900/",
         "https://www.tsalon.tech/events/series/t-chat/"
+      ]
+    },
+    {
+      "date": "2026-10-23",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/events/tchat-series-launch/",
+        "https://www.tsalon.tech/privacy/",
+        "https://www.tsalon.tech/recordings/corki-remote-work-experience/",
+        "https://www.tsalon.tech/recordings/du-zhenqiang-tidb/",
+        "https://www.tsalon.tech/recordings/guan-yijun-student-remote-work/",
+        "https://www.tsalon.tech/recordings/jiang-haoqun-open-source-remote/",
+        "https://www.tsalon.tech/recordings/lencx-chatgpt-open-source/",
+        "https://www.tsalon.tech/recordings/qi-wei-remote-collaboration/",
+        "https://www.tsalon.tech/recordings/remote-work-questions/",
+        "https://www.tsalon.tech/recordings/shanghai-mobile-practices/"
       ]
     }
   ]
