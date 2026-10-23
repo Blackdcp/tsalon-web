@@ -49,7 +49,7 @@ const jsonLd = [
 ];
 ---
 
-<BaseLayout title={`${topicMeta.nameZh} — T Salon 内容合集`} description={topicMeta.descriptionZh} jsonLd={jsonLd}>
+<BaseLayout title={topicMeta.seoTitleZh ?? `${topicMeta.nameZh} — T Salon 内容合集`} description={topicMeta.descriptionZh} jsonLd={jsonLd}>
   <main class="topic-page">
     <div class="container">
       <nav class="topic-breadcrumb" aria-label="面包屑">

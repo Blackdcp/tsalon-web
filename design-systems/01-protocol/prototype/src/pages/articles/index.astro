@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ContentDirectory from '../../components/ContentDirectory.astro';
-const description = '活动回顾、嘉宾访谈与技术观察，记录开发者的具体问题和实践。浏览 T Salon 社区文章与 T Chat 原视频分段目录。';
+const description = '浏览 T Salon 的技术文章、活动回顾、嘉宾访谈与行业观察，从一线实践理解开发者的具体问题和工程选择。内容目录收录社区文章与 T Chat 原视频分段入口，方便按主题阅读、查看原始分享和回顾现场讨论。';
 const jsonLd = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'T Salon 内容与观点', description, url: 'https://www.tsalon.tech/articles/' };
 ---
 <BaseLayout alternatePath="/en/articles/" title="技术文章、活动回顾与人物访谈 — T Salon" description={description} image="/images/news/shenzhen-frontend-recap-01.jpg" jsonLd={jsonLd}>

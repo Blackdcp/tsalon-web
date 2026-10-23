@@ -168,7 +168,7 @@ const averageGenerationSpeed = 80; // 80 tokens/sec
 const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) / 60);
 ---
 
-<BaseLayout alternatePath="/en/tokenrank/" languageSwitchPath={`/en/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="AI 编程 Token 用量排行榜与统计口径 — T Salon" description="查看社区参与者主动上报的 AI 编程 Token 用量排行，可切换含缓存、不含缓存和预估费用等指标，并阅读统计口径与数据说明。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
+<BaseLayout alternatePath="/en/tokenrank/" languageSwitchPath={`/en/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="AI 编程 Token 用量排行榜与统计口径 — T Salon" description="查看社区参与者主动上报的 AI 编程 Token 用量排行，按时间范围切换含缓存、不含缓存与预估费用等指标。阅读统计口径与数据说明，了解榜单来源、缓存读取的处理方式，以及模型定价估算和实际账单之间的区别。" image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
   <main class="container page-content">
     
     <header class="page-title" style="margin-bottom: 1.5rem; border-bottom: none; padding-bottom: 0;">

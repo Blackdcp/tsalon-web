@@ -18,31 +18,9 @@ const locationLabel = event.data.mode === 'online' ? '线上活动' : `${event.d
 const description = event.data.summary;
 const eventUrl = new URL(`/events/archive/${event.id}/`, Astro.site).toString();
 const eventJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Event',
-  name: event.data.title,
-  description: event.data.summary,
-  startDate: event.data.startDate.toISOString(),
-  endDate: event.data.endDate.toISOString(),
-  url: eventUrl,
-  sameAs: event.data.sourceUrl,
-  eventAttendanceMode: event.data.mode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
-  location: event.data.mode === 'online'
-    ? { '@type': 'VirtualLocation', name: '线上活动', url: event.data.sourceUrl }
-    : {
-        '@type': 'Place',
-        name: event.data.address,
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: event.data.address,
-          addressLocality: event.data.city,
-          addressRegion: event.data.province,
-          addressCountry: 'CN',
-        },
-      },
-  organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
-  performer: { '@type': 'Organization', name: 'T Salon' },
-  image: new URL(event.data.cover, Astro.site).toString(),
+  '@context': 'https://schema.org', '@type': 'WebPage', name: event.data.title, description: event.data.summary,
+  url: eventUrl, sameAs: event.data.sourceUrl, image: new URL(event.data.cover, Astro.site).toString(), inLanguage: 'zh-CN',
+  isPartOf: { '@type': 'WebSite', name: 'T Salon', url: 'https://www.tsalon.tech/' },
 };
 ---
 <BaseLayout alternatePath={`/en/events/archive/${event.id}/`} title={`${event.data.title}｜T Salon 活动详情`} description={description} image={event.data.cover} jsonLd={eventJsonLd}>

@@ -4,7 +4,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 const gallery = (await getCollection('gallery')).sort((a, b) => b.data.order - a.data.order);
 const years = [...new Set(gallery.map((item) => item.data.year))].sort((a, b) => b - a);
 ---
-<BaseLayout alternatePath="/en/history/" title="社区年鉴 — T Salon 2016 至今" description="通过历年活动现场、城市与社区成员，回看 T Salon 从 2016 年 iOS 开发者组织发展至今的社区轨迹。" image="/images/gallery/gallery-1.jpeg">
+<BaseLayout alternatePath="/en/history/" title="社区年鉴 — T Salon 2016 至今" description="通过历年活动现场照片、城市与社区成员，回看 T Salon 从 2016 年 iOS 开发者组织发展至今的社区轨迹。年鉴按年份整理线下相聚与技术分享的现场切片，并提供当前活动目录和下一场交流的参与入口。" image="/images/gallery/gallery-1.jpeg">
   <main>
     <nav class="container breadcrumb" aria-label="面包屑"><ol><li><a href="/">首页</a></li><li><a href="/about/">关于</a></li><li aria-current="page">社区年鉴</li></ol></nav>
     <header class="container history-hero"><div><p class="eyebrow">社区年鉴 / 2016 至今</p><h1>我们不是突然出现的</h1></div><div><p>一张张现场照片记录的，不只是活动规模，也是一群开发者如何持续相遇、分享与建立信任。</p><div class="history-year-list">{years.map((year) => <a href={`#year-${year}`}>{year}</a>)}</div></div></header>

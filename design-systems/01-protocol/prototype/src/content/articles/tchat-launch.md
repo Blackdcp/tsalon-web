@@ -21,7 +21,7 @@ featured: true
 draft: false
 seo:
   title: T Chat｜「我在大厂做研发」系列直播首发
-  description: T Salon联合老司机周报发起 T Chat 系列直播，以主题分享和一对一交流呈现一线互联网研发专家的真实实践。
+  description: 回顾 T Salon 与老司机周报在 2022 年发起「我在大厂做研发」T Chat 系列的背景、主题分享与一对一交流形式。本页区分最初直播计划和后续归档状态，并提供已收录 17 期节目的原视频与分段目录入口。
   noindex: false
 ---
 

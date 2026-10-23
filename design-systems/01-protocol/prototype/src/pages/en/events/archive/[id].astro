@@ -13,7 +13,12 @@ const start = event.data.startDate;
 const date = formatEventDate(start, 'en', 'Asia/Shanghai', { year: 'numeric', month: 'long', day: 'numeric' });
 const time = formatEventTimeRange(start, event.data.endDate);
 const year = formatEventDate(start, 'en', 'Asia/Shanghai', { year: 'numeric' });
-const jsonLd = { '@context': 'https://schema.org', '@type': 'Event', name: copy.title, description: copy.summary, startDate: event.data.startDate.toISOString(), endDate: event.data.endDate.toISOString(), eventAttendanceMode: event.data.mode === 'online' ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode', url: new URL(`/en/events/archive/${event.id}/`, Astro.site).toString(), organizer: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' }, performer: { '@type': 'Organization', name: 'T Salon' }, image: new URL(event.data.cover, Astro.site).toString(), inLanguage: 'en', location: event.data.mode === 'online' ? { '@type': 'VirtualLocation', name: 'Online Event', url: event.data.sourceUrl } : { '@type': 'Place', name: copy.city, address: { '@type': 'PostalAddress', addressLocality: copy.city, addressCountry: 'CN' } } };
+const jsonLd = {
+  '@context': 'https://schema.org', '@type': 'WebPage', name: copy.title, description: copy.summary,
+  url: new URL(`/en/events/archive/${event.id}/`, Astro.site).toString(), sameAs: event.data.sourceUrl,
+  image: new URL(event.data.cover, Astro.site).toString(), inLanguage: 'en',
+  isPartOf: { '@type': 'WebSite', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+};
 ---
 <BaseLayout locale="en" alternatePath={`/events/archive/${event.id}/`} title={`${copy.title} — T Salon event archive`} description={copy.summary} image={event.data.cover} jsonLd={jsonLd}>
   <main>

@@ -144,6 +144,11 @@
       "source": "/en/stories/(.*)",
       "destination": "/en/events/$1",
       "permanent": true
+    },
+    {
+      "source": "/en/articles/tchat-6{/}?",
+      "destination": "/articles/tchat-6/",
+      "permanent": true
     }
   ]
 }
