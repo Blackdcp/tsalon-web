@@ -109,7 +109,17 @@
     "https://www.tsalon.tech/recordings/lencx-chatgpt-open-source/",
     "https://www.tsalon.tech/recordings/qi-wei-remote-collaboration/",
     "https://www.tsalon.tech/recordings/remote-work-questions/",
-    "https://www.tsalon.tech/recordings/shanghai-mobile-practices/"
+    "https://www.tsalon.tech/recordings/shanghai-mobile-practices/",
+    "https://www.tsalon.tech/recordings/shao-xiaochun-gpt-applications/",
+    "https://www.tsalon.tech/recordings/shenzhen-frontend-challenges/",
+    "https://www.tsalon.tech/recordings/tom-diverse-remote-team/",
+    "https://www.tsalon.tech/recordings/tsalon-2022-restart/",
+    "https://www.tsalon.tech/recordings/wwdc22-playground/",
+    "https://www.tsalon.tech/recordings/wwdc23-developer-review/",
+    "https://www.tsalon.tech/recordings/xie-wenqing-collaborative-documents/",
+    "https://www.tsalon.tech/recordings/yang-fan-remote-startup/",
+    "https://www.tsalon.tech/recordings/yin-bohao-private-model/",
+    "https://www.tsalon.tech/terms/"
   ],
   "history": [
     {
@@ -296,6 +306,23 @@
         "https://www.tsalon.tech/recordings/qi-wei-remote-collaboration/",
         "https://www.tsalon.tech/recordings/remote-work-questions/",
         "https://www.tsalon.tech/recordings/shanghai-mobile-practices/"
+      ]
+    },
+    {
+      "date": "2026-10-24",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/recordings/shao-xiaochun-gpt-applications/",
+        "https://www.tsalon.tech/recordings/shenzhen-frontend-challenges/",
+        "https://www.tsalon.tech/recordings/tom-diverse-remote-team/",
+        "https://www.tsalon.tech/recordings/tsalon-2022-restart/",
+        "https://www.tsalon.tech/recordings/wwdc22-playground/",
+        "https://www.tsalon.tech/recordings/wwdc23-developer-review/",
+        "https://www.tsalon.tech/recordings/xie-wenqing-collaborative-documents/",
+        "https://www.tsalon.tech/recordings/yang-fan-remote-startup/",
+        "https://www.tsalon.tech/recordings/yin-bohao-private-model/",
+        "https://www.tsalon.tech/terms/"
       ]
     }
   ]
