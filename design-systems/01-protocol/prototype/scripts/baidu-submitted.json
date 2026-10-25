@@ -119,7 +119,17 @@
     "https://www.tsalon.tech/recordings/xie-wenqing-collaborative-documents/",
     "https://www.tsalon.tech/recordings/yang-fan-remote-startup/",
     "https://www.tsalon.tech/recordings/yin-bohao-private-model/",
-    "https://www.tsalon.tech/terms/"
+    "https://www.tsalon.tech/terms/",
+    "https://www.tsalon.tech/en/",
+    "https://www.tsalon.tech/en/about/",
+    "https://www.tsalon.tech/en/articles/",
+    "https://www.tsalon.tech/en/articles/agent-memory-observability-12-metrics/",
+    "https://www.tsalon.tech/en/articles/agent-swarm-sqlite/",
+    "https://www.tsalon.tech/en/articles/ai-demo-to-production-recap/",
+    "https://www.tsalon.tech/en/articles/ai-quota-reset-radar-guide/",
+    "https://www.tsalon.tech/en/articles/corki-remote-work-experience-recap/",
+    "https://www.tsalon.tech/en/articles/dreaming-ai-memory/",
+    "https://www.tsalon.tech/en/articles/du-zhenqiang-tidb-recap/"
   ],
   "history": [
     {
@@ -323,6 +333,23 @@
         "https://www.tsalon.tech/recordings/yang-fan-remote-startup/",
         "https://www.tsalon.tech/recordings/yin-bohao-private-model/",
         "https://www.tsalon.tech/terms/"
+      ]
+    },
+    {
+      "date": "2026-10-25",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/en/",
+        "https://www.tsalon.tech/en/about/",
+        "https://www.tsalon.tech/en/articles/",
+        "https://www.tsalon.tech/en/articles/agent-memory-observability-12-metrics/",
+        "https://www.tsalon.tech/en/articles/agent-swarm-sqlite/",
+        "https://www.tsalon.tech/en/articles/ai-demo-to-production-recap/",
+        "https://www.tsalon.tech/en/articles/ai-quota-reset-radar-guide/",
+        "https://www.tsalon.tech/en/articles/corki-remote-work-experience-recap/",
+        "https://www.tsalon.tech/en/articles/dreaming-ai-memory/",
+        "https://www.tsalon.tech/en/articles/du-zhenqiang-tidb-recap/"
       ]
     }
   ]
