@@ -10,7 +10,7 @@ topics:
   - Agent
   - Security
   - Engineering
-cover: /images/default-cover.svg
+cover: /images/articles/ai-agent-network-attacks-execution-environment-security.png
 coverAlt: AI 智能体被用于网络攻击，执行环境安全为何值得关注？
 draft: false
 allowSingleLocale: true

@@ -9,7 +9,7 @@ topics:
   - AI
   - Agent
   - Engineering
-cover: /images/default-cover.svg
+cover: /images/articles/ai-models-diversity-application-scheduling-evaluation.png
 coverAlt: AI 模型越来越多，为什么应用还在“死磕一个”？
 draft: false
 allowSingleLocale: true
