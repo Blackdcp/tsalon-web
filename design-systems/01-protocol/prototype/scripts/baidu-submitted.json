@@ -129,7 +129,17 @@
     "https://www.tsalon.tech/en/articles/ai-quota-reset-radar-guide/",
     "https://www.tsalon.tech/en/articles/corki-remote-work-experience-recap/",
     "https://www.tsalon.tech/en/articles/dreaming-ai-memory/",
-    "https://www.tsalon.tech/en/articles/du-zhenqiang-tidb-recap/"
+    "https://www.tsalon.tech/en/articles/du-zhenqiang-tidb-recap/",
+    "https://www.tsalon.tech/en/articles/guan-yijun-student-remote-work-recap/",
+    "https://www.tsalon.tech/en/articles/hf-ai-hack/",
+    "https://www.tsalon.tech/en/articles/how-to-choose-a-production-ai-memory-system-in-2026/",
+    "https://www.tsalon.tech/en/articles/jiang-haoqun-open-source-remote-recap/",
+    "https://www.tsalon.tech/en/articles/keep-bad-assumptions-out-of-agent-memory/",
+    "https://www.tsalon.tech/en/articles/memory-poisoning/",
+    "https://www.tsalon.tech/en/articles/nvidia-cosmos-edge/",
+    "https://www.tsalon.tech/en/articles/qi-wei-remote-collaboration-recap/",
+    "https://www.tsalon.tech/en/articles/remote-work-questions-recap/",
+    "https://www.tsalon.tech/en/articles/shanghai-jake-lin-compose-mvi-recap/"
   ],
   "history": [
     {
@@ -350,6 +360,23 @@
         "https://www.tsalon.tech/en/articles/corki-remote-work-experience-recap/",
         "https://www.tsalon.tech/en/articles/dreaming-ai-memory/",
         "https://www.tsalon.tech/en/articles/du-zhenqiang-tidb-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-26",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/en/articles/guan-yijun-student-remote-work-recap/",
+        "https://www.tsalon.tech/en/articles/hf-ai-hack/",
+        "https://www.tsalon.tech/en/articles/how-to-choose-a-production-ai-memory-system-in-2026/",
+        "https://www.tsalon.tech/en/articles/jiang-haoqun-open-source-remote-recap/",
+        "https://www.tsalon.tech/en/articles/keep-bad-assumptions-out-of-agent-memory/",
+        "https://www.tsalon.tech/en/articles/memory-poisoning/",
+        "https://www.tsalon.tech/en/articles/nvidia-cosmos-edge/",
+        "https://www.tsalon.tech/en/articles/qi-wei-remote-collaboration-recap/",
+        "https://www.tsalon.tech/en/articles/remote-work-questions-recap/",
+        "https://www.tsalon.tech/en/articles/shanghai-jake-lin-compose-mvi-recap/"
       ]
     }
   ]
