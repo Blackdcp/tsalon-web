@@ -149,7 +149,17 @@
     "https://www.tsalon.tech/en/articles/shenzhen-frontend-recap/",
     "https://www.tsalon.tech/en/articles/shenzhen-guo-shuyu-flutter-web-recap/",
     "https://www.tsalon.tech/en/articles/shenzhen-lu-yining-frontend-monitoring-recap/",
-    "https://www.tsalon.tech/en/articles/shenzhen-zhang-zeya-engineering-recap/"
+    "https://www.tsalon.tech/en/articles/shenzhen-zhang-zeya-engineering-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-bill-cross-platform-career-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-caolicheng-client-architecture-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-career-transition-roundtable-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-chenrenjian-pag-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-daiming-llvm-learning-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-fanwenjie-webpack-career-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-fengyadong-apm-engineering-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-kabi-mobile-architecture-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-laolv-engineering-quality-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-launch/"
   ],
   "history": [
     {
@@ -404,6 +414,23 @@
         "https://www.tsalon.tech/en/articles/shenzhen-guo-shuyu-flutter-web-recap/",
         "https://www.tsalon.tech/en/articles/shenzhen-lu-yining-frontend-monitoring-recap/",
         "https://www.tsalon.tech/en/articles/shenzhen-zhang-zeya-engineering-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-28",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/en/articles/tchat-bill-cross-platform-career-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-caolicheng-client-architecture-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-career-transition-roundtable-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-chenrenjian-pag-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-daiming-llvm-learning-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-fanwenjie-webpack-career-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-fengyadong-apm-engineering-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-kabi-mobile-architecture-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-laolv-engineering-quality-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-launch/"
       ]
     }
   ]
