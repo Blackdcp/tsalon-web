@@ -39,6 +39,8 @@ export async function getPublishedUrls() {
 }
 
 const PRIORITY_ORDER = [
+  'https://www.tsalon.tech/articles/ai-agent-network-attacks-execution-environment-security/',
+  'https://www.tsalon.tech/articles/ai-models-diversity-application-scheduling-evaluation/',
   'https://www.tsalon.tech/articles/openai-agents-api-long-task-memory/',
   'https://www.tsalon.tech/articles/wardogs-wiki-verifiable-content-engineering/',
   'https://www.tsalon.tech/articles/agent-swarm-sqlite/',

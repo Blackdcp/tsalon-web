@@ -139,7 +139,17 @@
     "https://www.tsalon.tech/en/articles/nvidia-cosmos-edge/",
     "https://www.tsalon.tech/en/articles/qi-wei-remote-collaboration-recap/",
     "https://www.tsalon.tech/en/articles/remote-work-questions-recap/",
-    "https://www.tsalon.tech/en/articles/shanghai-jake-lin-compose-mvi-recap/"
+    "https://www.tsalon.tech/en/articles/shanghai-jake-lin-compose-mvi-recap/",
+    "https://www.tsalon.tech/articles/ai-agent-network-attacks-execution-environment-security/",
+    "https://www.tsalon.tech/articles/ai-models-diversity-application-scheduling-evaluation/",
+    "https://www.tsalon.tech/en/articles/shanghai-wang-yu-rendering-engine-recap/",
+    "https://www.tsalon.tech/en/articles/shanghai-zhang-tao-android-coroutines-recap/",
+    "https://www.tsalon.tech/en/articles/shenzhen-cui-minghui-mpflutter-recap/",
+    "https://www.tsalon.tech/en/articles/shenzhen-fan-wenjie-webpack-performance-recap/",
+    "https://www.tsalon.tech/en/articles/shenzhen-frontend-recap/",
+    "https://www.tsalon.tech/en/articles/shenzhen-guo-shuyu-flutter-web-recap/",
+    "https://www.tsalon.tech/en/articles/shenzhen-lu-yining-frontend-monitoring-recap/",
+    "https://www.tsalon.tech/en/articles/shenzhen-zhang-zeya-engineering-recap/"
   ],
   "history": [
     {
@@ -377,6 +387,23 @@
         "https://www.tsalon.tech/en/articles/qi-wei-remote-collaboration-recap/",
         "https://www.tsalon.tech/en/articles/remote-work-questions-recap/",
         "https://www.tsalon.tech/en/articles/shanghai-jake-lin-compose-mvi-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-27",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/ai-agent-network-attacks-execution-environment-security/",
+        "https://www.tsalon.tech/articles/ai-models-diversity-application-scheduling-evaluation/",
+        "https://www.tsalon.tech/en/articles/shanghai-wang-yu-rendering-engine-recap/",
+        "https://www.tsalon.tech/en/articles/shanghai-zhang-tao-android-coroutines-recap/",
+        "https://www.tsalon.tech/en/articles/shenzhen-cui-minghui-mpflutter-recap/",
+        "https://www.tsalon.tech/en/articles/shenzhen-fan-wenjie-webpack-performance-recap/",
+        "https://www.tsalon.tech/en/articles/shenzhen-frontend-recap/",
+        "https://www.tsalon.tech/en/articles/shenzhen-guo-shuyu-flutter-web-recap/",
+        "https://www.tsalon.tech/en/articles/shenzhen-lu-yining-frontend-monitoring-recap/",
+        "https://www.tsalon.tech/en/articles/shenzhen-zhang-zeya-engineering-recap/"
       ]
     }
   ]
