@@ -169,7 +169,17 @@
     "https://www.tsalon.tech/en/articles/tchat-yuhang-webassembly-career-recap/",
     "https://www.tsalon.tech/en/articles/tchat-yuu-linkedin-mobile-recap/",
     "https://www.tsalon.tech/en/articles/tchat-zhihu-tracking-ab-recap/",
-    "https://www.tsalon.tech/en/articles/tom-diverse-remote-team-recap/"
+    "https://www.tsalon.tech/en/articles/tom-diverse-remote-team-recap/",
+    "https://www.tsalon.tech/en/articles/wardogs-wiki-verifiable-content-engineering/",
+    "https://www.tsalon.tech/en/articles/what-grok-build-and-claude-projects-reveal-about-persistent-agent-memory/",
+    "https://www.tsalon.tech/en/articles/wwdc22-day0-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc22-day1-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc22-day2-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc22-day3-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc22-day4-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc22-day5-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc23-developer-review-recap/",
+    "https://www.tsalon.tech/en/articles/wwdc23-swift-frameworks-opportunities-recap/"
   ],
   "history": [
     {
@@ -458,6 +468,23 @@
         "https://www.tsalon.tech/en/articles/tchat-yuu-linkedin-mobile-recap/",
         "https://www.tsalon.tech/en/articles/tchat-zhihu-tracking-ab-recap/",
         "https://www.tsalon.tech/en/articles/tom-diverse-remote-team-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-30",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/en/articles/wardogs-wiki-verifiable-content-engineering/",
+        "https://www.tsalon.tech/en/articles/what-grok-build-and-claude-projects-reveal-about-persistent-agent-memory/",
+        "https://www.tsalon.tech/en/articles/wwdc22-day0-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc22-day1-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc22-day2-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc22-day3-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc22-day4-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc22-day5-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc23-developer-review-recap/",
+        "https://www.tsalon.tech/en/articles/wwdc23-swift-frameworks-opportunities-recap/"
       ]
     }
   ]
