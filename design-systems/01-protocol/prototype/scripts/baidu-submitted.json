@@ -159,7 +159,17 @@
     "https://www.tsalon.tech/en/articles/tchat-fengyadong-apm-engineering-recap/",
     "https://www.tsalon.tech/en/articles/tchat-kabi-mobile-architecture-recap/",
     "https://www.tsalon.tech/en/articles/tchat-laolv-engineering-quality-recap/",
-    "https://www.tsalon.tech/en/articles/tchat-launch/"
+    "https://www.tsalon.tech/en/articles/tchat-launch/",
+    "https://www.tsalon.tech/en/articles/agent-memory-out-of-date/",
+    "https://www.tsalon.tech/en/articles/tchat-lianshu-audio-video-career-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-lizelei-reader-engine-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-longyi-internationalization-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-overtrue-open-source-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-xinsu-flutter-engineering-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-yuhang-webassembly-career-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-yuu-linkedin-mobile-recap/",
+    "https://www.tsalon.tech/en/articles/tchat-zhihu-tracking-ab-recap/",
+    "https://www.tsalon.tech/en/articles/tom-diverse-remote-team-recap/"
   ],
   "history": [
     {
@@ -431,6 +441,23 @@
         "https://www.tsalon.tech/en/articles/tchat-kabi-mobile-architecture-recap/",
         "https://www.tsalon.tech/en/articles/tchat-laolv-engineering-quality-recap/",
         "https://www.tsalon.tech/en/articles/tchat-launch/"
+      ]
+    },
+    {
+      "date": "2026-10-29",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/en/articles/agent-memory-out-of-date/",
+        "https://www.tsalon.tech/en/articles/tchat-lianshu-audio-video-career-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-lizelei-reader-engine-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-longyi-internationalization-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-overtrue-open-source-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-xinsu-flutter-engineering-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-yuhang-webassembly-career-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-yuu-linkedin-mobile-recap/",
+        "https://www.tsalon.tech/en/articles/tchat-zhihu-tracking-ab-recap/",
+        "https://www.tsalon.tech/en/articles/tom-diverse-remote-team-recap/"
       ]
     }
   ]
