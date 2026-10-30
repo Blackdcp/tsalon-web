@@ -179,7 +179,17 @@
     "https://www.tsalon.tech/en/articles/wwdc22-day4-recap/",
     "https://www.tsalon.tech/en/articles/wwdc22-day5-recap/",
     "https://www.tsalon.tech/en/articles/wwdc23-developer-review-recap/",
-    "https://www.tsalon.tech/en/articles/wwdc23-swift-frameworks-opportunities-recap/"
+    "https://www.tsalon.tech/en/articles/wwdc23-swift-frameworks-opportunities-recap/",
+    "https://www.tsalon.tech/articles/github-octoverse-agent-pr-code-review/",
+    "https://www.tsalon.tech/en/articles/memos-vs-mem0-zep-letta/",
+    "https://www.tsalon.tech/en/articles/why-customers-repeat-themselves-to-ai-agents/",
+    "https://www.tsalon.tech/en/articles/xie-wenqing-collaborative-documents-recap/",
+    "https://www.tsalon.tech/en/articles/yang-fan-remote-startup-recap/",
+    "https://www.tsalon.tech/en/contact/",
+    "https://www.tsalon.tech/en/events/",
+    "https://www.tsalon.tech/en/events/archive/hdx-1703870201300/",
+    "https://www.tsalon.tech/en/events/archive/hdx-3711187585200/",
+    "https://www.tsalon.tech/en/events/archive/hdx-4704118639500/"
   ],
   "history": [
     {
@@ -485,6 +495,23 @@
         "https://www.tsalon.tech/en/articles/wwdc22-day5-recap/",
         "https://www.tsalon.tech/en/articles/wwdc23-developer-review-recap/",
         "https://www.tsalon.tech/en/articles/wwdc23-swift-frameworks-opportunities-recap/"
+      ]
+    },
+    {
+      "date": "2026-10-31",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/github-octoverse-agent-pr-code-review/",
+        "https://www.tsalon.tech/en/articles/memos-vs-mem0-zep-letta/",
+        "https://www.tsalon.tech/en/articles/why-customers-repeat-themselves-to-ai-agents/",
+        "https://www.tsalon.tech/en/articles/xie-wenqing-collaborative-documents-recap/",
+        "https://www.tsalon.tech/en/articles/yang-fan-remote-startup-recap/",
+        "https://www.tsalon.tech/en/contact/",
+        "https://www.tsalon.tech/en/events/",
+        "https://www.tsalon.tech/en/events/archive/hdx-1703870201300/",
+        "https://www.tsalon.tech/en/events/archive/hdx-3711187585200/",
+        "https://www.tsalon.tech/en/events/archive/hdx-4704118639500/"
       ]
     }
   ]
