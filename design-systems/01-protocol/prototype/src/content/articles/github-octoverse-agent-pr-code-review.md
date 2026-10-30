@@ -9,7 +9,7 @@ topics:
   - AI
   - Agent
   - Engineering
-cover: /images/articles/github-agent-pr-code-review-cover.jpg
+cover: /images/articles/github-agent-pr-code-review-cover.png
 coverAlt: GitHub 超四成 PR 由 Agent 起稿，谁来给 AI 代码挑错？
 draft: false
 allowSingleLocale: true
