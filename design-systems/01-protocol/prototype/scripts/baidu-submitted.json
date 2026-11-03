@@ -208,7 +208,8 @@
     "https://www.tsalon.tech/en/topics/ai/",
     "https://www.tsalon.tech/en/topics/engineering/",
     "https://www.tsalon.tech/en/topics/security/",
-    "https://www.tsalon.tech/en/whenreset/"
+    "https://www.tsalon.tech/en/whenreset/",
+    "https://www.tsalon.tech/articles/tencent-databricks-memory-enterprise-rag/"
   ],
   "history": [
     {
@@ -564,6 +565,14 @@
         "https://www.tsalon.tech/en/topics/engineering/",
         "https://www.tsalon.tech/en/topics/security/",
         "https://www.tsalon.tech/en/whenreset/"
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "count": 1,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/articles/tencent-databricks-memory-enterprise-rag/"
       ]
     }
   ]
