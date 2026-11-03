@@ -199,7 +199,16 @@
     "https://www.tsalon.tech/en/events/series/t-chat/",
     "https://www.tsalon.tech/en/events/tchat-series-launch/",
     "https://www.tsalon.tech/en/history/",
-    "https://www.tsalon.tech/en/privacy/"
+    "https://www.tsalon.tech/en/privacy/",
+    "https://www.tsalon.tech/en/terms/",
+    "https://www.tsalon.tech/en/tokenrank/",
+    "https://www.tsalon.tech/en/tokenrank/connect/",
+    "https://www.tsalon.tech/en/tokenrank/methodology/",
+    "https://www.tsalon.tech/en/topics/agent/",
+    "https://www.tsalon.tech/en/topics/ai/",
+    "https://www.tsalon.tech/en/topics/engineering/",
+    "https://www.tsalon.tech/en/topics/security/",
+    "https://www.tsalon.tech/en/whenreset/"
   ],
   "history": [
     {
@@ -539,6 +548,22 @@
         "https://www.tsalon.tech/en/events/tchat-series-launch/",
         "https://www.tsalon.tech/en/history/",
         "https://www.tsalon.tech/en/privacy/"
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "count": 9,
+      "remainAfter": 1,
+      "urls": [
+        "https://www.tsalon.tech/en/terms/",
+        "https://www.tsalon.tech/en/tokenrank/",
+        "https://www.tsalon.tech/en/tokenrank/connect/",
+        "https://www.tsalon.tech/en/tokenrank/methodology/",
+        "https://www.tsalon.tech/en/topics/agent/",
+        "https://www.tsalon.tech/en/topics/ai/",
+        "https://www.tsalon.tech/en/topics/engineering/",
+        "https://www.tsalon.tech/en/topics/security/",
+        "https://www.tsalon.tech/en/whenreset/"
       ]
     }
   ]
