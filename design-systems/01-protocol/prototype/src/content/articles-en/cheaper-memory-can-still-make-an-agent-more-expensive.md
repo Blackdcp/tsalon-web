@@ -2,7 +2,8 @@
 title: Cheaper Memory Can Still Make an Agent More Expensive
 summary: Lower token prices or smaller state do not guarantee a cheaper agent if work fails. How to evaluate memory costs across inference speed, preparation lifetime, and task correctness using MemT-1.0 benchmarks and MemOS.
 type: insight
-publishedAt: 2026-11-06
+publishedAt: 2026-11-05
+updatedAt: 2026-11-06
 readingMinutes: 5
 author: editorial-team
 topics:

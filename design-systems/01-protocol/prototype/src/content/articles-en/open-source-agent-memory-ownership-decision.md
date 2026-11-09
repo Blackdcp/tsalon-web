@@ -2,7 +2,8 @@
 title: Open-Source Agent Memory Is an Ownership Decision
 summary: Choosing an open-source agent memory system is ultimately an ownership decision. How architecture separation in MemOS helps teams capture device context, handle procedure changes, and maintain custom extensions across upgrades.
 type: insight
-publishedAt: 2026-11-06
+publishedAt: 2026-11-05
+updatedAt: 2026-11-06
 readingMinutes: 5
 author: editorial-team
 topics:
