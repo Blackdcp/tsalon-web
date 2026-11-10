@@ -39,6 +39,7 @@ export async function getPublishedUrls() {
 }
 
 const PRIORITY_ORDER = [
+  'https://www.tsalon.tech/articles/memos-async-write-task-id-verification/',
   'https://www.tsalon.tech/articles/tencent-databricks-memory-enterprise-rag/',
   'https://www.tsalon.tech/articles/github-octoverse-agent-pr-code-review/',
   'https://www.tsalon.tech/articles/ai-agent-network-attacks-execution-environment-security/',
