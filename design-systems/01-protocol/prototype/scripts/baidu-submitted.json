@@ -212,7 +212,10 @@
     "https://www.tsalon.tech/articles/tencent-databricks-memory-enterprise-rag/",
     "https://www.tsalon.tech/articles/memos-async-write-task-id-verification/",
     "https://www.tsalon.tech/en/articles/cheaper-memory-can-still-make-an-agent-more-expensive/",
-    "https://www.tsalon.tech/en/articles/open-source-agent-memory-ownership-decision/"
+    "https://www.tsalon.tech/en/articles/open-source-agent-memory-ownership-decision/",
+    "https://www.tsalon.tech/articles/figma-runnable-prototype-interaction-ownership/",
+    "https://www.tsalon.tech/articles/hy4-computer-use-enterprise-handoff/",
+    "https://www.tsalon.tech/articles/render-sandbox-sleep-long-task-cost/"
   ],
   "history": [
     {
@@ -586,6 +589,16 @@
         "https://www.tsalon.tech/articles/memos-async-write-task-id-verification/",
         "https://www.tsalon.tech/en/articles/cheaper-memory-can-still-make-an-agent-more-expensive/",
         "https://www.tsalon.tech/en/articles/open-source-agent-memory-ownership-decision/"
+      ]
+    },
+    {
+      "date": "2026-11-12",
+      "count": 3,
+      "remainAfter": 7,
+      "urls": [
+        "https://www.tsalon.tech/articles/figma-runnable-prototype-interaction-ownership/",
+        "https://www.tsalon.tech/articles/hy4-computer-use-enterprise-handoff/",
+        "https://www.tsalon.tech/articles/render-sandbox-sleep-long-task-cost/"
       ]
     }
   ]
