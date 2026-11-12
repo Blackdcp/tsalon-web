@@ -28,7 +28,7 @@
   VideoObject / CreativeWorkSeries。TokenRank 有 Dataset（4 指标），/whenreset/ 有 FAQPage（4 条），
   **8 篇中文 + 8 篇英文文章页均带 FAQPage（每篇 4 条 Q&A）**。
 - **文章与访谈规范（2026-09-16 起）**：
-  - `articles` / `articlesEn` 的 frontmatter 必须含 `tldr`（要点数组）与 `faq`（问答数组）；文章页渲染 TL;DR 区块 + FAQ 区块，并下发 FAQPage JSON-LD；`llms-full.txt`（中/英）注入每篇 TL;DR 与 FAQ。8 篇英文文章均已完成完整正文翻译。
+  - `articles` / `articlesEn` 的 frontmatter 支持 `tldr`（要点数组）与 `faq`（问答数组）作为可选字段；若填写，文章页会渲染对应区块并下发 FAQPage JSON-LD、同时注入 `llms-full.txt`；若不需要 FAQ（设为 `faq: []`），页面不渲染问答块也不注入 FAQPage schema（2026-11-12 站点负责人确认不再默认强加 FAQ）。
   - **17 期 T Chat 访谈页面已全部丰富化（2026-09-16 完成）**：`src/data/talks.json` 为全部 17 期补充了 `takeaways`（3 条核心看点）与 `faq`（3 组高密度技术问答）；文章页支持 Bilibili 响应式视频内嵌播放、看点卡片、FAQ 问答与 `FAQPage` + `VideoObject` 结构化数据；`llms-full.txt` 注入全部 17 期 Takeaways 与 FAQ（文档扩大至 89KB+）。
   - 文章页标签升级为点击即可直达对应 `/topics/[slug]/` 主题聚合页的语义化链接。
   - `BaseLayout.astro` 声明 `<link rel="alternate">` / `<link rel="help">` 指向 `llms.txt` / `llms-full.txt`，并补齐 Twitter Card 标签。
