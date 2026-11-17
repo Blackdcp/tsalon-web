@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import CommunityConversionCard from '../../components/CommunityConversionCard.astro';
 import { getResetRadarData } from '../../lib/reset-radar';
 
 export const prerender = false;
@@ -606,6 +607,8 @@ const jsonLd = [
           ))}
         </div>
       </section>
+
+      <CommunityConversionCard locale="zh" context="whenreset" />
     </div>
   </main>
 </BaseLayout>

@@ -19,6 +19,8 @@ export const GET: APIRoute = async ({ site }) => {
       whenresetCodex: `${origin}/en/whenreset/codex/`,
       whenresetClaude: `${origin}/en/whenreset/claude/`,
       whenresetGrok: `${origin}/en/whenreset/grok/`,
+      calculator: `${origin}/en/calculator/`,
+      errors: `${origin}/en/errors/`,
     },
     events: [
       ...events.map((entry) => ({ id: entry.id, title: entry.data.title, summary: entry.data.summary, startDate: entry.data.startDate.toISOString(), url: `${origin}/en/events/${entry.id}/`, alternateLanguageUrl: `${origin}/events/${entry.data.translationOf}/` })),

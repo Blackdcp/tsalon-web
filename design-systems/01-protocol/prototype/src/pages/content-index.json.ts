@@ -33,6 +33,8 @@ export const GET: APIRoute = async ({ site }) => {
       whenresetCodex: `${origin}/whenreset/codex/`,
       whenresetClaude: `${origin}/whenreset/claude/`,
       whenresetGrok: `${origin}/whenreset/grok/`,
+      calculator: `${origin}/calculator/`,
+      errors: `${origin}/errors/`,
     },
     preparationTopics: [
       { id: 'ai', name: 'AI', collaboration: ['guest', 'content'] },

@@ -1,0 +1,18 @@
+---
+import ErrorGuideDetailPage from '../../components/ErrorGuideDetailPage.astro';
+import { ERROR_GUIDES, type ErrorGuideEntry } from '../../data/error-guides';
+
+export function getStaticPaths() {
+  return ERROR_GUIDES.map((entry) => ({
+    params: { slug: entry.slug },
+    props: { entry },
+  }));
+}
+
+interface Props {
+  entry: ErrorGuideEntry;
+}
+
+const { entry } = Astro.props;
+---
+<ErrorGuideDetailPage entry={entry} locale="zh" />

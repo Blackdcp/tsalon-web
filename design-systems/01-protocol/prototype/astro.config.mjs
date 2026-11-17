@@ -93,6 +93,13 @@ for (const p of ['/en/', '/en/articles/', '/en/events/', '/en/events/series/t-ch
 for (const p of [
   '/whenreset/', '/whenreset/codex/', '/whenreset/claude/', '/whenreset/grok/',
   '/en/whenreset/', '/en/whenreset/codex/', '/en/whenreset/claude/', '/en/whenreset/grok/',
+  '/calculator/', '/en/calculator/',
+  '/errors/', '/en/errors/',
+  '/errors/claude-5-hour-limit-reached/', '/en/errors/claude-5-hour-limit-reached/',
+  '/errors/claude-weekly-limit-exhausted/', '/en/errors/claude-weekly-limit-exhausted/',
+  '/errors/codex-usage-limit-and-reset-card/', '/en/errors/codex-usage-limit-and-reset-card/',
+  '/errors/prompt-cache-miss-high-cost/', '/en/errors/prompt-cache-miss-high-cost/',
+  '/errors/cursor-fast-requests-exhausted/', '/en/errors/cursor-fast-requests-exhausted/',
   '/tokenrank/', '/tokenrank/methodology/', '/tokenrank/connect/',
   '/en/tokenrank/', '/en/tokenrank/methodology/', '/en/tokenrank/connect/',
 ]) {

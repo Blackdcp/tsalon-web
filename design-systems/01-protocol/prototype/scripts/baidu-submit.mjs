@@ -39,6 +39,13 @@ export async function getPublishedUrls() {
 }
 
 const PRIORITY_ORDER = [
+  'https://www.tsalon.tech/calculator/',
+  'https://www.tsalon.tech/errors/',
+  'https://www.tsalon.tech/errors/claude-5-hour-limit-reached/',
+  'https://www.tsalon.tech/errors/claude-weekly-limit-exhausted/',
+  'https://www.tsalon.tech/errors/codex-usage-limit-and-reset-card/',
+  'https://www.tsalon.tech/errors/prompt-cache-miss-high-cost/',
+  'https://www.tsalon.tech/errors/cursor-fast-requests-exhausted/',
   'https://www.tsalon.tech/whenreset/claude/',
   'https://www.tsalon.tech/whenreset/codex/',
   'https://www.tsalon.tech/whenreset/grok/',

@@ -37,6 +37,8 @@ export const GET: APIRoute = async ({ site }) => {
     `  - [OpenAI Codex Quota Reset Radar](${origin}/en/whenreset/codex/): Codex global reset and bonus card records, cadence reference, and 5-hour window calculator.`,
     `  - [Anthropic Claude Quota Reset Radar](${origin}/en/whenreset/claude/): Claude and Claude Code 5-hour rolling window recovery calculator, weekly pacing planner, and event records.`,
     `  - [xAI Grok Quota Reset Radar](${origin}/en/whenreset/grok/): Grok and SuperGrok reset event tracker and window calculator.`,
+    `- [AI Coding Cost & Subscription Calculator](${origin}/en/calculator/): Estimate monthly API-equivalent bills from daily token volume and cache hit rate vs $20/$100/$200 flat-rate plans.`,
+    `- [AI Coding Rate-Limit & Cost Error Wiki](${origin}/en/errors/): Troubleshooting guides for Claude 5-hour limits, weekly caps, Codex reset cards, cache misses, and Cursor fast requests.`,
     '',
     '## Published events',
     ...events.map((entry) => `- [${entry.data.title}](${origin}/en/events/${entry.id}/): ${entry.data.summary}`),

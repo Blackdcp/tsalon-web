@@ -1,0 +1,86 @@
+---
+interface Props {
+  locale?: 'zh' | 'en';
+  context?: 'whenreset' | 'calculator' | 'errors';
+}
+
+const { locale = 'zh', context = 'whenreset' } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+
+const heading = isEn
+  ? context === 'calculator'
+    ? 'Turn cost estimates into community benchmarks'
+    : context === 'errors'
+      ? 'Still hitting rate limits or workflow bottlenecks?'
+      : 'Stay ahead of quota resets & real-world AI workflows'
+  : context === 'calculator'
+    ? '想用真实开发者样本校准你的预算？'
+    : context === 'errors'
+      ? '除了排查报错，还可以接入实时工具与一线交流'
+      : '不止查重置时间，欢迎加入 T Salon 一线开发者社区';
+
+const subtext = isEn
+  ? 'T Salon (est. 2016) connects engineers shipping with Claude Code, Codex, and AI agents. Join upcoming developer gatherings, compare real telemetry on TokenRank, or explore our practical guides.'
+  : 'T Salon 始于 2016 年，长期连接一线研发工程师与 AI 实践者。关注公众号获取下期沙龙与实战分享，或用社区工具持续跟踪额度与真实用量。';
+---
+
+<aside class="community-conversion-card" aria-label={isEn ? 'Community & tools' : '社区与关联工具'}>
+  <div class="ccc-main">
+    <p class="eyebrow">T SALON // DEVELOPER COMMUNITY · EST. 2016</p>
+    <h2>{heading}</h2>
+    <p class="ccc-desc">{subtext}</p>
+    <div class="ccc-actions">
+      <a class="btn btn-dark" href={`${prefix}/about/#official`}>
+        {isEn ? 'Follow WeChat (codetsalon)' : '关注公众号 · codetsalon'} <span>→</span>
+      </a>
+      <a class="btn btn-outline" href={`${prefix}/events/`}>
+        {isEn ? 'Explore Upcoming Events' : '查看近期活动'}
+      </a>
+      {context !== 'calculator' && (
+        <a class="btn btn-outline" href={`${prefix}/calculator/`}>
+          {isEn ? 'AI Cost Calculator' : 'AI 编程成本计算器'}
+        </a>
+      )}
+      {context !== 'errors' && (
+        <a class="btn btn-outline" href={`${prefix}/errors/`}>
+          {isEn ? 'Rate-Limit Error Wiki' : '限流与报错速查库'}
+        </a>
+      )}
+      {context !== 'whenreset' && (
+        <a class="btn btn-outline" href={`${prefix}/whenreset/`}>
+          {isEn ? 'Quota Reset Radar' : 'AI 额度重置雷达'}
+        </a>
+      )}
+      <a class="btn btn-outline" href={`${prefix}/tokenrank/`}>
+        {isEn ? 'TokenRank Leaderboard' : 'TokenRank 排行榜'}
+      </a>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .community-conversion-card {
+    margin-top: 3rem;
+    padding: 2rem;
+    border: 1px solid var(--border-default);
+    background: var(--background-subtle);
+  }
+  .community-conversion-card h2 {
+    margin: 0.4rem 0 0.75rem;
+    font-size: 1.35rem;
+    line-height: 1.3;
+  }
+  .ccc-desc {
+    margin: 0 0 1.25rem;
+    max-width: 720px;
+    color: var(--text-secondary);
+    font-size: 0.925rem;
+    line-height: 1.65;
+  }
+  .ccc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+</style>

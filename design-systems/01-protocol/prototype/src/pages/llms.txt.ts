@@ -39,6 +39,8 @@ export const GET: APIRoute = async ({ site }) => {
     `  - [OpenAI Codex 额度重置雷达](${origin}/whenreset/codex/): Codex 全局重置与发卡记录、历史间隔参考与 5 小时窗口计算。`,
     `  - [Anthropic Claude 额度重置雷达](${origin}/whenreset/claude/): Claude / Claude Code 5 小时滑动窗口计算、周度限额规划与重置记录。`,
     `  - [xAI Grok 额度重置雷达](${origin}/whenreset/grok/): Grok / SuperGrok 配额重置记录与窗口计算。`,
+    `- [AI 编程成本与订阅盈亏计算器](${origin}/calculator/): 根据每日 Token 量与 Prompt 缓存命中率对比 Claude、Codex、Gemini 月度 API 账单与 $20/$100/$200 订阅制盈亏。`,
+    `- [AI 编程限流与报错速查库](${origin}/errors/): Claude 5 小时限流、周度配额耗尽、Codex 重置卡、缓存失效及 Cursor 500 次请求耗尽的一站式排查指南。`,
     '',
     '## Activities',
     ...events.map((entry) => `- [${entry.data.title}](${origin}/events/${entry.id}/): ${entry.data.summary} Date: ${entry.data.startDate.toISOString()}. Mode: ${entry.data.attendanceMode}.`),

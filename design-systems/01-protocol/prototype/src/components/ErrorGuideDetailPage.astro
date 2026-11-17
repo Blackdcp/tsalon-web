@@ -1,0 +1,277 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+import { ERROR_GUIDES, type ErrorGuideEntry } from '../data/error-guides';
+
+interface Props {
+  entry: ErrorGuideEntry;
+  locale: 'zh' | 'en';
+}
+
+const { entry, locale } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+const pagePath = `${prefix}/errors/${entry.slug}/`;
+const altPath = isEn ? `/errors/${entry.slug}/` : `/en/errors/${entry.slug}/`;
+const pageUrl = new URL(pagePath, Astro.site).toString();
+const faqList = isEn ? entry.faqEn : entry.faqZh;
+const others = ERROR_GUIDES.filter((item) => item.slug !== entry.slug).slice(0, 3);
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: isEn ? entry.titleEn : entry.titleZh,
+    description: isEn ? entry.descEn : entry.descZh,
+    url: pageUrl,
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: isEn ? 'Home' : '首页', item: new URL(isEn ? '/en/' : '/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: isEn ? 'Error Wiki' : '报错速查库', item: new URL(`${prefix}/errors/`, Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: entry.code, item: pageUrl },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+    mainEntity: faqList.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
+];
+---
+
+<BaseLayout
+  title={isEn ? entry.seoTitleEn : entry.seoTitleZh}
+  description={isEn ? entry.descEn : entry.descZh}
+  alternatePath={altPath}
+  locale={locale}
+  jsonLd={jsonLd}
+>
+  <main class="error-detail-page">
+    <div class="container">
+      <nav class="error-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑'}>
+        <a href={isEn ? '/en/' : '/'}>{isEn ? 'Home' : '首页'}</a>
+        <span aria-hidden="true">/</span>
+        <a href={`${prefix}/errors/`}>{isEn ? 'Error Wiki' : '报错速查库'}</a>
+        <span aria-hidden="true">/</span>
+        <span>{entry.product}</span>
+      </nav>
+
+      <header class="error-header">
+        <div class="error-meta mono">
+          <span>{entry.product}</span>
+          <code>{entry.code}</code>
+        </div>
+        <h1>{isEn ? entry.titleEn : entry.titleZh}</h1>
+        <div class="direct-answer-box">
+          <p class="mono">{isEn ? 'DIRECT ANSWER' : '一句话结论'}</p>
+          <p class="direct-answer-text">{isEn ? entry.directAnswerEn : entry.directAnswerZh}</p>
+          <a href={isEn ? entry.toolPathEn : entry.toolPathZh} class="btn btn-dark">
+            {isEn ? entry.toolLabelEn : entry.toolLabelZh}
+          </a>
+        </div>
+      </header>
+
+      <div class="error-body-grid">
+        <section class="error-section">
+          <h2>{isEn ? 'Why this happens' : '常见触发原因'}</h2>
+          <ul>
+            {(isEn ? entry.causesEn : entry.causesZh).map((c) => <li>{c}</li>)}
+          </ul>
+        </section>
+
+        <section class="error-section">
+          <h2>{isEn ? 'Step-by-step fix' : '实操排查与解决步骤'}</h2>
+          <ol class="steps-list">
+            {(isEn ? entry.stepsEn : entry.stepsZh).map((s) => (
+              <li>
+                <strong>{s.step}</strong>
+                <p>{s.detail}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
+      {faqList.length > 0 && (
+        <section class="error-faq-section">
+          <h2>{isEn ? 'Frequently Asked Questions' : '常见延伸问题'}</h2>
+          <div class="error-faq-grid">
+            {faqList.map((item) => (
+              <article class="error-faq-card">
+                <h3>{item.q}</h3>
+                <p>{item.a}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section class="other-errors-section" aria-label={isEn ? 'Other error guides' : '其他常见报错排查'}>
+        <h2>{isEn ? 'Related troubleshooting guides' : '其他常见限流与成本报错'}</h2>
+        <div class="other-errors-grid">
+          {others.map((o) => (
+            <a href={`${prefix}/errors/${o.slug}/`} class="other-error-card">
+              <span class="mono">{o.product}</span>
+              <h3>{isEn ? o.titleEn : o.titleZh}</h3>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <CommunityConversionCard locale={locale} context="errors" />
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .error-detail-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+  }
+  .error-breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-6);
+  }
+  .error-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .error-header {
+    margin-bottom: var(--space-10);
+  }
+  .error-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-3);
+  }
+  .error-meta code {
+    padding: 2px 8px;
+    background: #fef2f2;
+    color: #b91c1c;
+    border-radius: 4px;
+  }
+  .error-header h1 {
+    font-size: clamp(1.85rem, 3.8vw, 2.5rem);
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    margin: 0 0 var(--space-6);
+  }
+  .direct-answer-box {
+    padding: var(--space-6);
+    border-left: 4px solid #2563eb;
+    background: var(--background-subtle);
+    border-top: 1px solid var(--border-default);
+    border-right: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border-default);
+  }
+  .direct-answer-box .mono {
+    margin: 0 0 0.5rem;
+    font-size: var(--text-11);
+    color: #2563eb;
+    letter-spacing: 0.08em;
+  }
+  .direct-answer-text {
+    margin: 0 0 var(--space-5);
+    font-size: 1.05rem;
+    line-height: 1.65;
+  }
+  .error-body-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: var(--space-8);
+    margin-bottom: var(--space-10);
+  }
+  .error-section {
+    padding: var(--space-6);
+    border: 1px solid var(--border-default);
+    background: #fff;
+  }
+  .error-section h2 {
+    margin: 0 0 var(--space-4);
+    font-size: 1.25rem;
+  }
+  .error-section ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+  .steps-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: var(--space-4);
+  }
+  .steps-list p {
+    margin: 0.3rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.925rem;
+    line-height: 1.6;
+  }
+  .error-faq-section {
+    margin-bottom: var(--space-10);
+  }
+  .error-faq-section h2,
+  .other-errors-section h2 {
+    font-size: 1.3rem;
+    margin: 0 0 var(--space-5);
+  }
+  .error-faq-grid,
+  .other-errors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: var(--space-4);
+  }
+  .error-faq-card,
+  .other-error-card {
+    padding: var(--space-5);
+    border: 1px solid var(--border-default);
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+  }
+  .error-faq-card h3,
+  .other-error-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  .error-faq-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .other-error-card span {
+    display: block;
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    margin-bottom: 0.35rem;
+  }
+  .other-error-card:hover {
+    border-color: var(--color-ink-950);
+  }
+  @media (max-width: 900px) {
+    .error-body-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

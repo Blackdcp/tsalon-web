@@ -1,0 +1,182 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+import { ERROR_GUIDES } from '../data/error-guides';
+
+interface Props {
+  locale: 'zh' | 'en';
+}
+
+const { locale } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+const pagePath = `${prefix}/errors/`;
+const altPath = isEn ? '/errors/' : '/en/errors/';
+const pageUrl = new URL(pagePath, Astro.site).toString();
+
+const title = isEn
+  ? 'AI Coding Rate-Limit & Token Error Troubleshooting Wiki | T Salon'
+  : 'AI 编程限流与 Token 报错速查库 (Claude / Codex / Cursor) | T Salon';
+const description = isEn
+  ? 'Quick troubleshooting guides for common AI coding errors: Claude 5-hour limit reached, weekly quota exhaustion, Codex reset cards, prompt cache misses, and Cursor fast request caps.'
+  : '收录 Claude Code 5 小时限制、周度配额耗尽、OpenAI Codex Reset Card、Prompt Caching 缓存失效及 Cursor 500 次请求耗尽等高频报错的一站式排查与计算入口。';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: title,
+    description,
+    url: pageUrl,
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: ERROR_GUIDES.length,
+      itemListElement: ERROR_GUIDES.map((entry, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: isEn ? entry.titleEn : entry.titleZh,
+        url: new URL(`${prefix}/errors/${entry.slug}/`, Astro.site).toString(),
+      })),
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: isEn ? 'Home' : '首页', item: new URL(isEn ? '/en/' : '/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: isEn ? 'Error Wiki' : '报错速查库', item: pageUrl },
+    ],
+  },
+];
+---
+
+<BaseLayout title={title} description={description} alternatePath={altPath} locale={locale} jsonLd={jsonLd}>
+  <main class="errors-page">
+    <div class="container">
+      <nav class="errors-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑'}>
+        <a href={isEn ? '/en/' : '/'}>{isEn ? 'Home' : '首页'}</a>
+        <span aria-hidden="true">/</span>
+        <span>{isEn ? 'Error Troubleshooting Wiki' : '限流与报错速查库'}</span>
+      </nav>
+
+      <header class="errors-hero">
+        <p class="eyebrow">WIKI // AI CODING TROUBLESHOOTING</p>
+        <h1>{isEn ? 'AI Coding Rate-Limit & Cost Error Wiki' : 'AI 编程限流与成本报错速查库'}</h1>
+        <p class="errors-lead">
+          {isEn
+            ? 'Hit an unexpected usage cap or sudden cost spike? Pick your error message below for the root cause, recovery calculation, and step-by-step fix.'
+            : '写代码或跑 Agent 时突然遇到限流、配额提前耗尽或费用异常飙升？选择下方对应报错，直接获取一句话原因、恢复时间计算入口与实操解决步骤。'}
+        </p>
+      </header>
+
+      <ul class="errors-grid">
+        {ERROR_GUIDES.map((entry) => (
+          <li>
+            <a href={`${prefix}/errors/${entry.slug}/`} class="error-card">
+              <div class="error-card-top mono">
+                <span>{entry.product}</span>
+                <code>{entry.code}</code>
+              </div>
+              <h2>{isEn ? entry.titleEn : entry.titleZh}</h2>
+              <p>{isEn ? entry.directAnswerEn : entry.directAnswerZh}</p>
+              <span class="error-card-link">{isEn ? 'View fix & calculator →' : '查看排查步骤与计算工具 →'}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <CommunityConversionCard locale={locale} context="errors" />
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .errors-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 75vh;
+  }
+  .errors-breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-6);
+  }
+  .errors-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .errors-hero {
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--space-8);
+  }
+  .errors-hero h1 {
+    font-size: clamp(1.9rem, 4vw, 2.75rem);
+    letter-spacing: -0.03em;
+    margin: var(--space-2) 0 var(--space-4);
+  }
+  .errors-lead {
+    max-width: 720px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin: 0;
+  }
+  .errors-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    gap: var(--space-5);
+  }
+  .error-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: var(--space-6);
+    border: 1px solid var(--border-default);
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .error-card:hover {
+    border-color: var(--color-ink-950);
+  }
+  .error-card-top {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-3);
+  }
+  .error-card-top code {
+    display: inline-block;
+    width: fit-content;
+    padding: 2px 6px;
+    background: #fef2f2;
+    color: #b91c1c;
+    border-radius: 4px;
+  }
+  .error-card h2 {
+    margin: 0 0 var(--space-3);
+    font-size: 1.15rem;
+    line-height: 1.4;
+  }
+  .error-card p {
+    margin: 0 0 var(--space-4);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    flex: 1;
+  }
+  .error-card-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #2563eb;
+  }
+</style>

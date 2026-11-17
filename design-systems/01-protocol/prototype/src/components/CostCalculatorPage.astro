@@ -1,0 +1,516 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+import { MODEL_PRICING, PRICING_SNAPSHOT_DATE } from '../lib/token-pricing.mjs';
+
+interface Props {
+  locale: 'zh' | 'en';
+}
+
+const { locale } = Astro.props;
+const isEn = locale === 'en';
+const pagePath = isEn ? '/en/calculator/' : '/calculator/';
+const altPath = isEn ? '/calculator/' : '/en/calculator/';
+const pageUrl = new URL(pagePath, Astro.site).toString();
+
+const models = [
+  { id: 'claude-3-5-sonnet', label: 'Claude 3.5 / Sonnet', subTier: '$20 Pro / $100 Max', pricing: MODEL_PRICING['claude-3-5-sonnet'] },
+  { id: 'claude-fable-5', label: 'Claude Opus / Fable 5', subTier: '$100 / $200 Max', pricing: MODEL_PRICING['claude-fable-5'] },
+  { id: 'gpt-5.6-sol', label: 'OpenAI Codex / GPT-5.6 Sol', subTier: '$20 Plus / $200 Pro', pricing: MODEL_PRICING['gpt-5.6-sol'] },
+  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', subTier: 'API / Standard', pricing: MODEL_PRICING['gpt-5.6-terra'] },
+  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (Mini)', subTier: 'API / High-volume', pricing: MODEL_PRICING['gpt-5.6-luna'] },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', subTier: '$19.99 Google AI Pro', pricing: MODEL_PRICING['gemini-2.5-pro'] },
+];
+
+const faqList = isEn
+  ? [
+      {
+        q: 'How do I decide between a $20/$100/$200 subscription and pay-as-you-go API?',
+        a: 'Compare your estimated monthly API-equivalent cost at your actual prompt cache hit rate against the flat subscription fee. In general, heavy Claude Code or Codex users with 20M+ daily raw tokens quickly exceed $200/month in API equivalent, making flat-rate plans much cheaper, whereas sporadic users save money with pay-as-you-go API.',
+      },
+      {
+        q: 'Why does prompt cache hit rate change AI coding cost so dramatically?',
+        a: 'Agentic coding tools re-send repository context and conversation history on every turn. Cached input reads typically cost 10% of fresh input tokens (for example, $0.30 vs $3.00 per 1M tokens). Dropping from 85% cache hit rate to 0% can multiply your monthly bill by 5x to 8x.',
+      },
+      {
+        q: 'Where do the per-million token prices in this calculator come from?',
+        a: `This calculator uses the exact same central pricing table (${PRICING_SNAPSHOT_DATE} snapshot) as the T Salon TokenRank leaderboard so you can compare your personal usage estimates directly against community telemetry.`,
+      },
+    ]
+  : [
+      {
+        q: '每天用 Claude Code 或 Codex，买 $20 / $100 / $200 订阅还是按量用 API 更划算？',
+        a: '看你的真实月度 API 等效费用是否跨过订阅月费线。以 85% 常见缓存命中率为例，如果你每天原始消耗超过 2,000 万 Token（常见于高强度多文件重构），按量 API 月账单往往远超 $200，此时固定月费订阅极具性价比；反之如果一周只写一两天代码，按量 API 更省钱。',
+      },
+      {
+        q: '为什么「缓存命中率（Prompt Caching）」对费用影响这么大？',
+        a: 'AI 编程助手每轮都会重复携带代码仓库上下文与对话历史。缓存读取（cache_read）的定价通常仅为新输入（input）的 1/10 左右（例如 $0.30 vs $3.00 / 百万 Token）。一旦缓存失效（命中率从 85% 掉到 0%），相同工作量的实际账单可能暴涨 5 到 8 倍。',
+      },
+      {
+        q: '本计算器使用的模型单价依据是什么？',
+        a: `与 T Salon TokenRank 排行榜采用完全一致的中央价目快照（${PRICING_SNAPSHOT_DATE}），方便你把估算结果直接与社区开发者实测的真实消耗分布（/tokenrank/）对照。`,
+      },
+    ];
+
+const title = isEn
+  ? 'AI Coding Token Cost & Subscription Break-Even Calculator | T Salon'
+  : 'AI 编程 Token 成本与订阅盈亏计算器 (Claude / Codex / API 对比) | T Salon';
+const description = isEn
+  ? 'Calculate monthly API-equivalent costs for Claude Code, OpenAI Codex, and Gemini based on daily token volume and prompt cache hit rate, and see whether $20/$100/$200 subscriptions or pay-as-you-go API is cheaper.'
+  : '输入每日 AI 编程 Token 用量与缓存命中率，实时对比 Claude、Codex、Gemini 等模型的月度 API 等效账单与 $20/$100/$200 订阅套餐盈亏平衡点。';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: isEn ? 'AI Coding Token Cost & Subscription Break-Even Calculator' : 'AI 编程 Token 成本与订阅盈亏计算器',
+    url: pageUrl,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Web',
+    description,
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: isEn ? 'Home' : '首页', item: new URL(isEn ? '/en/' : '/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: isEn ? 'Cost Calculator' : '成本计算器', item: pageUrl },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+    mainEntity: faqList.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
+];
+---
+
+<BaseLayout title={title} description={description} alternatePath={altPath} locale={locale} jsonLd={jsonLd}>
+  <main class="calc-page">
+    <div class="container">
+      <nav class="calc-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑'}>
+        <a href={isEn ? '/en/' : '/'}>{isEn ? 'Home' : '首页'}</a>
+        <span aria-hidden="true">/</span>
+        <span>{isEn ? 'AI Coding Cost Calculator' : 'AI 编程成本计算器'}</span>
+      </nav>
+
+      <header class="calc-hero">
+        <p class="eyebrow">TOOLS // PRICING SNAPSHOT {PRICING_SNAPSHOT_DATE}</p>
+        <h1>{isEn ? 'AI Coding Cost & Subscription Break-Even Calculator' : 'AI 编程 Token 成本与订阅盈亏计算器'}</h1>
+        <p class="calc-lead">
+          {isEn
+            ? 'Estimate your monthly API-equivalent spend across Claude, Codex, and Gemini from daily token volume and prompt cache hit rate—and find out when a $20, $100, or $200 flat-rate plan beats pay-as-you-go API.'
+            : '根据每日 Token 消耗量、工作天数与 Prompt 缓存命中率，实时测算 Claude、Codex、Gemini 的月度 API 等效成本，直接对比 $20 / $100 / $200 订阅套餐的盈亏平衡点。'}
+        </p>
+
+        <div class="preset-row" role="group" aria-label={isEn ? 'Usage presets' : '用量预设场景'}>
+          <span class="mono preset-label">{isEn ? 'Quick presets:' : '典型场景预设：'}</span>
+          <button type="button" class="preset-btn" data-daily="2" data-cache="75" data-output="5" data-days="20">
+            {isEn ? 'Light Copilot (2M/day)' : '轻度辅助编码 (200万/天)'}
+          </button>
+          <button type="button" class="preset-btn active" data-daily="25" data-cache="85" data-output="2" data-days="22">
+            {isEn ? 'Daily Claude Code / Codex (25M/day)' : '主力 Claude Code / Codex (2500万/天)'}
+          </button>
+          <button type="button" class="preset-btn" data-daily="120" data-cache="90" data-output="1" data-days="25">
+            {isEn ? 'Heavy Multi-Agent (120M/day)' : '重度多 Agent 并行 (1.2亿/天)'}
+          </button>
+          <button type="button" class="preset-btn" data-daily="25" data-cache="0" data-output="2" data-days="22">
+            {isEn ? 'Cache-Miss Stress Test (0% Cache)' : '缓存全失效对照 (0% 缓存)'}
+          </button>
+        </div>
+      </header>
+
+      <section class="calc-workspace" aria-label={isEn ? 'Cost calculator controls and results' : '成本计算参数与结果'}>
+        <div class="calc-controls-panel">
+          <div class="control-item">
+            <label for="daily-millions">
+              <span>{isEn ? 'Daily Raw Token Volume (Millions)' : '每日原始消耗总量（百万 Token / 天）'}</span>
+              <strong id="daily-millions-val" class="mono">25M</strong>
+            </label>
+            <input type="range" id="daily-millions" min="1" max="300" step="1" value="25" />
+            <p class="control-hint">
+              {isEn ? 'Includes input, cache read, and output. Active Claude Code sessions often reach 15M–80M/day.' : '含输入、缓存读取与输出。高强度 Claude Code / Codex 开发者常见为 1,500万–8,000万/天。'}
+            </p>
+          </div>
+
+          <div class="control-item">
+            <label for="cache-rate">
+              <span>{isEn ? 'Prompt Cache Hit Rate (%)' : 'Prompt 缓存读取占比（Cache Hit Rate）'}</span>
+              <strong id="cache-rate-val" class="mono">85%</strong>
+            </label>
+            <input type="range" id="cache-rate" min="0" max="96" step="1" value="85" />
+            <p class="control-hint">
+              {isEn ? 'TokenRank community telemetry typically sees 80%–95% cache reads in multi-turn coding.' : 'TokenRank 社区实测样本中，多轮编程任务的缓存读取占比通常在 80%–95% 之间。'}
+            </p>
+          </div>
+
+          <div class="control-item">
+            <label for="output-rate">
+              <span>{isEn ? 'Generated Output Share (%)' : '生成输出 Token 占比（Output）'}</span>
+              <strong id="output-rate-val" class="mono">2%</strong>
+            </label>
+            <input type="range" id="output-rate" min="1" max="20" step="1" value="2" />
+            <p class="control-hint">
+              {isEn ? 'Output tokens are billed at the highest rate (typically 4x–5x input price).' : '输出 Token 单价最高（通常为新输入的 4–5 倍），但长上下文编码中占比一般仅 1%–5%。'}
+            </p>
+          </div>
+
+          <div class="control-item">
+            <label for="active-days">
+              <span>{isEn ? 'Active Coding Days per Month' : '每月高强度编码天数'}</span>
+              <strong id="active-days-val" class="mono">22 {isEn ? 'days' : '天'}</strong>
+            </label>
+            <input type="range" id="active-days" min="1" max="31" step="1" value="22" />
+          </div>
+        </div>
+
+        <div class="calc-summary-panel">
+          <div class="summary-kpis">
+            <div class="kpi-box">
+              <span class="kpi-label">{isEn ? 'Monthly Raw Tokens' : '月度原始总 Token'}</span>
+              <strong id="kpi-monthly-raw" class="kpi-value">550M</strong>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-label">{isEn ? 'Net New Tokens (No Cache)' : '不含缓存净消耗'}</span>
+              <strong id="kpi-monthly-net" class="kpi-value">82.5M</strong>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-label">{isEn ? 'Sonnet API vs $20 Plan' : 'Sonnet API 对比 $20 订阅'}</span>
+              <strong id="kpi-verdict-20" class="kpi-value verdict-sub">—</strong>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-label">{isEn ? 'Codex / Opus vs $200 Plan' : '高阶模型对比 $200 订阅'}</span>
+              <strong id="kpi-verdict-200" class="kpi-value verdict-sub">—</strong>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="cost-table">
+              <thead>
+                <tr>
+                  <th>{isEn ? 'Model Family' : '模型 / 计费档位'}</th>
+                  <th>{isEn ? 'Rates ($/1M: In / Cache / Out)' : '单价 ($/百万: 输入 / 缓存 / 输出)'}</th>
+                  <th>{isEn ? 'Est. Monthly API Cost' : '月度 API 等效账单'}</th>
+                  <th>{isEn ? 'vs Subscription Break-Even' : '订阅制盈亏对比'}</th>
+                </tr>
+              </thead>
+              <tbody id="cost-table-body">
+                {models.map((m) => (
+                  <tr data-model={m.id}>
+                    <td>
+                      <strong>{m.label}</strong>
+                      <div class="model-tier mono">{m.subTier}</div>
+                    </td>
+                    <td class="mono">${m.pricing.input} / ${m.pricing.cacheRead} / ${m.pricing.output}</td>
+                    <td class="cost-cell"><strong>$—</strong></td>
+                    <td class="verdict-cell">—</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="table-footnote">
+            {isEn
+              ? `Note: Uses the T Salon TokenRank pricing snapshot (${PRICING_SNAPSHOT_DATE}). Assumes fresh input = 100% − cache% − output%. Real API bills vary by provider cache TTL and long-context tiers.`
+              : `注：单价与 TokenRank 排行榜（${PRICING_SNAPSHOT_DATE} 快照）一致；新输入占比按 100% − 缓存占比 − 输出占比计算。实际账单受长上下文加价及缓存写入 TTL 影响。`}
+          </p>
+        </div>
+      </section>
+
+      <section class="calc-faq-section" aria-labelledby="calc-faq-title">
+        <h2 id="calc-faq-title">{isEn ? 'Frequently Asked Questions' : '常见成本与订阅对比问答'}</h2>
+        <div class="calc-faq-grid">
+          {faqList.map((item) => (
+            <article class="calc-faq-card">
+              <h3>{item.q}</h3>
+              <p>{item.a}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <CommunityConversionCard locale={locale} context="calculator" />
+    </div>
+  </main>
+</BaseLayout>
+
+<script is:inline define:vars={{ models, isEn }}>
+  (() => {
+    const dailyInput = document.getElementById('daily-millions');
+    const cacheInput = document.getElementById('cache-rate');
+    const outputInput = document.getElementById('output-rate');
+    const daysInput = document.getElementById('active-days');
+    const presetBtns = document.querySelectorAll('.preset-btn');
+
+    const formatTokens = (millions) => {
+      if (millions >= 1000) return (millions / 1000).toFixed(2) + (isEn ? 'B' : '十亿');
+      return millions.toFixed(1).replace(/\.0$/, '') + 'M';
+    };
+
+    const update = () => {
+      const dailyM = Number(dailyInput.value) || 1;
+      const cachePct = Number(cacheInput.value) || 0;
+      const outPct = Math.min(Number(outputInput.value) || 1, Math.max(1, 100 - cachePct));
+      const inPct = Math.max(0, 100 - cachePct - outPct);
+      const days = Number(daysInput.value) || 1;
+
+      document.getElementById('daily-millions-val').textContent = `${dailyM}M`;
+      document.getElementById('cache-rate-val').textContent = `${cachePct}%`;
+      document.getElementById('output-rate-val').textContent = `${outPct}%`;
+      document.getElementById('active-days-val').textContent = isEn ? `${days} days` : `${days} 天`;
+
+      const monthlyRawM = dailyM * days;
+      const monthlyNetM = monthlyRawM * ((100 - cachePct) / 100);
+      document.getElementById('kpi-monthly-raw').textContent = formatTokens(monthlyRawM);
+      document.getElementById('kpi-monthly-net').textContent = formatTokens(monthlyNetM);
+
+      const inM = monthlyRawM * (inPct / 100);
+      const cacheM = monthlyRawM * (cachePct / 100);
+      const outM = monthlyRawM * (outPct / 100);
+
+      let sonnetCost = 0;
+      let codexCost = 0;
+
+      models.forEach((m) => {
+        const cost = inM * m.pricing.input + cacheM * m.pricing.cacheRead + outM * m.pricing.output;
+        if (m.id === 'claude-3-5-sonnet') sonnetCost = cost;
+        if (m.id === 'gpt-5.6-sol') codexCost = cost;
+
+        const row = document.querySelector(`tr[data-model="${m.id}"]`);
+        if (!row) return;
+        row.querySelector('.cost-cell').innerHTML = `<strong>$${cost.toFixed(2)}</strong>`;
+        let verdict = '';
+        if (m.id === 'claude-3-5-sonnet' || m.id === 'gemini-2.5-pro') {
+          verdict = cost > 20
+            ? (isEn ? `$20 plan saves $${(cost - 20).toFixed(0)}/mo` : `$20 订阅省 $${(cost - 20).toFixed(0)}/月`)
+            : (isEn ? `API cheaper by $${(20 - cost).toFixed(0)}/mo` : `API 省 $${(20 - cost).toFixed(0)}/月`);
+        } else if (m.id === 'claude-fable-5' || m.id === 'gpt-5.6-sol') {
+          verdict = cost > 200
+            ? (isEn ? `$200 plan saves $${(cost - 200).toFixed(0)}/mo` : `$200 订阅省 $${(cost - 200).toFixed(0)}/月`)
+            : cost > 20
+              ? (isEn ? `Between $20 & $200 tiers` : `介于 $20 与 $200 档之间`)
+              : (isEn ? `Pay-as-you-go API cheaper` : `按量 API 更便宜`);
+        } else {
+          verdict = isEn ? 'Pay-as-you-go API benchmark' : '按量 API 参考基准';
+        }
+        row.querySelector('.verdict-cell').textContent = verdict;
+      });
+
+      document.getElementById('kpi-verdict-20').textContent = sonnetCost > 20
+        ? (isEn ? `Sub wins (+$${(sonnetCost - 20).toFixed(0)})` : `订阅划算 (省 $${(sonnetCost - 20).toFixed(0)})`)
+        : (isEn ? `API wins ($${sonnetCost.toFixed(0)} < $20)` : `API 更省 ($${sonnetCost.toFixed(0)})`);
+
+      document.getElementById('kpi-verdict-200').textContent = codexCost > 200
+        ? (isEn ? `$200 Pro wins (+$${(codexCost - 200).toFixed(0)})` : `$200 Pro 值 (省 $${(codexCost - 200).toFixed(0)})`)
+        : (isEn ? `Under $200 ($${codexCost.toFixed(0)})` : `未超 $200 ($${codexCost.toFixed(0)})`);
+    };
+
+    [dailyInput, cacheInput, outputInput, daysInput].forEach((el) => {
+      el?.addEventListener('input', () => {
+        presetBtns.forEach((b) => b.classList.remove('active'));
+        update();
+      });
+    });
+
+    presetBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        dailyInput.value = btn.dataset.daily;
+        cacheInput.value = btn.dataset.cache;
+        outputInput.value = btn.dataset.output;
+        daysInput.value = btn.dataset.days;
+        update();
+      });
+    });
+
+    update();
+  })();
+</script>
+
+<style>
+  .calc-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 80vh;
+  }
+  .calc-breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-6);
+  }
+  .calc-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .calc-hero {
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+    margin-bottom: var(--space-8);
+  }
+  .calc-hero h1 {
+    font-size: clamp(1.9rem, 4vw, 2.75rem);
+    letter-spacing: -0.03em;
+    margin: var(--space-2) 0 var(--space-4);
+  }
+  .calc-lead {
+    max-width: 760px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin: 0 0 var(--space-6);
+  }
+  .preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .preset-label {
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-right: 0.25rem;
+  }
+  .preset-btn {
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--border-default);
+    background: var(--background-subtle);
+    color: var(--text-secondary);
+    font-size: var(--text-13);
+    cursor: pointer;
+  }
+  .preset-btn.active,
+  .preset-btn:hover {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
+  }
+  .calc-workspace {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: var(--space-8);
+    align-items: start;
+  }
+  .calc-controls-panel {
+    display: grid;
+    gap: var(--space-5);
+    padding: var(--space-6);
+    border: 1px solid var(--border-default);
+    background: #fff;
+  }
+  .control-item label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: var(--text-14);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .control-item input[type='range'] {
+    width: 100%;
+  }
+  .control-hint {
+    margin: 0.35rem 0 0;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    line-height: 1.5;
+  }
+  .summary-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .kpi-box {
+    padding: var(--space-4);
+    border: 1px solid var(--border-default);
+    background: #fff;
+  }
+  .kpi-label {
+    display: block;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: 0.35rem;
+  }
+  .kpi-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+  .verdict-sub {
+    font-size: 1.05rem;
+    color: #2563eb;
+  }
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-default);
+    background: #fff;
+  }
+  .cost-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-13);
+    text-align: left;
+  }
+  .cost-table th,
+  .cost-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .cost-table th {
+    background: var(--background-subtle);
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .model-tier {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+  .table-footnote {
+    margin: 0.75rem 0 0;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    line-height: 1.5;
+  }
+  .calc-faq-section {
+    margin-top: 3rem;
+  }
+  .calc-faq-section h2 {
+    margin: 0 0 1.25rem;
+    font-size: 1.35rem;
+  }
+  .calc-faq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 1.25rem;
+  }
+  .calc-faq-card {
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    background: #fff;
+  }
+  .calc-faq-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+  }
+  .calc-faq-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  @media (max-width: 960px) {
+    .calc-workspace {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

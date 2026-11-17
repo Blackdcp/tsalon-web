@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
 import { getResetRadarData } from '../lib/reset-radar';
 
 type ProviderKey = 'codex' | 'claude' | 'grok';
@@ -546,6 +547,8 @@ const jsonLd = [
           ))}
         </div>
       </section>
+
+      <CommunityConversionCard locale={locale} context="whenreset" />
     </div>
   </main>
 </BaseLayout>
