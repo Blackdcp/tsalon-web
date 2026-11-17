@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV18Z4y1y7S6?p=1
   - label: Lao Lv's conversation on growth and work, part 2
     url: https://www.bilibili.com/video/BV18Z4y1y7S6?p=2
-tldr: []
+tldr:
+  - "Clarify the goal and the alternatives before implementation: Lao Lv first explained why he cares about process."
+  - "An open culture shows in how a team handles opinions: The second part began with the host asking how to build an engineering culture."
+  - "Age, experience, and moving into management: On age anxiety, Lao Lv said experienced developers were common in the teams he had seen, and some systems or lower-level fields particularly valued accumulated experience."
 faq: []
 featured: false
 draft: false

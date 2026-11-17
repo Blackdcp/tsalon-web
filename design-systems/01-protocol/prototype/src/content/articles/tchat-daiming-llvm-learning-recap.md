@@ -30,7 +30,10 @@ citations:
     url: https://llvm.org/docs/LangRef.html
   - label: LLVM Pass 编写文档
     url: https://llvm.org/docs/WritingAnLLVMNewPMPass.html
-tldr: []
+tldr:
+  - "长期演进的应用，需要重新审视留下来的代码：戴铭先提出两个问题：怎样优化积累多年的移动工程，怎样在工程越来越大时保持开发效率。"
+  - "一个记录函数，怎样被放进目标程序：示例回到最初的需求：想知道某些函数在运行时有没有执行。"
+  - "困惑不会因为擅长某件事就消失：当话题转向困难时，戴铭选了一个持续多年的绘画问题：为什么掌握了一些线条、颜色、光影和结构知识，作品仍然不够好看？他尝试过从不同要素寻找答案，也不断观察自己喜欢的作品，想理解作者为什么这样安排。"
 faq: []
 featured: false
 draft: false

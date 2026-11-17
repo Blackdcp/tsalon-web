@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1GZ4y1i7uV
   - label: "Japan Ministry of Health, Labour and Welfare rules on ending employment contracts"
     url: https://www.mhlw.go.jp/seisakunitsuite/bunya/koyou_roudou/roudouseisaku/chushoukigyou/keiyakushuryo_rule.html
-tldr: []
+tldr:
+  - "Three starting points: engineering, content, and overseas business: Fan Feilong came from a research path before entering IT and working in engineering and platform roles."
+  - "Refusing comparison is different from refusing growth: Zhao separated several meanings of “lying flat.” He did not advocate drifting without purpose, but a person can stop comparing themselves with others and still accumulate skill seriously."
+  - "Read industry history and create through projects: Fan referred to *The Top of the Tide*, a history of technology companies, as a way to ask how firms rose, stalled, and changed."
 faq: []
 featured: false
 draft: false

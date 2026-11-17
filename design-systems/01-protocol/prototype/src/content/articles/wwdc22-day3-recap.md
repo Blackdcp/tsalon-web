@@ -25,7 +25,10 @@ citations:
     url: https://developer.apple.com/news/?id=01242018b
   - label: Apple Xcode 14 发布说明
     url: https://developer.apple.com/cn/documentation/xcode-release-notes/xcode-14-release-notes
-tldr: []
+tldr:
+  - "第一场实践：同一张折线图，两种实现方式：思华先说明比较方式：用同一份数据和相近的展示尺寸，分别实现新旧两种图表。"
+  - "锁屏与组件：一个更近的入口，也是一种更严格的产品约束：EF 把讨论从应用内部带到 WidgetKit。"
+  - "这场实践留下的，是如何验证一个新能力：Day 3 从一张折线图开始，到在墙面上放一幅图，再延伸到锁屏、开发设备和构建工具。"
 faq: []
 featured: false
 draft: false

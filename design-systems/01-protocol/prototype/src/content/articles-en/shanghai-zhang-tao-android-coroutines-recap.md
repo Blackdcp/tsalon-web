@@ -22,7 +22,10 @@ citations:
     url: https://kotlinlang.org/spec/asynchronous-programming-with-coroutines.html
   - label: C++ working draft — csetjmp synopsis
     url: https://eel.is/c++draft/csetjmp.syn
-tldr: []
+tldr:
+  - "Why begin with threads?: Zhang uses cooking to introduce concurrency."
+  - "Queues and task state: Zhang traces two entry paths."
+  - "Audience exchange: how does this compare with Kotlin coroutines?: After describing the prototype's limits, Zhang answers a question about Kotlin."
 faq: []
 featured: false
 draft: false

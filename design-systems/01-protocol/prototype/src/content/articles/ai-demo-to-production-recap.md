@@ -19,6 +19,10 @@ citations:
     label: "AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践 活动回顾"
 featured: true
 draft: false
+tldr:
+  - "让 AI 记住的，不只是聊天记录：第一场分享来自记忆张量，由 Memmy 研发负责人宗玥带来："
+  - "Tim 没有只讲 Vibe Coding，他直接现场做了：第三场分享由 Zion 开发者生态负责人覃貌 Tim 带来："
+  - "感谢与活动资料：感谢宗玥、陈嘉琪、覃貌 Tim 和 Rowan 四位嘉宾，以及主办、合作伙伴、志愿者和带着问题与项目来到现场的每一位参与者。"
 seo:
   title: "活动回顾：AI 从 Demo 到生产｜Agent 与 AI Native 应用的工程实践"
   description: "2026 年 8 月 1 日，我们在上海举办了 「AI 从 Demo 到生产」线下活动。本次活动回顾总结了来自记忆张量、PPIO、Zion 和 FastGPT 嘉宾的分享，涵盖 Agent、Vibe Coding 等技术实践。"

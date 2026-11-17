@@ -25,7 +25,10 @@ citations:
     url: https://developer.apple.com/news/?id=01242018b
   - label: Apple Xcode 14 release notes
     url: https://developer.apple.com/cn/documentation/xcode-release-notes/xcode-14-release-notes
-tldr: []
+tldr:
+  - "First lab: One line chart, two ways to build it: Sihua began by defining a fair comparison."
+  - "Second lab: Separate the AR session, anchor, and rendering jobs: Wu Ziqi began his ARKit lab by separating four concepts before opening a large body of code."
+  - "What the labs left behind: A way to verify new capabilities: Day 3 began with a line chart, placed a picture on a wall, and then ranged across the lock screen, development devices, and build tools."
 faq: []
 featured: false
 draft: false

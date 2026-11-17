@@ -14,7 +14,10 @@ coverAlt: T Salon 深圳前端历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: 前端的挑战与机遇 Part 5：webpack 性能优化指南 — 范文杰
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=5
-tldr: []
+tldr:
+  - "核心流程：初始化、构建与生成：初始化阶段读取和合并配置，建立 Compiler 并安装插件，随后进入运行。"
+  - "不同分析工具，回答不同问题：分享逐一展示了几类工具，并没有推荐只安装一种就完成全部诊断。"
+  - "少处理不需要的内容，把检查放到合适环节：通过 include、exclude 等规则缩小转换范围，可以减少重复处理；但不能简单认为所有第三方代码都不需要转换，仍要看目标环境。"
 faq: []
 featured: false
 draft: false

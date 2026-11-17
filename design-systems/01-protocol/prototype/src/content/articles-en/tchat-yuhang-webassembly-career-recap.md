@@ -26,7 +26,10 @@ citations:
     url: https://shopify.engineering/shopify-webassembly
   - label: Opening essay of Jason Yu's introductory WebAssembly course
     url: https://time.geekbang.org/column/article/282984
-tldr: []
+tldr:
+  - "Starting with JavaScript execution: Yu begins with the JavaScript engine."
+  - "Tools, community surveys, and advice for 2022: A proposal or specification is not enough: developers must check whether their target browser or runtime supports it."
+  - "Architecture starts in code; growth also needs opportunity: Yu cautions against being distracted by the title “architect.” People may imagine architecture only as designing a vast distributed system with hundreds or thousands of services."
 faq: []
 featured: false
 draft: false

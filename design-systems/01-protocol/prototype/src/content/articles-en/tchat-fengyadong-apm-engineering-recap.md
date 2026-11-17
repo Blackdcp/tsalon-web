@@ -24,7 +24,10 @@ citations:
     url: https://www.bilibili.com/video/BV17U4y1Q7uz
   - label: APM conversation with Feng Yadong, part two
     url: https://www.bilibili.com/video/BV1AB4y1x7zk
-tldr: []
+tldr:
+  - "Crash monitoring and startup work are the visible part: Feng started with two tasks that ordinary developers often recognize."
+  - "From assigned work to owning an area and a team: Asked about career stages, Feng started with the ordinary delivery task."
+  - "Individual progress and team results reinforce one another: Feng thought better individual judgment and skill could improve designs, speed, and outcomes; a growing business then creates harder problems that develop the individual further."
 faq: []
 featured: false
 draft: false

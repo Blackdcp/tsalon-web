@@ -14,7 +14,10 @@ coverAlt: AI Memory for Production
 draft: false
 allowSingleLocale: true
 translationStatus: reviewed
-tldr: []
+tldr:
+  - "Evaluate production AI memory systems across five concrete requirements: lifecycle operations, retrieval precision, tenant scope isolation, auditability, and operational ownership."
+  - "Open source, self-hosted, and managed offerings represent distinct operational and compliance trade-offs rather than mutually exclusive architectures."
+  - "Run a multi-session pilot with real user corrections and deletion requests before committing to a memory layer for production agents."
 seo:
   title: How to Choose a Production AI Memory System in 2026
   description: A decision matrix for engineering teams comparing open source, self-hosted, and managed AI memory systems like Mem0, Zep, Letta, and MemOS.

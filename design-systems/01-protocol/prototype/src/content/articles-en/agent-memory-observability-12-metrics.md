@@ -14,7 +14,10 @@ coverAlt: Memory Observability
 draft: false
 allowSingleLocale: true
 translationStatus: reviewed
-tldr: []
+tldr:
+  - Production agent memory observability requires tracking 12 metrics across writing, retrieval, updating, and forgetting rather than relying on storage counts alone.
+  - Key operational signals include write-to-searchable latency (p50/p95), stale-memory retrieval rate, update propagation latency, and zero cross-scope leakage.
+  - Pair system telemetry with task-level metrics such as user repeat-correction rate to verify that stored memories genuinely improve downstream responses.
 seo:
   title: "Agent Memory Observability: 12 Production Metrics"
   description: A 12-metric framework for monitoring persistent agent memory across writing, retrieval, updates, and deletion in production environments.

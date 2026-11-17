@@ -29,7 +29,10 @@ citations:
     url: https://ffmpeg.org/libswresample.html
   - label: WebRTC project
     url: https://webrtc.org/
-tldr: []
+tldr:
+  - "Start with the full production and playback chain: Lian Shu chose audio and video partly because shooting, playback, streaming, and image processing have many applications."
+  - "From programming for fun to a startup and UC: At the beginning of the interview, Lian Shu said his team covered not just short video but also related feed and live-streaming work."
+  - "Mobile development and his own future: In his view at the time, people still used phones extensively, so mobile development had not lost all demand merely because new fields were fashionable."
 faq: []
 featured: false
 draft: false

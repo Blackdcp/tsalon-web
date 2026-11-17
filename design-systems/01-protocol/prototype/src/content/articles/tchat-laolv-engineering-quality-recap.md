@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV18Z4y1y7S6?p=1
   - label: 老驴成长与工作对谈（P2）
     url: https://www.bilibili.com/video/BV18Z4y1y7S6?p=2
-tldr: []
+tldr:
+  - "写下来，才能让别人真正参与设计：需求有时来自比较抽象的业务表述，需要进一步转化为可以实现和验证的行为。"
+  - "技能拓展，从实际需要与动手开始：谈到技能变化，老驴回顾自己从 iOS 转向后端等工作的经历，接触过 Objective-C、Swift、Java 和 C++ 等不同语言，当时也在关注 3D 渲染。"
+  - "年龄、经验与转管理的讨论：关于年龄焦虑，老驴描述在自己所见的团队里，资深开发者并不少见，部分系统与底层领域尤其重视长期积累。"
 faq: []
 featured: false
 draft: false

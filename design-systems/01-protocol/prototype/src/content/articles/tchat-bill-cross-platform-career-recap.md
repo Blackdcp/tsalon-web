@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1q44y1D7rL
   - label: Bill 成长对谈：跨端专家养成记
     url: https://www.bilibili.com/video/BV1gW4y1s72J
-tldr: []
+tldr:
+  - "从页面加载体验说起：Bill 首先把讨论范围放在跨操作系统的 UI 框架上：业务代码通过中间层接入不同平台，尽量减少开发者直接处理平台差异的工作。"
+  - "选择跨端，既来自业务，也来自对底层的兴趣：第二段开始，主持人问 Bill 为什么选择跨平台方向。"
+  - "后续成长：理解自己工作之外的约束：最后，主持人问跨端开发者怎样继续发展。"
 faq: []
 featured: false
 draft: false

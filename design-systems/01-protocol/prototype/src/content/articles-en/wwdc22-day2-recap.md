@@ -21,7 +21,10 @@ citations:
     url: https://www.apple.com/newsroom/2022/06/apple-unveils-new-ways-to-share-and-communicate-in-ios-16/
   - label: WWDC22 RoomPlan session
     url: https://developer.apple.com/videos/play/wwdc2022/10127/
-tldr: []
+tldr:
+  - "From Swift to the art of a keynote: What developers remember: The hosts opened with memories of earlier Apple presentations."
+  - "AR and VR: An interaction model matters more than a new name: The hosts divided the future-facing conversation into device form factors, the rumored “Reality OS,” cars, and opportunities for individuals."
+  - "Questions at the end: SwiftUI possibilities and the physical campus: The final questions did not make the earlier uncertainty disappear."
 faq: []
 featured: false
 draft: false

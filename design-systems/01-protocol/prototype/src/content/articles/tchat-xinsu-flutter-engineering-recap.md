@@ -27,7 +27,10 @@ citations:
     url: https://github.com/alibaba/fish-redux
   - label: 闲鱼技术对 Mural 富文本协议的介绍
     url: https://developer.aliyun.com/article/1225977
-tldr: []
+tldr:
+  - "问题不在于能否显示图片，而在于两套体系怎样协作：新宿提到，成熟原生图片库往往已经具备按显示尺寸请求合适 CDN 资源、支持特定格式、处理静态资源等能力。"
+  - "学习内容需要连接到具体工程场景：关于成为 Flutter 工程师需要准备什么，新宿列出原生基础、Flutter 原理与 Framework、Dart 语言特性，以及开发工具的使用。"
+  - "共享实现的价值，需要结合业务逻辑复杂度：在适用场景的追问中，新宿再次强调复杂业务逻辑和多端一致性。"
 faq: []
 featured: false
 draft: false

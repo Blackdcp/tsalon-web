@@ -25,7 +25,10 @@ citations:
     url: https://developer.apple.com/la/videos/play/wwdc2022/10157/
   - label: Apple Developer, official WWDC22 typography session replay
     url: https://www.youtube.com/watch?v=HMwnn9iEjok
-tldr: []
+tldr:
+  - "Begin with a real task when judging a preview: Haotian had tried the iOS and iPadOS previews."
+  - "RoomPlan offers both a room view and reusable structure: Room scanning first suggests renovation, property listings, or a floor plan."
+  - "Bold forecasts still need evidence: The host finally asks Kevin whether yet another platform would exhaust developers."
 faq: []
 featured: false
 draft: false

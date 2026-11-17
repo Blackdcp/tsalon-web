@@ -25,7 +25,10 @@ citations:
     url: https://www.apple.com/uk/newsroom/2022/06/apple-unveils-m2-with-breakthrough-performance-and-capabilities/
   - label: Apple's 2022 Design Awards winners
     url: https://www.apple.com/sg/newsroom/2022/06/apple-announces-winners-of-the-2022-apple-design-awards/
-tldr: []
+tldr:
+  - "The first impression: deeper entry points beneath visible changes: Lao Mai sees an extensive refinement of existing systems and stronger links across the ecosystem."
+  - "Settings and passkeys: removing repeated chores: Justin and Zili's dialogue begins with details users face repeatedly."
+  - "Keeping an independent app alive: In the final segment, Lao Mai moves away from the brightest system feature toward the conditions that let a team keep improving a worthwhile app."
 faq: []
 featured: false
 draft: false

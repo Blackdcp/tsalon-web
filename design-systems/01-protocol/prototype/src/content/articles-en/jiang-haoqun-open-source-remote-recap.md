@@ -14,7 +14,10 @@ coverAlt: General cover for a historical T Salon remote-work talk, not a photo o
 citations:
   - label: "Jiang Haoqun: Remote Work in Open Source"
     url: https://www.bilibili.com/video/BV1s24y1g73N?p=1
-tldr: []
+tldr:
+  - "From a job post to long-term toolchain maintenance: Jiang found a recruiting article in the community and applied because full-time remote open-source work seemed to fit him."
+  - "Bring a subject and a proposal to asynchronous discussion: Across cities and time zones, one message and the next reply may be hours apart."
+  - "Life choices and team relationships: Remote work let Jiang live in his hometown and spend time with family."
 faq: []
 featured: false
 draft: false

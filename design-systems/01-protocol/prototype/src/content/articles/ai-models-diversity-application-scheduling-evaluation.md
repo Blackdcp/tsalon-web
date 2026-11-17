@@ -13,6 +13,10 @@ cover: /images/articles/ai-models-diversity-application-scheduling-evaluation.pn
 coverAlt: AI 模型越来越多，为什么应用还在“死磕一个”？
 draft: false
 allowSingleLocale: true
+tldr:
+  - 推理层调度（如前缀缓存感知路由、预填充与解码分离）优化计算资源复用，跨模型调度与融合则解决任务能力匹配。
+  - 切换模型或服务端点可能使既有提示词缓存失效，成本评估需同时计入缓存写入费率、复用次数与返工重试开销。
+  - 应用选型应以固定业务任务的验收通过率、端到端总时延与单位成功任务成本为核心衡量标准。
 seo:
   title: AI 模型越来越多，为什么应用还在“死磕一个”？
   description: 面对不断涌现的开源与商用模型，应用为何常局限于单一模型？深入探讨推理资源调度与跨模型调度的职责边界、缓存收益与模型切换的真实账本，以及从单次 Token 标价走向任务级结果评估。

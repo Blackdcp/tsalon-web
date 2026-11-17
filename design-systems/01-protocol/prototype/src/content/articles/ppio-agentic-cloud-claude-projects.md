@@ -18,6 +18,10 @@ citations:
     url: https://ppio.com/docs/sandbox/overview
 draft: false
 allowSingleLocale: true
+tldr:
+  - 项目型 Agent 需要跨多个工作线程、工具与时间段持续推进任务，模型之外还需模型网关、执行循环（Harness）与隔离沙箱协同。
+  - PPIO Agentic Cloud 将智能模型网关、有状态 Agent 沙箱（PPIO Sandbox）与云端 Agent 托管（支持 PPClaw、PPHermes）整合为统一运行底座。
+  - 将运行环境状态（文件系统与进程）与上层业务状态分离，有助于团队在暂停恢复、权限收敛与故障排查中明确边界。
 seo:
   title: PPIO Agentic Cloud 是什么？Agent 运行底座解析
   description: PPIO Agentic Cloud 面向 AI Agent 的构建、部署与运行，覆盖智能模型网关、Agent Harness、PPIO Sandbox 和 Agent 托管。

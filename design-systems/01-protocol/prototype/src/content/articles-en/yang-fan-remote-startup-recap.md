@@ -14,7 +14,10 @@ coverAlt: Generic T Salon cover for a historical remote-work talk, not a photogr
 citations:
   - label: 'Yang Fan: How I Built a Remote Startup Team'
     url: https://www.bilibili.com/video/BV1GP411f7v9?p=1
-tldr: []
+tldr:
+  - "An engineer becomes an organizer, while the product remains the test: Yang had developed software and led a team in Tencent's QQ organization."
+  - "More hiring reach means more deliberate training: Distributed teams cannot assume a newcomer will ask every question at the right moment."
+  - "Q&A: What mattered in hiring: Yang values reliability, willingness to learn and curiosity."
 faq: []
 featured: false
 draft: false

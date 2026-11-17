@@ -11,6 +11,15 @@ export const GET: APIRoute = async ({ site }) => {
     language: 'en',
     generatedAt: new Date().toISOString(),
     organization: { name: 'T Salon', founded: '2016-03', url: `${origin}/en/` },
+    tools: {
+      tokenrank: `${origin}/en/tokenrank/`,
+      tokenrankMethodology: `${origin}/en/tokenrank/methodology/`,
+      tokenrankStatsJson: `${origin}/tokenrank/stats.json`,
+      whenreset: `${origin}/en/whenreset/`,
+      whenresetCodex: `${origin}/en/whenreset/codex/`,
+      whenresetClaude: `${origin}/en/whenreset/claude/`,
+      whenresetGrok: `${origin}/en/whenreset/grok/`,
+    },
     events: [
       ...events.map((entry) => ({ id: entry.id, title: entry.data.title, summary: entry.data.summary, startDate: entry.data.startDate.toISOString(), url: `${origin}/en/events/${entry.id}/`, alternateLanguageUrl: `${origin}/events/${entry.data.translationOf}/` })),
       ...archive.map((entry) => ({ id: entry.id, title: archiveEn[entry.id].title, summary: archiveEn[entry.id].summary, startDate: entry.data.startDate.toISOString(), url: `${origin}/en/events/archive/${entry.id}/`, alternateLanguageUrl: `${origin}/events/archive/${entry.id}/` })),

@@ -14,7 +14,10 @@ coverAlt: General cover for a historical T Salon remote-work talk, not a photo o
 citations:
   - label: "Guan Yijun: A Student's Remote-Work Experience"
     url: https://www.bilibili.com/video/BV13P411f78k?p=1
-tldr: []
+tldr:
+  - "An internship is more than making a feature work: Guan had three internships with some remote work."
+  - "Why he preferred an office internship when he had a choice: The choice is first constrained by courses, school rules, location, and, at the time, public-health conditions."
+  - "Remote life: flexibility requires planning: Guan liked the ability to exercise, spend time with family or pets, and study between tasks."
 faq: []
 featured: false
 draft: false

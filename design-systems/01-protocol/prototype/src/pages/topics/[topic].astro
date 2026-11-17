@@ -49,7 +49,7 @@ const jsonLd = [
 ];
 ---
 
-<BaseLayout title={topicMeta.seoTitleZh ?? `${topicMeta.nameZh} — T Salon 内容合集`} description={topicMeta.descriptionZh} jsonLd={jsonLd}>
+<BaseLayout alternatePath={`/en/topics/${topicMeta.slug}/`} title={topicMeta.seoTitleZh ?? `${topicMeta.nameZh} — T Salon 内容合集`} description={topicMeta.descriptionZh} jsonLd={jsonLd}>
   <main class="topic-page">
     <div class="container">
       <nav class="topic-breadcrumb" aria-label="面包屑">
@@ -61,6 +61,13 @@ const jsonLd = [
         <h1>{topicMeta.nameZh}</h1>
         <p class="topic-desc">{topicMeta.descriptionZh}</p>
         <p class="topic-count mono">{items.length} 篇内容</p>
+        <nav class="topic-switcher" aria-label="切换话题">
+          {topics.map((t) => (
+            <a href={`/topics/${t.slug}/`} class:list={['topic-pill', { active: t.slug === topicMeta.slug }]} aria-current={t.slug === topicMeta.slug ? 'page' : undefined}>
+              {t.nameZh}
+            </a>
+          ))}
+        </nav>
       </header>
 
       <ul class="topic-list">
@@ -126,6 +133,31 @@ const jsonLd = [
   .topic-count {
     font-size: var(--text-12);
     color: var(--text-tertiary);
+    margin-bottom: var(--space-4);
+  }
+
+  .topic-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: var(--space-4);
+  }
+
+  .topic-pill {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: var(--text-12);
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--background-subtle);
+  }
+
+  .topic-pill:hover,
+  .topic-pill.active {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
   }
 
   .topic-list {

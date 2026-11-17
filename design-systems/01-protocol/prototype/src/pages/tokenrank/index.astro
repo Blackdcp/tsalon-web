@@ -164,6 +164,62 @@ Object.entries(toolCounts).forEach(([tool, count]) => {
   if (count > maxCount) { maxCount = count; topTool = tool; }
 });
 
+const toolStatsMap: Record<string, { users: number; raw: number; norm: number; cacheRead: number; out: number }> = {};
+leaderboard.forEach((user) => {
+  Object.entries(user.tokens || {}).forEach(([tool, amount]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const raw = typeof amount === 'number' ? amount : Number(amount?.raw_total ?? amount?.total) || 0;
+    if (raw <= 0) return;
+    const norm = typeof amount === 'number' ? amount : Number(amount?.norm ?? amount?.total) || 0;
+    const cacheRead = typeof amount === 'number' ? 0 : Number(amount?.cache_read) || 0;
+    const out = typeof amount === 'number' ? 0 : Number(amount?.out) || 0;
+    if (!toolStatsMap[tool]) toolStatsMap[tool] = { users: 0, raw: 0, norm: 0, cacheRead: 0, out: 0 };
+    toolStatsMap[tool].users += 1;
+    toolStatsMap[tool].raw += raw;
+    toolStatsMap[tool].norm += norm;
+    toolStatsMap[tool].cacheRead += cacheRead;
+    toolStatsMap[tool].out += out;
+  });
+});
+const toolBenchmarks = Object.entries(toolStatsMap)
+  .map(([tool, s]) => ({
+    tool,
+    label: tool.charAt(0).toUpperCase() + tool.slice(1),
+    users: s.users,
+    raw: s.raw,
+    norm: s.norm,
+    cacheRead: s.cacheRead,
+    out: s.out,
+    cacheRate: s.raw > 0 ? ((s.cacheRead / s.raw) * 100).toFixed(1) : '0.0',
+  }))
+  .sort((a, b) => b.raw - a.raw);
+
+const rankFaqItems = [
+  {
+    q: '为什么 AI 编程工具的「含缓存 Token」与「不含缓存 Token」差距很大？',
+    a: 'Codex、Claude Code、Cursor 等现代 AI 编程客户端在多轮代码编辑与文件检索中大量复用上下文提示缓存（Prompt Caching）。在社区上报样本中，缓存读取（cache_read）通常占原始 Token 总量的 80% 至 95% 以上。因此同时查看「含缓存总量」与「不含缓存净消耗」更能反映真实的上下文规模与新增推理量。',
+  },
+  {
+    q: 'TokenRank 上的预估费用等于开发者的真实账单支出吗？',
+    a: '不等于。预估费用是按中央价目快照对输入、输出及缓存读写 Token 进行的 API 等效折算，方便跨工具横向对比消耗强度。许多开发者实际使用固定月费订阅（如 ChatGPT Plus/Pro、Claude Pro/Max、Cursor Pro），真实账单以各平台结算为准。',
+  },
+  {
+    q: '如何引用 TokenRank 的 AI 编程工具统计数据？',
+    a: 'TokenRank 的聚合榜单与工具分布数据采用 CC BY 4.0 许可开放，并提供机器可读接口 /tokenrank/stats.json。引用时请注明「来源：T Salon TokenRank (https://www.tsalon.tech/tokenrank/)」并说明数据来自社区开发者自愿上报样本。',
+  },
+];
+seoJsonLd.push({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  url: tokenRankUrl,
+  inLanguage: 'zh-CN',
+  mainEntity: rankFaqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.q,
+    acceptedAnswer: { '@type': 'Answer', text: item.a },
+  })),
+} as any);
+
 const averageGenerationSpeed = 80; // 80 tokens/sec
 const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) / 60);
 ---
@@ -387,7 +443,7 @@ const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) /
                   <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
                 </div>
                 <div class="lb-name-text">
-                  <strong>{user.name}</strong>
+                  <a href={`/tokenrank/user/${user.userId}/`} class="lb-user-link"><strong>{user.name}</strong></a>
                 </div>
               </div>
               <div class="lb-col-details">
@@ -414,6 +470,59 @@ const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) /
       )}
       </div>
 
+    {toolBenchmarks.length > 0 && (
+      <section class="tool-benchmarks-section" aria-labelledby="tool-benchmarks-title">
+        <div class="tb-header">
+          <div>
+            <p class="mono">FIRST-PARTY DATASET / 工具实测分布</p>
+            <h2 id="tool-benchmarks-title">AI 编程工具 Token 消耗与缓存命中率对比</h2>
+          </div>
+          <a href="/tokenrank/stats.json" class="tb-json-link mono">JSON 数据接口 (/tokenrank/stats.json) ↗</a>
+        </div>
+        <p class="tb-intro">
+          基于当前时间窗口内社区开发者上报的真实样本，按工具汇总含缓存总 Token、不含缓存净 Token、生成输出量与缓存读取占比（Prompt Cache Hit Rate）。数据遵循 <a href="/tokenrank/methodology/">TokenRank 统计口径</a> 与 CC BY 4.0 开放许可。
+        </p>
+        <div class="tb-table-wrap">
+          <table class="tb-table">
+            <thead>
+              <tr>
+                <th>AI 编程工具</th>
+                <th>上报开发者数</th>
+                <th>含缓存总 Token</th>
+                <th>不含缓存净 Token</th>
+                <th>生成输出 Token</th>
+                <th>缓存读占比</th>
+              </tr>
+            </thead>
+            <tbody>
+              {toolBenchmarks.map((row) => (
+                <tr>
+                  <td><strong>{row.label}</strong></td>
+                  <td>{row.users} 人</td>
+                  <td>{formatAmountStr(row.raw)}</td>
+                  <td>{formatAmountStr(row.norm)}</td>
+                  <td>{formatAmountStr(row.out)}</td>
+                  <td>{row.cacheRate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
+
+    <section class="tokenrank-faq-section" aria-labelledby="tokenrank-faq-title">
+      <h2 id="tokenrank-faq-title">常见问题与统计说明</h2>
+      <div class="tokenrank-faq-grid">
+        {rankFaqItems.map((item) => (
+          <article class="tokenrank-faq-card">
+            <h3>{item.q}</h3>
+            <p>{item.a}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
     <!-- Floating Onboarding Widget (Bottom Pill) -->
     <a href="/tokenrank/connect/" class="floating-pill-widget">
       <span class="fp-icon">🚀</span>
@@ -430,6 +539,90 @@ const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) /
   .page-content {
     padding-top: 2rem;
     padding-bottom: 4rem;
+  }
+  .lb-user-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .lb-user-link:hover {
+    text-decoration: underline;
+  }
+  .tool-benchmarks-section {
+    margin-top: 3rem;
+    padding: 1.75rem;
+    background: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+  }
+  .tb-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .tb-header h2 {
+    margin: 0.25rem 0 0;
+    font-size: 1.35rem;
+  }
+  .tb-json-link {
+    font-size: 0.8rem;
+    color: #2563eb;
+    text-decoration: none;
+  }
+  .tb-intro {
+    font-size: 0.9rem;
+    color: #555;
+    line-height: 1.65;
+    margin: 0 0 1.25rem;
+  }
+  .tb-table-wrap {
+    overflow-x: auto;
+  }
+  .tb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
+  }
+  .tb-table th, .tb-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .tb-table th {
+    background: #f8f9fa;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .tokenrank-faq-section {
+    margin-top: 2.5rem;
+  }
+  .tokenrank-faq-section h2 {
+    font-size: 1.35rem;
+    margin: 0 0 1.25rem;
+  }
+  .tokenrank-faq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 1.25rem;
+  }
+  .tokenrank-faq-card {
+    background: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .tokenrank-faq-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  .tokenrank-faq-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #555;
+    line-height: 1.65;
   }
 
   .filter-panel-premium {

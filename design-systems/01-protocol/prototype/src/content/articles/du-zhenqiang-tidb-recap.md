@@ -23,7 +23,10 @@ citations:
     url: https://www.bilibili.com/video/BV1Hh411V77v?p=1
   - label: TiDB v6.5 官方文档：TiFlash
     url: https://docs.pingcap.com/tidb/v6.5/tiflash-overview/
-tldr: []
+tldr:
+  - "数据库的发展，是业务规模与使用方式不断变化的结果：他从关系数据库的发展讲起：商业数据库、开源关系数据库，解决了不同阶段的数据管理问题；互联网与移动互联网带来的增长，又让数据量、吞吐和分析需求逐渐超出单机能够方便承载的范围。"
+  - "分析计算也需要应对高低峰：TiFlash 既存储数据，也执行分析计算。"
+  - "数据库竞争最终需要长期产品积累：最后，杜振强谈到与国际主流数据库竞争。"
 faq: []
 featured: false
 draft: false

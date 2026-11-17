@@ -21,6 +21,10 @@ featured: true
 draft: false
 translationOf: ai-demo-to-production-recap
 translationStatus: reviewed
+tldr:
+  - "What AI Remembers is Not Just Chat History: The first talk was from MemTensor, delivered by Memmy R&D lead Zong Yue:"
+  - "Agents Need More Than Thinking, They Need a Real Execution Environment: The final talk was from FastGPT Solution Lead Rowan:"
+  - "Thanks and event information: Thank you to Zong Yue, Chen Jiaqi, Qin Mao Tim and Rowan, and to the organisers, partners, volunteers and everyone who brought questions and projects to the event."
 seo:
   title: "Event Recap: From AI Demo to Production"
   description: "A recap of the August 1, 2026 Shanghai event, recording talks and a live demo from MemTensor, PPIO, Zion and FastGPT on agents and AI applications."

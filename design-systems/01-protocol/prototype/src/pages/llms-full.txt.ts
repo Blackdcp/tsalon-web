@@ -103,8 +103,11 @@ export const GET: APIRoute = async ({ site }) => {
   lines.push(
     '## 社区工具',
     '',
-    `- TokenRank：${origin}/tokenrank/ — 社区参与者上报的 AI 编程用量。统计口径与局限：${origin}/tokenrank/methodology/。`,
-    `- WhenReset：${origin}/whenreset/ — 汇集 Codex 与 Claude 的额度重置安排、公告与时间估算；个人额度状态以产品内显示为准。`,
+    `- TokenRank：${origin}/tokenrank/ — 社区参与者上报的 AI 编程用量。统计口径与局限：${origin}/tokenrank/methodology/。机器可读聚合接口：${origin}/tokenrank/stats.json。`,
+    `- WhenReset：${origin}/whenreset/ — 汇集 Codex、Claude 与 Grok 的额度重置安排、公告与时间估算；个人额度状态以产品内显示为准。`,
+    `  - OpenAI Codex 额度重置雷达：${origin}/whenreset/codex/`,
+    `  - Anthropic Claude 额度重置雷达：${origin}/whenreset/claude/`,
+    `  - xAI Grok 额度重置雷达：${origin}/whenreset/grok/`,
     '',
   );
 

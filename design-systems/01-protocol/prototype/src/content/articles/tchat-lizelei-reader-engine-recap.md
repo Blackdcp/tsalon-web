@@ -20,7 +20,10 @@ citations:
     url: https://www.bilibili.com/video/BV1At4y1775f
   - label: 李泽磊一对一访谈
     url: https://www.bilibili.com/video/BV1XY4y1T7Uz
-tldr: []
+tldr:
+  - "为什么已有系统能力，还要重做阅读器：团队原先的 iOS 与 Android 阅读器采用不同实现。"
+  - "成长表现为负责的问题范围不断扩大：他把成长描述为不断重新认识技术的过程。"
+  - "行业变化与后续方向：李泽磊先说了一个停车的日常例子：办公区车位有限，自己遇到同事的车时也会担心最后一个车位被占。"
 faq: []
 featured: false
 draft: false

@@ -29,7 +29,10 @@ citations:
     url: https://pag.io/docs/ae-support.html
   - label: TGFX 官方仓库
     url: https://github.com/Tencent/tgfx
-tldr: []
+tldr:
+  - "应用从播放动画，走向可编辑、可组合：分享随后展示了编辑要求逐步增强的场景：直播礼物需要播放完整动效，UI 动画可能需要控制进度或改变文字，贴纸与花字需要内容替换，视频模板还要把用户素材纳入预设效果。"
+  - "选择有挑战的业务，让能力持续接上：陈仁健在对谈中反复强调职业经历的连续性。"
+  - "Flash 的历史，以及动效工作流还能走多远：最后的问题，把视野从 PAG 拉回整个动效工作流。"
 faq: []
 featured: false
 draft: false

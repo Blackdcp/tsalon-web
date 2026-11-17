@@ -14,7 +14,10 @@ coverAlt: T Salon 深圳前端历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: 前端的挑战与机遇 Part 4：大前端时代的乱流：Flutter Web — 郭树煜
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=4
-tldr: []
+tldr:
+  - "相同框架，进入浏览器后仍有不同实现：郭树煜先回顾 Flutter 与 Web 技术的渊源，再与先有 Web 框架、后扩展客户端支持的跨端方案作比较。"
+  - "同一段文字，加背景后为什么换了画法：第一个连续示例从简单文本开始：当时实现把它绘制到 Canvas。"
+  - "去掉文本，再看简单图形与图层：最后几个示例把文本移除，只保留简单矩形及相关样式，以观察何时进入 DomCanvas。"
 faq: []
 featured: false
 draft: false

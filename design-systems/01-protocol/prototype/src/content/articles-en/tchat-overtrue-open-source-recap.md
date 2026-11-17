@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1s14y1K7HY
   - label: Conversation with overtrue on growing as a developer (Chinese)
     url: https://www.bilibili.com/video/BV1KP411T7kQ
-tldr: []
+tldr:
+  - "Find the problem before starting a repository: There are many ways to participate in open source: fix a defect, improve a document, correct wording or submit a useful issue."
+  - "A WordPress theme led him toward PHP: At university, overtrue studied a field closer to networks and hardware, but was more interested in building on the Web."
+  - "Understanding adjacent roles improves delivery: For overtrue, full-stack ability can let someone carry a small product from design and frontend through API and deployment without always waiting for another specialist."
 faq: []
 featured: false
 draft: false

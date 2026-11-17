@@ -27,7 +27,10 @@ citations:
     url: https://github.com/webpack/webpack/blob/v5.74.0/lib/webpack.js
   - label: Webpack 5.74.0 的 EntryPlugin 源码
     url: https://github.com/webpack/webpack/blob/v5.74.0/lib/EntryPlugin.js
-tldr: []
+tldr:
+  - "先找到入口，并搭起最小调试环境：面对一个陌生仓库，他先看目录和 package.json，了解入口、依赖与使用的工具，再辨认需要优先关注的文件。"
+  - "从胜任工作，到带团队解决更大的问题：他用刚入行的状态让这些阶段更具体：2013 年找第一份工作时，主要会用 jQuery 拼页面，到了小公司面对真实需求，先要补足“能交付”的能力；胜任后又发现重复写 CSS、重复处理相近问题，于是尝试 Less、Sass 等工具改善效率。"
+  - "对后续发展的安排：最后谈到个人规划，范文杰提到当时工作中有一个重要问题，既影响业务，也属于自己较擅长的方向，希望继续推进；具体业务细节不适合公开。"
 faq: []
 featured: false
 draft: false

@@ -14,7 +14,10 @@ coverAlt: T Salon 远程工作历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: Corki：远程工作的经验之谈
     url: https://www.bilibili.com/video/BV1Mj411u7JT?p=1
-tldr: []
+tldr:
+  - "两次远程经历，对应不同生活阶段：第一次机会出现在 2018 年前后。"
+  - "英语、算法、学历与年龄的具体追问：对于英语学习，他介绍自己报了线上课程，在周末和下班后继续学习。"
+  - "团队分布与回乡后的生活：关于组织结构，他介绍当时管理层及部分技术成员在美国，其他成员分布在中国，公司采用远程方式。"
 faq: []
 featured: false
 draft: false

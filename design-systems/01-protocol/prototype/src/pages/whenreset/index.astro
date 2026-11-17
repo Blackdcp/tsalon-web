@@ -6,6 +6,7 @@ export const prerender = false;
 
 const radarData = await getResetRadarData();
 const { codex, claude, grok, updatedAtBeijing, status } = radarData;
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
 
@@ -96,6 +97,13 @@ const jsonLd = [
             <span class="tab-badge">事件记录</span>
           </button>
         </div>
+        <nav class="provider-direct-links mono" aria-label="模型专属监控页与实操指南" style="margin-top: 1rem; font-size: 0.8125rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary);">
+          <span>独立看板：</span>
+          <a href="/whenreset/codex/">OpenAI Codex 专属页 →</a>
+          <a href="/whenreset/claude/">Anthropic Claude 专属页 →</a>
+          <a href="/whenreset/grok/">xAI Grok 专属页 →</a>
+          <a href="/articles/ai-quota-reset-radar-guide/">额度规则与规划实操指南 →</a>
+        </nav>
       </section>
 
       <!-- Codex Section -->

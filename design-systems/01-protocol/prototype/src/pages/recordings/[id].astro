@@ -1,6 +1,7 @@
 ---
 import { getCollection, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { topicSlugFor } from '../../lib/topics';
 export async function getStaticPaths() {
   return (await getCollection('recordings')).map(recording => ({ params: { id: recording.id }, props: { recording } }));
 }
@@ -11,7 +12,27 @@ const articles = await getCollection('articles', ({ data }) => !data.draft && !d
 const recaps = articles.filter(article => article.data.relatedRecordings.some(ref => ref.id === recording.id));
 const pageUrl = new URL(`/recordings/${recording.id}/`, Astro.site).toString();
 const durationLabel = (seconds: number) => `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, '0')}秒`;
+const firstPart = data.videoParts[0];
+const videoJsonLd = data.videoParts.map((part) => ({
+  '@context': 'https://schema.org',
+  '@type': 'VideoObject',
+  name: `${data.title} — ${part.title}`,
+  description: data.summary,
+  thumbnailUrl: [part.thumbnailUrl || new URL(data.cover, Astro.site).toString()],
+  embedUrl: `https://player.bilibili.com/player.html?bvid=${part.bvid}&page=${part.page}&danmaku=0`,
+  url: part.url,
+  mainEntityOfPage: pageUrl,
+  uploadDate: part.uploadedAt,
+  duration: `PT${part.durationSeconds}S`,
+  publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  ...(data.guests.length > 0
+    ? { author: data.guests.map((g) => ({ '@type': 'Person', name: g })) }
+    : { author: { '@type': 'Organization', name: part.owner.name } }),
+  about: data.topics,
+  inLanguage: 'zh-CN',
+}));
 const jsonLd = [
+  ...videoJsonLd,
   { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
     { '@type': 'ListItem', position: 1, name: '首页', item: new URL('/', Astro.site).toString() },
     { '@type': 'ListItem', position: 2, name: '录播档案', item: new URL('/recordings/', Astro.site).toString() },
@@ -29,15 +50,31 @@ const jsonLd = [
     </header>
     <section class="content-detail-shell content-detail-body">
       <article class="prose content-detail-prose">
-        {recaps.length > 0 && <section aria-label="文字回顾"><h2>文字回顾</h2><ul>{recaps.map(article => <li><a href={`/articles/${article.id}/`}>{article.data.title}</a><p>{article.data.summary}</p></li>)}</ul></section>}
+        {recaps.length > 0 && <section aria-label="文字回顾"><h2>文字回顾</h2><ul>{recaps.map(article => <li><a href={`/articles/${article.id}/`}>{article.data.title} →</a><p>{article.data.summary}</p>{article.data.tldr.length > 0 && <ul>{article.data.tldr.map(pt => <li>{pt}</li>)}</ul>}</li>)}</ul></section>}
         <h2 id="videos">视频回看</h2>
         <p>按原视频分段选择观看。日期为 B 站稿件发布日期，同一稿件的分段共用该日期。</p>
+        {firstPart && (
+          <div class="recording-video-embed">
+            <iframe
+              src={`https://player.bilibili.com/player.html?bvid=${firstPart.bvid}&page=${firstPart.page}&high_quality=1&danmaku=0`}
+              allowfullscreen
+              title={data.title}
+              loading="lazy"
+            ></iframe>
+          </div>
+        )}
         <ol>{data.videoParts.map(part => <li>
           <a href={part.url} target="_blank" rel="noopener noreferrer">{part.title} ↗</a>
           <p>{durationLabel(part.durationSeconds)} · 稿件发布于 <time datetime={part.uploadedAt}>{part.uploadedAt.slice(0, 10)}</time></p>
           <p>原发布账号：<a href={`https://space.bilibili.com/${part.owner.uid}`} target="_blank" rel="noopener noreferrer">{part.owner.name}</a></p>
         </li>)}</ol>
-        <h2>相关主题</h2><p>{data.topics.join(' · ')}</p>
+        <h2>相关主题</h2>
+        <div class="tag-list">
+          {data.topics.map((topic) => {
+            const slug = topicSlugFor(topic);
+            return slug ? <a href={`/topics/${slug}/`} class="tag tag-link">{topic}</a> : <span class="tag">{topic}</span>;
+          })}
+        </div>
       </article>
       <aside class="content-detail-aside">
         <div class="content-detail-aside-section"><strong class="mono">录播信息</strong><dl>
@@ -54,3 +91,40 @@ const jsonLd = [
     </section>
   </main>
 </BaseLayout>
+
+<style>
+  .recording-video-embed {
+    margin: 1.5rem 0 2rem;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+  }
+  .recording-video-embed iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tag {
+    display: inline-block;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    color: inherit;
+  }
+  .tag-link {
+    text-decoration: none;
+  }
+</style>

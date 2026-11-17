@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1s14y1K7HY
   - label: overtrue 对谈：开源大牛如何成长
     url: https://www.bilibili.com/video/BV1KP411T7kQ
-tldr: []
+tldr:
+  - "代码风格、测试与自动化要一起考虑：公开代码面对的是不熟悉作者习惯的人。"
+  - "大公司与小团队怎么选：主持人用大公司与小团队的选择继续追问。"
+  - "后端开发者未来怎样发展：最后一个问题很大，overtrue 没有给出一条普遍路线。"
 faq: []
 featured: false
 draft: false

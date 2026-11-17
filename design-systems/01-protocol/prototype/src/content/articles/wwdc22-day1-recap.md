@@ -25,7 +25,10 @@ citations:
     url: https://www.apple.com/uk/newsroom/2022/06/apple-unveils-m2-with-breakthrough-performance-and-capabilities/
   - label: Apple 2022 年设计奖获奖记录
     url: https://www.apple.com/sg/newsroom/2022/06/apple-announces-winners-of-the-2022-apple-design-awards/
-tldr: []
+tldr:
+  - "发布会的第一印象：明显的变化之外，还有更深的入口：开场回顾时，老麦把本届更新理解为对既有系统的继续完善，以及对生态联系的加强。"
+  - "跨设备和应用之间的协作，是本场反复出现的共同主题：Justin 把前面零散的例子归纳成两条线：设备之间更加容易协作，应用之间也更加容易围绕同一项任务连接。"
+  - "独立开发者怎样把作品持续做下去：在最后约 16 分钟，老麦谈到少数派观察与支持产品的经历。"
 faq: []
 featured: false
 draft: false

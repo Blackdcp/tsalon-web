@@ -25,7 +25,10 @@ citations:
     url: "https://developer.apple.com/videos/play/wwdc2022/10127/"
   - label: "Apple WWDC22：Discover Benchmarks in App Analytics"
     url: "https://developer.apple.com/videos/play/wwdc2022/10044/"
-tldr: []
+tldr:
+  - "Labs、Lounge 与同行交流，分别能解决什么问题：六一与 Ellen 回忆谜底时钟入围 Apple Design Awards 的一周。"
+  - "SwiftUI 的进步，体现在少写补丁和更清楚地表达状态：戴铭用带玩笑的说法形容自己的感受：过去费力补齐的能力，后来成了官方组件。"
+  - "收官问答：技术更顺手了，参与大会仍有成本：每位嘉宾谈最满意与不满意的部分，讨论并没有在主要演讲结束后停止。"
 faq: []
 featured: false
 draft: false

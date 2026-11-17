@@ -19,6 +19,10 @@ citations:
     url: https://www.tsalon.tech/events/series/t-chat/
 featured: true
 draft: false
+tldr:
+  - "2022 年发起时的计划：T Salon联合「老司机周报」发起 T Chat 系列直播，邀请一线互联网大厂的研发专家，在线分享所在团队或个人的研发实践。"
+  - "从线下沙龙到线上系列：T Salon 成立于 2016 年 3 月。"
+  - "后续归档状态：2026 年 9 月 26 日更新：目前站内 T Chat 系列目录收录 17 期，与最初“不少于 24 期”的计划分开记录。"
 seo:
   title: T Chat｜「我在大厂做研发」系列直播首发
   description: 回顾 T Salon 与老司机周报在 2022 年发起「我在大厂做研发」T Chat 系列的背景、主题分享与一对一交流形式。本页区分最初直播计划和后续归档状态，并提供已收录 17 期节目的原视频与分段目录入口。

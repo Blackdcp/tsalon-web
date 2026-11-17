@@ -27,7 +27,10 @@ citations:
     url: https://protobuf.dev/overview/
   - label: Android's explanation of declarative UI
     url: https://developer.android.com/develop/ui/compose/mental-model
-tldr: []
+tldr:
+  - "Why modularity can depart from its intended shape: Kabi made familiar terms such as high cohesion and low coupling concrete with two extremes."
+  - "Refactoring must work with the business and the team: For refactoring, Kabi used the analogy of a city's drainage system."
+  - "Curiosity, depth, and ownership in hiring: For mobile candidates, Kabi first valued the willingness to investigate and the ability to find documentation."
 faq: []
 featured: false
 draft: false

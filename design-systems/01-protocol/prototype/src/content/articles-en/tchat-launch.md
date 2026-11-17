@@ -21,6 +21,10 @@ featured: true
 draft: false
 translationOf: tchat-launch
 translationStatus: reviewed
+tldr:
+  - "The plan announced in April 2022: T Salon and Laosiji Weekly created T Chat to invite engineers from leading internet companies to talk openly about the systems they build, the choices they make and the constraints behind those choices."
+  - "From local salons to an online series: T Salon began in March 2016."
+  - "Archive update — September 26, 2026: The T Chat series directory now contains 17 archived episodes, distinct from the original plan for at least 24."
 seo:
   title: Introducing the T Chat Engineering Conversation Series
   description: T Salon and Laosiji Weekly created T Chat to document the real engineering practices of teams and individuals at major technology companies.

@@ -22,7 +22,10 @@ citations:
     url: https://docs.yjs.dev/
   - label: "ByteDance's public culture page"
     url: https://jobs.bytedance.com/experienced/m/culture
-tldr: []
+tldr:
+  - "A text field is not a rich-text editor: input and textarea accept text but cannot directly support rich paragraphs, formatting, tables, and more demanding interactions."
+  - "Clients distinguish synchronized state from pending work: Using ot.js, Xie explains three client states: synchronized, awaiting confirmation, and awaiting confirmation with another local operation in a buffer."
+  - "Team culture has to appear in daily work: The last interview question concerns “ByteDance Style.” Xie understands it as shared ways of working and describes his experience through six public themes: keeping an entrepreneurial mindset, embracing diversity, communicating candidly and clearly, seeking truth pragmatically, pursuing excellence, and growing together."
 faq: []
 featured: false
 draft: false

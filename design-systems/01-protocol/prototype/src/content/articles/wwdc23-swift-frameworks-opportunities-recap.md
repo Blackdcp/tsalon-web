@@ -28,7 +28,10 @@ citations:
     url: https://developer.apple.com/videos/play/wwdc2023/10187/
   - label: Swift Evolution SE-0289 Result builders
     url: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0289-result-builders.md
-tldr: []
+tldr:
+  - "Swift 宏：让重复代码成为编译期可以处理的工作：第一部分把宏放在 Swift 语言持续演进的背景里理解。"
+  - "一次 UIKit 现场实现：从 UIView 数组到声明式布局：第二段技术分享没有要求旧项目整体迁移到 SwiftUI。"
+  - "开发者的机会：参与寻找场景，而不是提前宣布答案：对移动开发者来说，新平台同时带来兴奋和不确定。"
 faq: []
 featured: false
 draft: false

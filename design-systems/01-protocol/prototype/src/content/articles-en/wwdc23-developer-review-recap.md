@@ -27,7 +27,10 @@ citations:
     url: "https://developer.apple.com/videos/play/wwdc2023/10191/"
   - label: "Apple's 2023 Vision Pro announcement"
     url: "https://www.apple.com/newsroom/2023/06/introducing-apple-vision-pro/"
-tldr: []
+tldr:
+  - "The student project began with a problem its creator did not yet understand: A student developer encountered scheduling algorithms in an operating-systems course."
+  - "A small microblog example connects models, database, and routes: Kevin used Vapor and a simple relationship between users and posts."
+  - "Discussion two: why would someone put the headset on again?: The final roundtable moved from technology to content and business."
 faq: []
 featured: false
 draft: false

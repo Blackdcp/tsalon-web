@@ -170,6 +170,62 @@ const averageGenerationSpeed = 80; // 80 tokens/sec
 const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) / 60);
 const timeLabel = timeFilter === 'today' ? 'Today' : timeFilter === 'yesterday' ? 'Yesterday' : timeFilter === 'all' ? 'All-time' : `Last ${parseInt(timeFilter, 10)} days`;
 const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
+
+const toolStatsMap: Record<string, { users: number; raw: number; norm: number; cacheRead: number; out: number }> = {};
+leaderboard.forEach((user) => {
+  Object.entries(user.tokens || {}).forEach(([tool, amount]: [string, any]) => {
+    if (tool === 'total' || tool === 'history') return;
+    const raw = typeof amount === 'number' ? amount : Number(amount?.raw_total ?? amount?.total) || 0;
+    if (raw <= 0) return;
+    const norm = typeof amount === 'number' ? amount : Number(amount?.norm ?? amount?.total) || 0;
+    const cacheRead = typeof amount === 'number' ? 0 : Number(amount?.cache_read) || 0;
+    const out = typeof amount === 'number' ? 0 : Number(amount?.out) || 0;
+    if (!toolStatsMap[tool]) toolStatsMap[tool] = { users: 0, raw: 0, norm: 0, cacheRead: 0, out: 0 };
+    toolStatsMap[tool].users += 1;
+    toolStatsMap[tool].raw += raw;
+    toolStatsMap[tool].norm += norm;
+    toolStatsMap[tool].cacheRead += cacheRead;
+    toolStatsMap[tool].out += out;
+  });
+});
+const toolBenchmarks = Object.entries(toolStatsMap)
+  .map(([tool, s]) => ({
+    tool,
+    label: tool.charAt(0).toUpperCase() + tool.slice(1),
+    users: s.users,
+    raw: s.raw,
+    norm: s.norm,
+    cacheRead: s.cacheRead,
+    out: s.out,
+    cacheRate: s.raw > 0 ? ((s.cacheRead / s.raw) * 100).toFixed(1) : '0.0',
+  }))
+  .sort((a, b) => b.raw - a.raw);
+
+const rankFaqItems = [
+  {
+    q: 'Why is there a large gap between total tokens with cache and normalized tokens excluding cache?',
+    a: 'Modern AI coding tools such as Codex, Claude Code, and Cursor heavily reuse prompt context across multi-turn code edits and repository searches. In community-reported telemetry, cache reads typically account for 80% to 95%+ of raw token volume. Reporting both total tokens with cache and normalized net tokens reveals both context scale and fresh inference volume.',
+  },
+  {
+    q: 'Does the estimated cost on TokenRank match a developer’s actual subscription bill?',
+    a: 'No. Estimated cost converts input, output, and cache read/write tokens into an API-equivalent USD amount using our central pricing snapshot so usage intensity can be compared across tools. Many contributors use flat-rate plans (such as ChatGPT Plus/Pro, Claude Pro/Max, or Cursor Pro).',
+  },
+  {
+    q: 'How can I cite or query TokenRank’s AI coding dataset?',
+    a: 'Aggregate TokenRank statistics and tool distributions are licensed under CC BY 4.0 and exposed as JSON at /tokenrank/stats.json. Please attribute "T Salon TokenRank (https://www.tsalon.tech/en/tokenrank/)" and note that figures reflect voluntary community telemetry.',
+  },
+];
+seoJsonLd.push({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  url: tokenRankUrl,
+  inLanguage: 'en',
+  mainEntity: rankFaqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.q,
+    acceptedAnswer: { '@type': 'Answer', text: item.a },
+  })),
+} as any);
 ---
 
 <BaseLayout alternatePath="/tokenrank/" languageSwitchPath={`/tokenrank/?time=${timeFilter}&metric=${metricFilter}`} title="Token Leaderboard — T Salon" description="AI coding usage reported by community participants, shown with cache, without cache, and as estimated cost, with methodology and data notes." image="/images/home-community-group.webp" jsonLd={seoJsonLd}>
@@ -390,7 +446,7 @@ const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
                   <img src={user.image} alt={user.name} class="lb-avatar" crossorigin="anonymous" />
                 </div>
                 <div class="lb-name-text">
-                  <strong>{user.name}</strong>
+                  <a href={`/en/tokenrank/user/${user.userId}/`} class="lb-user-link"><strong>{user.name}</strong></a>
                 </div>
               </div>
               <div class="lb-col-details">
@@ -417,6 +473,59 @@ const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
       )}
       </div>
 
+    {toolBenchmarks.length > 0 && (
+      <section class="tool-benchmarks-section" aria-labelledby="tool-benchmarks-title">
+        <div class="tb-header">
+          <div>
+            <p class="mono">FIRST-PARTY DATASET / TOOL BENCHMARKS</p>
+            <h2 id="tool-benchmarks-title">AI Coding Tool Token Volume & Prompt Cache Hit Rate</h2>
+          </div>
+          <a href="/tokenrank/stats.json" class="tb-json-link mono">JSON API (/tokenrank/stats.json) ↗</a>
+        </div>
+        <p class="tb-intro">
+          Aggregated from real developer telemetry in the active time window, comparing total tokens with cache, normalized net tokens, generated output tokens, and prompt cache hit rate across AI coding tools. See <a href="/en/tokenrank/methodology/">Methodology & Data Definitions</a> (CC BY 4.0).
+        </p>
+        <div class="tb-table-wrap">
+          <table class="tb-table">
+            <thead>
+              <tr>
+                <th>AI Coding Tool</th>
+                <th>Contributors</th>
+                <th>Total Tokens (With Cache)</th>
+                <th>Net Tokens (No Cache)</th>
+                <th>Output Tokens</th>
+                <th>Cache Read Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {toolBenchmarks.map((row) => (
+                <tr>
+                  <td><strong>{row.label}</strong></td>
+                  <td>{row.users}</td>
+                  <td>{formatAmountStr(row.raw)}</td>
+                  <td>{formatAmountStr(row.norm)}</td>
+                  <td>{formatAmountStr(row.out)}</td>
+                  <td>{row.cacheRate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
+
+    <section class="tokenrank-faq-section" aria-labelledby="tokenrank-faq-title">
+      <h2 id="tokenrank-faq-title">Frequently Asked Questions</h2>
+      <div class="tokenrank-faq-grid">
+        {rankFaqItems.map((item) => (
+          <article class="tokenrank-faq-card">
+            <h3>{item.q}</h3>
+            <p>{item.a}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
     <!-- Floating Onboarding Widget (Bottom Pill) -->
     <a href="/en/tokenrank/connect" class="floating-pill-widget">
       <span class="fp-icon">🚀</span>
@@ -433,6 +542,90 @@ const aiUnit = aiTimeMinutes >= 60 ? 'h' : 'm';
   .page-content {
     padding-top: 2rem;
     padding-bottom: 4rem;
+  }
+  .lb-user-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .lb-user-link:hover {
+    text-decoration: underline;
+  }
+  .tool-benchmarks-section {
+    margin-top: 3rem;
+    padding: 1.75rem;
+    background: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+  }
+  .tb-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .tb-header h2 {
+    margin: 0.25rem 0 0;
+    font-size: 1.35rem;
+  }
+  .tb-json-link {
+    font-size: 0.8rem;
+    color: #2563eb;
+    text-decoration: none;
+  }
+  .tb-intro {
+    font-size: 0.9rem;
+    color: #555;
+    line-height: 1.65;
+    margin: 0 0 1.25rem;
+  }
+  .tb-table-wrap {
+    overflow-x: auto;
+  }
+  .tb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
+  }
+  .tb-table th, .tb-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .tb-table th {
+    background: #f8f9fa;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .tokenrank-faq-section {
+    margin-top: 2.5rem;
+  }
+  .tokenrank-faq-section h2 {
+    font-size: 1.35rem;
+    margin: 0 0 1.25rem;
+  }
+  .tokenrank-faq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 1.25rem;
+  }
+  .tokenrank-faq-card {
+    background: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .tokenrank-faq-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  .tokenrank-faq-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #555;
+    line-height: 1.65;
   }
 
   .filter-panel-premium {

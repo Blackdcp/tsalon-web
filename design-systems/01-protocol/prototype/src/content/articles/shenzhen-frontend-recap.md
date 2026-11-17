@@ -23,6 +23,10 @@ citations:
     url: https://juejin.cn/post/7095294020900880420
 featured: true
 draft: false
+tldr:
+  - "一场关于“大前端”的线下交流：这是 T Salon 2022 年的第二场线下活动。"
+  - "郭树煜：Flutter Web 的构建与渲染：《Flutter 开发实战详解》作者郭树煜从 Flutter 的诞生和跨平台框架演进讲起，逐步深入 Flutter Web 的构建、优化与渲染机制。"
+  - "技术交流之外的现场：五场分享另有按完整录播整理的专题回顾，可继续阅读：卢依宁谈前端监控、崔明辉谈 MPFlutter、张泽亚谈工程化、郭树煜谈 Flutter Web、范文杰谈 webpack 性能。"
 seo:
   title: 大前端时代的挑战与机遇｜T Salon 深圳活动回顾
   description: 回顾 T Salon 深圳场的五场技术分享，内容覆盖前端监控、Flutter 小程序、前端工程化、Flutter Web 与 Webpack 性能优化。

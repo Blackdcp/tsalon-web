@@ -27,7 +27,10 @@ citations:
     url: https://protobuf.dev/overview/
   - label: Android 官方声明式 UI 说明
     url: https://developer.android.com/develop/ui/compose/mental-model
-tldr: []
+tldr:
+  - "自动化、可预测与声明式表达：他把“说出想要什么”与“逐步说怎样做”并列，是为了降低状态变化时的推理难度。"
+  - "Monorepo 的起点是交付困难：他用当年的发版夜晚说明痛点有多具体：各模块二进制交付，常常很晚才能组合出一个可运行的包，随后才开始排查版本组合与运行问题，团队长期到凌晨才下班。"
+  - "工具从重复工作里长出来：当主持人要他推荐提效工具时，他反倒说自己常用命令行，现成产品里主要使用 Notion 整理知识。"
 faq: []
 featured: false
 draft: false

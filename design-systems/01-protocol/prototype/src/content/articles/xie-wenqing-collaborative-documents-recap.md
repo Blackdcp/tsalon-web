@@ -27,7 +27,10 @@ citations:
     url: https://docs.yjs.dev/
   - label: 字节跳动公开文化说明
     url: https://jobs.bytedance.com/experienced/m/culture
-tldr: []
+tldr:
+  - "输入框不等于富文本编辑器：input 和 textarea 能接收输入，却很难直接承担丰富的段落、格式、表格和复杂交互。"
+  - "客户端必须区分“已同步”和“还在等待”：谢文清以 ot.js 的三个状态展开：已同步、等待确认，以及等待确认时又产生了本地缓冲。"
+  - "业务不是技术成长的对立面：面对每天做业务需求、似乎没有时间提升技术的感受，他提醒，深入理解业务本身就是能力。"
 faq: []
 featured: false
 draft: false

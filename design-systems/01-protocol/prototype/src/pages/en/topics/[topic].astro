@@ -52,7 +52,7 @@ const jsonLd = [
 <BaseLayout
   locale="en"
   alternatePath={`/topics/${topicMeta.slug}/`}
-  title={`${topicMeta.name} — T Salon collection`}
+  title={topicMeta.seoTitle ?? `${topicMeta.name} — T Salon collection`}
   description={topicMeta.description}
   jsonLd={jsonLd}
 >
@@ -67,6 +67,13 @@ const jsonLd = [
         <h1>{topicMeta.name}</h1>
         <p class="topic-desc">{topicMeta.description}</p>
         <p class="topic-count mono">{items.length} {items.length === 1 ? 'story' : 'stories'}</p>
+        <nav class="topic-switcher" aria-label="Browse topics">
+          {topics.map((t) => (
+            <a href={`/en/topics/${t.slug}/`} class:list={['topic-pill', { active: t.slug === topicMeta.slug }]} aria-current={t.slug === topicMeta.slug ? 'page' : undefined}>
+              {t.name}
+            </a>
+          ))}
+        </nav>
       </header>
 
       <ul class="topic-list">
@@ -132,6 +139,31 @@ const jsonLd = [
   .topic-count {
     font-size: var(--text-12);
     color: var(--text-tertiary);
+    margin-bottom: var(--space-4);
+  }
+
+  .topic-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: var(--space-4);
+  }
+
+  .topic-pill {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: var(--text-12);
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--background-subtle);
+  }
+
+  .topic-pill:hover,
+  .topic-pill.active {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
   }
 
   .topic-list {

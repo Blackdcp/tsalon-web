@@ -27,7 +27,10 @@ citations:
     url: https://github.com/webpack/webpack/blob/v5.74.0/lib/webpack.js
   - label: Webpack 5.74.0 EntryPlugin source
     url: https://github.com/webpack/webpack/blob/v5.74.0/lib/EntryPlugin.js
-tldr: []
+tldr:
+  - "Why study a complex codebase at all?: Fan began with his reasons for choosing the topic."
+  - "Vue, React, and the cost of bringing a team along: When the host presented Vue and React as a choice, Fan returned to a task he knew well: helping a new teammate identify what to learn before contributing."
+  - "Plans for what came next: Fan said there was an important work problem in a field he knew well that affected the business, but its specifics were not appropriate to discuss publicly."
 faq: []
 featured: false
 draft: false

@@ -20,7 +20,10 @@ citations:
     url: https://www.bilibili.com/video/BV1At4y1775f
   - label: One-to-one interview with Li Zelei
     url: https://www.bilibili.com/video/BV1XY4y1T7Uz
-tldr: []
+tldr:
+  - "Baselines and punctuation shape continuous reading: The talk began with two comparisons."
+  - "Font metrics and internationalization are layout problems too: The final technical section returned to fonts."
+  - "Industry change and what came next: Li offered an everyday parking example."
 faq: []
 featured: false
 draft: false

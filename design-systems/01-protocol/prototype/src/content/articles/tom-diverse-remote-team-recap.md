@@ -14,7 +14,10 @@ coverAlt: T Salon 历史分享回顾通用封面，非嘉宾或活动现场照�
 citations:
   - label: Tom：多元化团队的远程经验分享
     url: https://www.bilibili.com/video/BV1Yj411u7YR?p=1
-tldr: []
+tldr:
+  - "跨时区协作，先把问题说清楚：Tom 观察到，不同成员对工作时间、回应速度和沟通方式可能有不同预期。"
+  - "找工作，要同时调查公司和准备自己：对于远程公司是否稳定，Tom 没有给出一个仅凭办公形式就能判断的答案。"
+  - "薪酬、趋势与工作形式的最后几问：薪酬范围的问题，Tom 没有给出统一数值。"
 faq: []
 featured: false
 draft: false

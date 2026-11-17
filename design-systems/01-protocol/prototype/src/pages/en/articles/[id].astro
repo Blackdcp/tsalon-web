@@ -1,16 +1,8 @@
 ---
 import { getCollection, getEntry, render, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
-import topicsData from '../../../data/topics.json';
-
-const topicSlugMap = new Map<string, string>();
-for (const t of topicsData) {
-  topicSlugMap.set(t.name.toLowerCase(), t.slug);
-}
-topicSlugMap.set('agent', 'agent');
-topicSlugMap.set('engineering', 'engineering');
-topicSlugMap.set('ai', 'ai');
-topicSlugMap.set('security', 'security');
+import { topicSlugFor } from '../../../lib/topics';
+import { talkSpeakerEn } from '../../../data/en';
 
 export async function getStaticPaths() {
   const articles = await getCollection('articlesEn', ({ data }) => !data.draft);
@@ -24,6 +16,32 @@ const previous = index > 0 ? all[index - 1] : undefined;
 const next = index < all.length - 1 ? all[index + 1] : undefined;
 const labels: Record<string, string> = { news: 'Community news', insight: 'Industry insight', interview: 'Interview', 'field-note': 'Field note', guide: 'Practitioner viewpoint', archive: 'Archive' };
 const pageUrl = new URL(`/en/articles/${article.id}/`, Astro.site).toString();
+const resolvedCover = article.data.cover !== '/images/default-cover.svg' ? article.data.cover : '/images/share-logo.jpg';
+const currentTopicSlugs = new Set(article.data.topics.map((t) => topicSlugFor(t)).filter(Boolean));
+const relatedByTopic = all
+  .filter((entry) => entry.id !== article.id)
+  .map((entry) => {
+    const entrySlugs = new Set(entry.data.topics.map((t) => topicSlugFor(t)).filter(Boolean));
+    let shared = 0;
+    for (const s of currentTopicSlugs) {
+      if (entrySlugs.has(s)) shared += 1;
+    }
+    const sameType = entry.data.type === article.data.type ? 0.5 : 0;
+    return { entry, score: shared + sameType };
+  })
+  .filter((item) => item.score >= 1)
+  .sort((a, b) => b.score - a.score || b.entry.data.publishedAt.getTime() - a.entry.data.publishedAt.getTime())
+  .slice(0, 3)
+  .map((item) => item.entry);
+const original = article.data.translationOf ? await getEntry('articles', article.data.translationOf) : undefined;
+const alternatePath = original && !original.data.draft ? `/articles/${original.id}/` : null;
+const verifiedGuestsEn = [
+  ...new Set(
+    (original?.data.relatedTalks ?? [])
+      .map((ref: { id: string }) => talkSpeakerEn[ref.id])
+      .filter((name): name is string => Boolean(name && name !== 'T Salon')),
+  ),
+];
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -32,8 +50,11 @@ const jsonLd = {
   datePublished: article.data.publishedAt.toISOString(),
   dateModified: (article.data.updatedAt ?? article.data.publishedAt).toISOString(),
   url: pageUrl,
-  image: new URL(article.data.cover, Astro.site).toString(),
+  image: new URL(resolvedCover, Astro.site).toString(),
   author: { '@type': 'Organization', name: 'T Salon Editorial', url: new URL('/en/about/', Astro.site).toString(), sameAs: ['https://github.com/Code-T'] },
+  ...(verifiedGuestsEn.length > 0
+    ? { contributor: verifiedGuestsEn.map((guestName) => ({ '@type': 'Person', name: guestName })) }
+    : {}),
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   inLanguage: 'en',
   about: article.data.topics,
@@ -59,8 +80,6 @@ const faqJsonLd = article.data.faq.length > 0
       })),
     }
   : null;
-const original = article.data.translationOf ? await getEntry('articles', article.data.translationOf) : undefined;
-const alternatePath = original && !original.data.draft ? `/articles/${original.id}/` : null;
 const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])];
 ---
 <BaseLayout locale="en" alternatePath={alternatePath} title={article.data.seo.title} description={article.data.seo.description} image={article.data.cover} noindex={article.data.seo.noindex} jsonLd={pageJsonLd}>
@@ -95,7 +114,7 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])]
           <span class="mono">TOPICS</span>
           <div class="tag-list">
             {article.data.topics.map((topic) => {
-              const slug = topicSlugMap.get(topic.trim().toLowerCase());
+              const slug = topicSlugFor(topic);
               return slug ? (
                 <a href={`/en/topics/${slug}/`} class="tag tag-link">{topic}</a>
               ) : (
@@ -111,6 +130,23 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])]
         {article.data.citations.map((citation) => <a class="content-detail-source" href={citation.url} target="_blank" rel="noopener noreferrer">{citation.label} <span>↗</span></a>)}
       </aside>
     </section>
+    {relatedByTopic.length > 0 && (
+      <section class="content-detail-shell related-articles-section" aria-label="Related reading">
+        <header class="related-articles-head">
+          <p class="mono">RELATED / MORE IN THIS CLUSTER</p>
+          <h2>Related reading</h2>
+        </header>
+        <div class="related-articles-grid">
+          {relatedByTopic.map((rel) => (
+            <a class="related-article-card" href={`/en/articles/${rel.id}/`}>
+              <span class="mono">{labels[rel.data.type] ?? 'Story'} · {rel.data.publishedAt.toISOString().slice(0, 10)}</span>
+              <h3>{rel.data.title}</h3>
+              <p>{rel.data.summary}</p>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
     <nav class="content-pagination" aria-label="Article navigation"><div class="content-detail-shell content-pagination-inner">{previous ? <a class="content-pagination-item content-pagination-previous" href={`/en/articles/${previous.id}/`}><span>← Previous</span><strong>{previous.data.title}</strong></a> : <span></span>}<a class="content-pagination-back" href="/en/articles/">All stories</a>{next ? <a class="content-pagination-item content-pagination-next" href={`/en/articles/${next.id}/`}><span>Next →</span><strong>{next.data.title}</strong></a> : <span></span>}</div>    </nav>
   </main>
 </BaseLayout>
@@ -164,5 +200,45 @@ const pageJsonLd = [jsonLd, breadcrumbJsonLd, ...(faqJsonLd ? [faqJsonLd] : [])]
     background: color-mix(in srgb, var(--accent, #2b6cb0) 15%, transparent);
     color: var(--accent, #2b6cb0);
     border-color: color-mix(in srgb, var(--accent, #2b6cb0) 30%, transparent);
+  }
+  .related-articles-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-default);
+  }
+  .related-articles-head {
+    margin-bottom: 1.25rem;
+  }
+  .related-articles-head h2 {
+    margin: 0.25rem 0 0;
+    font-size: 1.35rem;
+  }
+  .related-articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 1.25rem;
+  }
+  .related-article-card {
+    display: block;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .related-article-card:hover {
+    border-color: var(--color-ink-950);
+  }
+  .related-article-card h3 {
+    margin: 0.5rem 0;
+    font-size: 1.05rem;
+    line-height: 1.4;
+  }
+  .related-article-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
   }
 </style>

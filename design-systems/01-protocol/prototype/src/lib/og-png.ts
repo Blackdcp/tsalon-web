@@ -1,0 +1,219 @@
+import { deflateSync, crc32 } from 'node:zlib';
+
+// 5x7 bitmap font for printable ASCII (uppercase, digits, punctuation)
+const FONT_5X7: Record<string, number[]> = {
+  ' ': [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+  '!': [0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x04],
+  '"': [0x0a, 0x0a, 0x04, 0x00, 0x00, 0x00, 0x00],
+  '#': [0x0a, 0x1f, 0x0a, 0x0a, 0x1f, 0x0a, 0x00],
+  '$': [0x04, 0x0f, 0x14, 0x0e, 0x05, 0x1e, 0x04],
+  '%': [0x18, 0x19, 0x02, 0x04, 0x08, 0x13, 0x03],
+  '&': [0x0c, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0d],
+  "'": [0x04, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00],
+  '(': [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02],
+  ')': [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
+  '*': [0x00, 0x04, 0x15, 0x0e, 0x15, 0x04, 0x00],
+  '+': [0x00, 0x04, 0x04, 0x1f, 0x04, 0x04, 0x00],
+  ',': [0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x08],
+  '-': [0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00],
+  '.': [0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c],
+  '/': [0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10],
+  '0': [0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e],
+  '1': [0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e],
+  '2': [0x0e, 0x11, 0x01, 0x06, 0x08, 0x10, 0x1f],
+  '3': [0x1f, 0x02, 0x04, 0x06, 0x01, 0x11, 0x0e],
+  '4': [0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02],
+  '5': [0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e],
+  '6': [0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e],
+  '7': [0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
+  '8': [0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e],
+  '9': [0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c],
+  ':': [0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x0c, 0x00],
+  ';': [0x00, 0x04, 0x00, 0x00, 0x04, 0x04, 0x08],
+  '<': [0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02],
+  '=': [0x00, 0x00, 0x1f, 0x00, 0x1f, 0x00, 0x00],
+  '>': [0x08, 0x04, 0x02, 0x01, 0x02, 0x04, 0x08],
+  '?': [0x0e, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04],
+  '@': [0x0e, 0x11, 0x17, 0x15, 0x17, 0x10, 0x0e],
+  'A': [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+  'B': [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
+  'C': [0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e],
+  'D': [0x1c, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1c],
+  'E': [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f],
+  'F': [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10],
+  'G': [0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f],
+  'H': [0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+  'I': [0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e],
+  'J': [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0c],
+  'K': [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
+  'L': [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
+  'M': [0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11],
+  'N': [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
+  'O': [0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+  'P': [0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
+  'Q': [0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d],
+  'R': [0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
+  'S': [0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e],
+  'T': [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
+  'U': [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+  'V': [0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04],
+  'W': [0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11],
+  'X': [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11],
+  'Y': [0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04],
+  'Z': [0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f],
+  '_': [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f],
+};
+
+function makeChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const typeBuf = Buffer.from(type, 'ascii');
+  const body = Buffer.concat([typeBuf, data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body) >>> 0, 0);
+  return Buffer.concat([len, body, crc]);
+}
+
+export interface TokenRankOgInput {
+  userId: string;
+  name: string;
+  rank: number | null;
+  totalTokensText: string;
+  normTokensText: string;
+  costText: string;
+  cacheHitRate: string;
+  topTool: string;
+}
+
+export function renderTokenRankOgPng(input: TokenRankOgInput): Buffer {
+  const width = 1200;
+  const height = 630;
+  const stride = width * 3 + 1;
+  const raw = Buffer.alloc(stride * height);
+
+  // Fill background #0B0F19 (11, 15, 25) and filter byte 0 per row
+  for (let y = 0; y < height; y++) {
+    const rowStart = y * stride;
+    raw[rowStart] = 0;
+    const isGridY = y % 60 === 0;
+    for (let x = 0; x < width; x++) {
+      const idx = rowStart + 1 + x * 3;
+      if (isGridY || x % 60 === 0) {
+        raw[idx] = 19;
+        raw[idx + 1] = 26;
+        raw[idx + 2] = 42;
+      } else {
+        raw[idx] = 11;
+        raw[idx + 1] = 15;
+        raw[idx + 2] = 25;
+      }
+    }
+  }
+
+  const fillRect = (x0: number, y0: number, w: number, h: number, r: number, g: number, b: number) => {
+    const xEnd = Math.min(width, x0 + w);
+    const yEnd = Math.min(height, y0 + h);
+    for (let y = Math.max(0, y0); y < yEnd; y++) {
+      const rowStart = y * stride + 1;
+      for (let x = Math.max(0, x0); x < xEnd; x++) {
+        const idx = rowStart + x * 3;
+        raw[idx] = r;
+        raw[idx + 1] = g;
+        raw[idx + 2] = b;
+      }
+    }
+  };
+
+  const strokeRect = (x0: number, y0: number, w: number, h: number, t: number, r: number, g: number, b: number) => {
+    fillRect(x0, y0, w, t, r, g, b);
+    fillRect(x0, y0 + h - t, w, t, r, g, b);
+    fillRect(x0, y0, t, h, r, g, b);
+    fillRect(x0 + w - t, y0, t, h, r, g, b);
+  };
+
+  const drawText = (text: string, x0: number, y0: number, scale: number, r: number, g: number, b: number, spacing = 1) => {
+    const clean = text.toUpperCase();
+    let cx = x0;
+    for (let i = 0; i < clean.length; i++) {
+      const ch = clean[i];
+      const glyph = FONT_5X7[ch] || FONT_5X7[' '];
+      for (let gy = 0; gy < 7; gy++) {
+        const rowBits = glyph[gy];
+        for (let gx = 0; gx < 5; gx++) {
+          if ((rowBits >> (4 - gx)) & 1) {
+            fillRect(cx + gx * scale, y0 + gy * scale, scale, scale, r, g, b);
+          }
+        }
+      }
+      cx += (5 + spacing) * scale;
+    }
+  };
+
+  // Outer card frame
+  strokeRect(40, 40, width - 80, height - 80, 2, 38, 52, 79);
+  // Left blue accent bar
+  fillRect(72, 84, 8, height - 168, 37, 99, 235);
+
+  // Header kicker
+  drawText('T SALON // TOKENRANK DEVELOPER TELEMETRY', 108, 92, 3, 96, 165, 250, 2);
+
+  // Safe ASCII display name
+  const asciiName = (input.name || '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .trim();
+  const displayTitle = asciiName.length >= 2 ? asciiName.slice(0, 22) : `DEV #${String(input.userId).slice(0, 12)}`;
+  drawText(displayTitle, 108, 148, 7, 255, 255, 255, 2);
+
+  // Rank badge on top right
+  const rankStr = input.rank && input.rank > 0 ? `RANK #${input.rank}` : 'RANKED DEV';
+  fillRect(880, 88, 240, 64, 23, 37, 84);
+  strokeRect(880, 88, 240, 64, 2, 59, 130, 246);
+  drawText(rankStr, 912, 110, 3, 147, 197, 253, 2);
+
+  // Subtitle
+  const toolStr = (input.topTool || 'AI CODING').replace(/[^\x20-\x7E]/g, '').toUpperCase();
+  drawText(`MAIN TOOL: ${toolStr}   |   VERIFIED COMMUNITY PROFILE`, 108, 230, 3, 148, 163, 184, 1);
+
+  // 4 Metric Boxes
+  const boxes = [
+    { label: 'TOTAL TOKENS (WITH CACHE)', val: input.totalTokensText, accent: [59, 130, 246] },
+    { label: 'NET TOKENS (NO CACHE)', val: input.normTokensText, accent: [16, 185, 129] },
+    { label: 'PROMPT CACHE HIT RATE', val: `${input.cacheHitRate}%`, accent: [245, 158, 11] },
+    { label: 'API EQUIVALENT COST', val: input.costText, accent: [168, 85, 247] },
+  ];
+
+  const boxW = 486;
+  const boxH = 112;
+  boxes.forEach((b, idx) => {
+    const col = idx % 2;
+    const row = Math.floor(idx / 2);
+    const bx = 108 + col * (boxW + 28);
+    const by = 284 + row * (boxH + 22);
+    fillRect(bx, by, boxW, boxH, 17, 24, 39);
+    strokeRect(bx, by, boxW, boxH, 2, 31, 41, 55);
+    fillRect(bx, by, 6, boxH, b.accent[0], b.accent[1], b.accent[2]);
+    drawText(b.label, bx + 24, by + 22, 2, 156, 163, 175, 2);
+    drawText(b.val, bx + 24, by + 56, 5, 255, 255, 255, 2);
+  });
+
+  // Footer
+  drawText('WWW.TSALON.TECH/TOKENRANK   //   CC BY 4.0 OPEN BENCHMARK', 108, 554, 2, 100, 116, 139, 2);
+
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // color type RGB
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  const idatData = deflateSync(raw, { level: 6 });
+  return Buffer.concat([
+    signature,
+    makeChunk('IHDR', ihdr),
+    makeChunk('IDAT', idatData),
+    makeChunk('IEND', Buffer.alloc(0)),
+  ]);
+}

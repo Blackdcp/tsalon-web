@@ -20,7 +20,10 @@ citations:
     url: https://developer.android.com/topic/architecture
   - label: Kotlin StateFlow API
     url: https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/
-tldr: []
+tldr:
+  - "统一架构有收益，也会增加成本：Jake 首先谈的是可维护性、复用、扩展和团队沟通。"
+  - "第一步：让输入框和文字共享局部状态：现场从一个新的 Compose 项目开始。"
+  - "当时的团队背景与这场分享的落点：结束时，Jake 介绍了团队同时进行 iOS、Android 和部分 BFF 开发的工作方式，以及当时远程协作、学习探索和招聘的安排。"
 faq: []
 featured: false
 draft: false

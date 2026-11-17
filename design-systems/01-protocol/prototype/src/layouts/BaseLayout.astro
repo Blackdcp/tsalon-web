@@ -21,7 +21,7 @@ interface Props {
 const {
   title,
   description,
-  image = '/icon-512x512.png',
+  image = '/images/share-logo.jpg',
   noindex = false,
   jsonLd,
   locale = localeFromPath(Astro.url.pathname),
@@ -32,8 +32,11 @@ const {
     ? 'T Salon, 开发者社区, 技术沙龙, Apple 开发者, iOS 研发, AI Agent, 具身智能, TokenRank, WhenReset, 软件工程'
     : 'T Salon, developer community, tech salon, Apple developers, iOS engineering, AI agents, embodied intelligence, TokenRank, WhenReset, software engineering',
 } = Astro.props;
+const resolvedImage = image === '/images/default-cover.svg' || image === '/icon-512x512.png'
+  ? '/images/share-logo.jpg'
+  : image;
 const canonical = new URL(Astro.url.pathname, Astro.site);
-const socialImage = new URL(image, Astro.site);
+const socialImage = new URL(resolvedImage, Astro.site);
 const resolvedAlternatePath = alternatePath === null ? undefined : (alternatePath ?? localizedPath(Astro.url.pathname, locale === 'zh' ? 'en' : 'zh'));
 const alternate = resolvedAlternatePath ? new URL(resolvedAlternatePath, Astro.site) : undefined;
 const zhUrl = locale === 'zh' ? canonical : alternate;
@@ -83,12 +86,14 @@ const ga4MeasurementId = 'G-E2TDGW26H0';
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={socialImage} />
+    <meta property="og:image:alt" content={title} />
     <meta property="og:locale" content={locale === 'zh' ? 'zh_CN' : 'en_US'} />
     {alternate && <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:image:alt" content={title} />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
     <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${ga4MeasurementId}`} />
     <script is:inline define:vars={{ ga4MeasurementId }}>

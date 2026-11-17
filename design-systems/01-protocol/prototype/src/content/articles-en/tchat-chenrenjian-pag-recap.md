@@ -29,7 +29,10 @@ citations:
     url: https://pag.io/docs/ae-support.html
   - label: TGFX official repository
     url: https://github.com/Tencent/tgfx
-tldr: []
+tldr:
+  - "Why production gets stuck in engineering: Video editing constantly needs new stickers, transitions, animated text, and templates."
+  - "Rebuilding a mature framework reveals why it was designed that way: In a game project, repeatedly assembling UI panels by code became tedious, especially as designs changed."
+  - "Flash's history and the possible future of motion workflows: Chen described Flash through three stages from his experience: content that could be watched, interactive rich media, and eventually a platform capable of games and applications."
 faq: []
 featured: false
 draft: false

@@ -13,6 +13,10 @@ cover: /images/articles/github-agent-pr-code-review-cover.png
 coverAlt: GitHub 超四成 PR 由 Agent 起稿，谁来给 AI 代码挑错？
 draft: false
 allowSingleLocale: true
+tldr:
+  - 2026 年 9 月 GitHub 超 40% 的 PR 由编码 Agent 起稿，代码评审正引入多模型独立分析与聚合复核机制。
+  - 有效的 AI 评审需结合完整调用链与业务约束，合并重复意见、消解模型分歧，并指出具体的越权入口与触发路径。
+  - 通过多模型并行分析与融合服务（如 PPIO Fusion），研发团队可将多模型交叉审查接入既有测试与修复工作流。
 seo:
   title: GitHub 超四成 PR 由 Agent 起稿，谁来给 AI 代码挑错？
   description: 2026年9月 GitHub 超40% PR 由编码 Agent 初稿。从 Octoverse 数据与 Code Review Max 多模型聚合审查，解析多模型协作如何进入代码评审，以及 PPIO Fusion 的模型服务实践。

@@ -14,7 +14,10 @@ coverAlt: General cover for a historical T Salon remote-work talk, not a photo o
 citations:
   - label: "Remote-Work Questions Answered"
     url: https://www.bilibili.com/video/BV11X4y1U7ez?p=1
-tldr: []
+tldr:
+  - "What does someone need to start remote work?: EF began with equipment able to perform the job, dependable internet, a quiet place suitable for ongoing work, and usable communication channels."
+  - "What do the employee and company each do for security?: The discussion covered controlled access to internal systems, network-security tools, onboarding, and recurring training."
+  - "Will remote work become the mainstream?: EF was optimistic about better networks and online collaboration."
 faq: []
 featured: false
 draft: false

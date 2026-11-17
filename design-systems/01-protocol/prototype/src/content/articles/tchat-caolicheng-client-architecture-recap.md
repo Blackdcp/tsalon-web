@@ -20,7 +20,10 @@ citations:
     url: https://www.bilibili.com/video/BV1YD4y1b7T9
   - label: 曹大成长路：完整访谈
     url: https://www.bilibili.com/video/BV1iG4y1h7FY
-tldr: []
+tldr:
+  - "页面增长快于人手，发版也跟不上运营节奏：强运营业务首先遇到的并不是技术选型问题，而是变化速度不匹配。"
+  - "多端一致性需要对应的工程手段：业务足够复杂之后，Android 和 iOS 对同一条件产生不同行为，会让排查和兜底越来越困难。"
+  - "成长方向可以不同，转型应尽量承接已有积累：访谈最后讨论客户端工程师的后续发展。"
 faq: []
 featured: false
 draft: false

@@ -10,7 +10,7 @@ topics:
   - AI
   - Engineering
   - Agent
-cover: /images/default-cover.svg
+cover: /images/articles/ai-quota-reset-radar-guide-en-cover.png
 coverAlt: Practical guide to T Salon AI Quota Reset Radar and usage planning
 featured: true
 draft: false

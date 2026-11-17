@@ -14,7 +14,10 @@ coverAlt: General cover for a historical T Salon remote-work talk, not a photo o
 citations:
   - label: "Corki: Lessons from Remote Work"
     url: https://www.bilibili.com/video/BV1Mj411u7JT?p=1
-tldr: []
+tldr:
+  - "Two remote experiences at different stages of life: The first opportunity came around 2018."
+  - "Specific questions on English, algorithms, education, and age: He was attending online English classes on weekends and continuing after work."
+  - "The distributed team and life after moving home: Corki said management and some technical members were in the United States, while developers in China lived in different cities."
 faq: []
 featured: false
 draft: false

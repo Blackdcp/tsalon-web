@@ -14,7 +14,10 @@ coverAlt: T Salon 远程工作历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: 关艺俊：在校生远程工作经验分享
     url: https://www.bilibili.com/video/BV13P411f78k?p=1
-tldr: []
+tldr:
+  - "实习的价值不止是把功能写出来：他介绍自己先后经历过三段包含远程安排的实习：有的先在线后转到现场，有的全程在线，还有的受当时出行条件限制，只能暂时在家工作。"
+  - "远程实习怎样找，岗位究竟要求什么：按他当时的经验，前端远程实习机会并不容易找。"
+  - "问答：经历如何区分，面试如何准备：<strong>三份经历都是纯远程吗？</strong>不是。"
 faq: []
 featured: false
 draft: false

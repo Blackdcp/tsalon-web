@@ -14,7 +14,10 @@ coverAlt: Generic cover for a historical T Salon Shenzhen frontend talk, not a p
 citations:
   - label: Frontend Challenges and Opportunities Part 5, webpack Performance by Fan Wenjie
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=5
-tldr: []
+tldr:
+  - "The core workflow: initialization, module building, and output generation: Initialization reads and merges configuration, creates a Compiler, installs plugins and factories, then starts the run."
+  - "Cache intermediate work, not only final files: Caching is his first optimization family."
+  - "Lazy compilation and project boundaries reduce what must happen now: Fan ends by comparing strategies."
 faq: []
 featured: false
 draft: false

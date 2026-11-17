@@ -25,7 +25,10 @@ citations:
     url: https://developer.apple.com/la/videos/play/wwdc2022/10157/
   - label: Apple Developer：WWDC22 字体课程官方回放
     url: https://www.youtube.com/watch?v=HMwnn9iEjok
-tldr: []
+tldr:
+  - "预览版上手：先从一段具体流程判断价值：浩天介绍自己已经试用的 iOS 与 iPadOS 预览版。"
+  - "RoomPlan 的两层价值：得到房间，也得到可以继续使用的结构信息：Kevin 谈到自己最看重的另一个方向：RoomPlan。"
+  - "展望可以大胆，判断仍要留在证据以内：最后，主持人问 Kevin，如果以后再多一个平台，开发者是否会疲于兼顾。"
 faq: []
 featured: false
 draft: false

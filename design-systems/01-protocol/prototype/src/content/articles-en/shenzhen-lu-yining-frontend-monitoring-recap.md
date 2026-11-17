@@ -14,7 +14,10 @@ coverAlt: Generic cover for a historical T Salon Shenzhen frontend talk, not a p
 citations:
   - label: Frontend Challenges and Opportunities Part 1, Frontend Monitoring by Lu Yining
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=1
-tldr: []
+tldr:
+  - "First decide what the monitoring must answer: Lu groups the needs into three categories: understand how users use the product, investigate a particular problem, and observe real page and resource-loading performance."
+  - "Two diagnostic routes: begin with a person, or drill down from a curve: A driver report may consist of a screenshot, an ID, and “the button does not work” or “the page will not open.” The team made a command-line tool that turns a driver ID into a monitoring search link instead of rebuilding queries by hand."
+  - "Alerts must reflect the rhythm of the business: The same outage can send different page curves in opposite directions."
 faq: []
 featured: false
 draft: false

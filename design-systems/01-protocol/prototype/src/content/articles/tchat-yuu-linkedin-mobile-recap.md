@@ -19,7 +19,10 @@ coverAlt: T Chat 第 7 期 Yuu 分享领英移动端工作与个人经历的访�
 citations:
   - label: Yuu：我在 Linkedin 做移动端，整场录播
     url: https://www.bilibili.com/video/BV11r4y177E5
-tldr: []
+tldr:
+  - "城市体验与职业经历连在一起：Yuu 在南方长大，来北京后先在百度工作，后来于 2019 年加入领英。"
+  - "原生与跨端各有条件，原生知识仍然有用：谈到 React Native 与 Flutter，他认为需要具体分析使用场景。"
+  - "创作需要工具、观察和持续迭代，也需要判断投入是否值得：最后，Yuu 回顾自己做视频和直播的经历。"
 faq: []
 featured: false
 draft: false

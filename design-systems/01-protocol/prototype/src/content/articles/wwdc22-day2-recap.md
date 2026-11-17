@@ -21,7 +21,10 @@ citations:
     url: https://www.apple.com/newsroom/2022/06/apple-unveils-new-ways-to-share-and-communicate-in-ios-16/
   - label: WWDC22 RoomPlan 技术课程
     url: https://developer.apple.com/videos/play/wwdc2022/10127/
-tldr: []
+tldr:
+  - "亲临现场，为何仍然是在看视频：对话回到两位嘉宾刚刚参加的 WWDC22。"
+  - "AR 与 VR 的讨论：新的交互形态，比一个新名字更重要：主持人把未来讨论拆成几个方向：新的设备形态、当时传闻中的 “Reality OS”、汽车，以及个人开发者机会。"
+  - "新 API 与独立开发：试验空间和成熟需求并不相同：主持人把问题收回到个人：每年出现新系统能力，是否意味着独立开发者会获得一轮新的机会？他提到，一些产品曾利用新的系统入口成长起来，但自己看完当年的更新后，还没有找到特别确定的创作方向。"
 faq: []
 featured: false
 draft: false

@@ -6,6 +6,7 @@ export const prerender = false;
 
 const radarData = await getResetRadarData();
 const { codex, claude, grok, updatedAtBeijing, status } = radarData;
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
 
@@ -96,6 +97,13 @@ const jsonLd = [
             <span class="tab-badge">Records</span>
           </button>
         </div>
+        <nav class="provider-direct-links mono" aria-label="Dedicated model trackers and guide" style="margin-top: 1rem; font-size: 0.8125rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary);">
+          <span>Dedicated pages:</span>
+          <a href="/en/whenreset/codex/">OpenAI Codex Tracker →</a>
+          <a href="/en/whenreset/claude/">Anthropic Claude Tracker →</a>
+          <a href="/en/whenreset/grok/">xAI Grok Tracker →</a>
+          <a href="/en/articles/ai-quota-reset-radar-guide/">Quota Rules & Pacing Guide →</a>
+        </nav>
       </section>
 
       <!-- Codex Section -->

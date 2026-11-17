@@ -19,7 +19,10 @@ coverAlt: The T Chat episode 7 poster for Yuu's conversation about mobile engine
 citations:
   - label: Yuu on mobile engineering at LinkedIn, full recording in Chinese
     url: https://www.bilibili.com/video/BV11r4y177E5
-tldr: []
+tldr:
+  - "A career move changes how a city feels: Yuu grew up in southern China."
+  - "The testing debate was about release goals and risk: The host challenged the cost of maintaining UI tests in a fast-changing business: a campaign page might be built this week and replaced the next."
+  - "Video creation needs iteration, and a reason to continue: Yuu had also made videos and streamed."
 faq: []
 featured: false
 draft: false

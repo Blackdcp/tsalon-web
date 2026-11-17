@@ -14,7 +14,10 @@ coverAlt: T Salon 远程工作历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: 蒋豪群：开源工作的远程工作经验
     url: https://www.bilibili.com/video/BV1s24y1g73N?p=1
-tldr: []
+tldr:
+  - "从招聘启事到长期工具链维护：蒋豪群是在社区看到招聘文章后投递简历，经过面试加入，并非先长期给 Vue 提交代码才获得工作。"
+  - "异步讨论要带着主题和方案：跨城市、跨时区协作，很难靠连续追问逐步拼出问题。"
+  - "问答：如何进入开源、团队靠什么运行：<strong>从什么贡献开始？</strong>他列出的入口不只有写代码：翻译文档、回答 issue、帮助用户解决核心成员来不及处理的问题，都能创造价值。"
 faq: []
 featured: false
 draft: false

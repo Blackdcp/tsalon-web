@@ -14,7 +14,10 @@ coverAlt: Agent Memory Across Sessions
 draft: false
 allowSingleLocale: true
 translationStatus: reviewed
-tldr: []
+tldr:
+  - Persistent agent memory must separate working session context from long-term scoped facts so outdated instructions do not silently override recent corrections.
+  - Project-scoped workspaces such as Grok Build and Claude Projects rely on explicit provenance, validity timestamps, and superseding links to keep shared context accurate.
+  - Enforce strict user, project, and tenant isolation at both write and retrieval time to prevent cross-context memory contamination.
 seo:
   title: "Persistent Agent Memory: Lessons from Grok & Claude Projects"
   description: An architecture guide for teams designing persistent agent memory across sessions without turning outdated context into active mistakes.

@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1q44y1D7rL
   - label: "Bill's career conversation on becoming a cross-platform specialist"
     url: https://www.bilibili.com/video/BV1gW4y1s72J
-tldr: []
+tldr:
+  - "Start with the experience of loading a page: Bill defined his subject as UI frameworks that work across operating systems."
+  - "Cross-platform work came from both business needs and curiosity: Asked why he chose the field, Bill recalled early React Native exploration at Didi, driven by a desire for more consistent iOS and Android behavior and greater development efficiency."
+  - "Grow beyond the boundaries of a job title: Finally, Bill returned to the overlap of frontend and native work."
 faq: []
 featured: false
 draft: false

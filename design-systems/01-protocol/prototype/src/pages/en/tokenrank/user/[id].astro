@@ -248,9 +248,32 @@ const chartData = {
   lastXDays: lastXDays.map(d => days > 90 ? d.substring(0, 7) : d.substring(5)),
   dailyUsage, dailyCost, metric: metricFilter
 };
+const profilePageUrl = new URL(`/en/tokenrank/user/${id}/`, Astro.site).toString();
+const profileJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    name: `${userData.name}'s AI Coding Token Dashboard — T Salon TokenRank`,
+    url: profilePageUrl,
+    mainEntity: {
+      '@type': 'Person',
+      name: userData.name,
+      image: userData.image,
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: new URL('/en/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: 'Token Leaderboard', item: new URL('/en/tokenrank/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: userData.name, item: profilePageUrl },
+    ],
+  },
+];
 ---
 
-<BaseLayout alternatePath={`/tokenrank/user/${id}?time=${timeFilter}&metric=${metricFilter}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`See ${userData.name}'s AI token trends, cost, and tool breakdown.`}>
+<BaseLayout alternatePath={`/tokenrank/user/${id}/`} languageSwitchPath={`/tokenrank/user/${id}?time=${timeFilter}&metric=${metricFilter}`} title={`${userData.name}'s Data Dashboard — T Salon`} description={`See ${userData.name}'s AI token trends, cost, and tool breakdown.`} image={`/tokenrank/og/${id}.png`} jsonLd={profileJsonLd}>
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div class="user-info">

@@ -14,7 +14,10 @@ coverAlt: Generic cover for a historical T Salon Shenzhen frontend talk, not a p
 citations:
   - label: Frontend Challenges and Opportunities Part 3, Frontend Engineering by Zhang Zeya
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=3
-tldr: []
+tldr:
+  - "Engineering covers the whole lifecycle: As frontend applications grew more capable, they also became harder to maintain and coordinate."
+  - "Why micro-frontends did not make all the weight disappear: In a back-office system whose navigation already separates products, subapplication boundaries can be natural."
+  - "What remained unfinished at the time: Zhang compares engineering to diagnosis and treatment: begin with symptoms, then choose an intervention."
 faq: []
 featured: false
 draft: false

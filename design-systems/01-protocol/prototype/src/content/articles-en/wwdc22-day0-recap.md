@@ -19,7 +19,10 @@ citations:
     url: https://www.apple.com/ie/newsroom/2022/04/apples-worldwide-developers-conference-returns-in-its-all-online-format/
   - label: Apple's WWDC22 highlights and Developer Center photographs
     url: https://www.apple.com/newsroom/2022/06/wwdc22-highlights/
-tldr: []
+tldr:
+  - "Building a community program around a global conference: Zheng opens by explaining that swift.gg began the free WWDC.playground broadcast series in 2021."
+  - "One first-time attendee and the prospect of another platform: The on-site pair meet a Chinese developer who has come alone from Seattle and says he works at Snapchat."
+  - "What this extra live call captured: Near the end, the two guests need to finish checking in."
 faq: []
 featured: false
 draft: false

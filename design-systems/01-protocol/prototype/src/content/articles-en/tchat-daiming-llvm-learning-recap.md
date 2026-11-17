@@ -30,7 +30,10 @@ citations:
     url: https://llvm.org/docs/LangRef.html
   - label: LLVM pass-writing documentation
     url: https://llvm.org/docs/WritingAnLLVMNewPMPass.html
-tldr: []
+tldr:
+  - "Long-lived apps need another look at the code they carry: Dai opened with two questions: How can a mobile project that has grown for years be optimized, and how can developers remain productive as the project expands?"
+  - "Shortening feedback: From code injection to IR execution: The second half of the talk turned to development speed."
+  - "Future interests still centered on tools and underlying systems: Dai described a desktop tool for publishing sites and subscriptions locally, together with his interest in IPFS and decentralized technology."
 faq: []
 featured: false
 draft: false

@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1rm4y1c7Nh
   - label: A/B 实验系统设计：张彦瑞与武蕴技术分享
     url: https://www.bilibili.com/video/BV1we4y1i7VG
-tldr: []
+tldr:
+  - "从 SDK 到数仓，数据会经过多次加工：分享先展开知乎当时的埋点链路：Web、H5、小程序和移动应用通过各端 SDK 上报，日志接收服务将数据送入 Kafka 等消息队列，经过 ETL 加工，再进入 Hive、Doris 等存储与查询环节，供下游业务使用。"
+  - "路径染色：记录一次转化经过了哪里：站内归因部分讨论的是，怎样把关键路径带进后续事件。"
+  - "从空转检查到公司级指标，技术实现之外还有判断：最后，两位讲者补充了实验分析的两个议题。"
 faq: []
 featured: false
 draft: false

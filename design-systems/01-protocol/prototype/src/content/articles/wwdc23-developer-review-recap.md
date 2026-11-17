@@ -27,7 +27,10 @@ citations:
     url: "https://developer.apple.com/videos/play/wwdc2023/10191/"
   - label: "Apple 2023 年 Vision Pro 发布资料"
     url: "https://www.apple.com/newsroom/2023/06/introducing-apple-vision-pro/"
-tldr: []
+tldr:
+  - "Observation：先弄清楚哪个状态真的影响了界面：SwiftUI 分享嘉宾用大量小例子讲 SwiftUI 当年的变化。"
+  - "测试、身份与部署：示例能跑通，不等于生产已经完备：Kevin 用中间件演示请求如何携带用户上下文。"
+  - "问答二：用户为什么要一次又一次戴上设备：最后的圆桌把焦点从技术转到内容和商业。"
 faq: []
 featured: false
 draft: false

@@ -14,6 +14,10 @@ cover: /images/articles/agent-security-runtime-governance.png
 coverAlt: Agent 安全正在走向运行时：从执行隔离到行为记录
 draft: false
 allowSingleLocale: true
+tldr:
+  - 当 Agent 获得代码执行、文件读写与外部 API 调用能力后，安全边界从回答内容延伸到真实系统运行时。
+  - 模型判断、任务循环编排（Harness）与隔离执行环境（如基于 Firecracker MicroVM 的沙箱）需要明确职责分工。
+  - AI 监控工具需建立在权限收敛、独立沙箱隔离与客观执行日志的基础之上，才能及时阻断越权操作。
 seo:
   title: Agent 安全正在走向运行时：从执行隔离到行为记录
   description: 当大量 Agent 协同执行并调用外部能力，安全防线必须深入运行时。剖析任务循环编排、隔离沙箱与执行轨迹审计的核心分工。

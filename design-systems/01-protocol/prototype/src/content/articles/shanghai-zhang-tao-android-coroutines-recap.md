@@ -22,7 +22,10 @@ citations:
     url: https://kotlinlang.org/spec/asynchronous-programming-with-coroutines.html
   - label: C++ working draft — csetjmp synopsis
     url: https://eel.is/c++draft/csetjmp.syn
-tldr: []
+tldr:
+  - "为什么从线程谈起：分享先用做菜的比喻说明并发与并行，再回顾进程、线程、上下文和调度。"
+  - "按线程组织队列，再处理任务状态：在调度层，原型按线程标识管理相应的任务集合。"
+  - "问答：这个原型与 Kotlin 协程应怎样比较：现场最后一个实质问题涉及 Kotlin 协程。"
 faq: []
 featured: false
 draft: false

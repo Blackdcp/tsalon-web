@@ -18,7 +18,10 @@ coverAlt: A general cover for a historical T Salon talk, not a photograph of the
 citations:
   - label: Tom on working in a diverse remote team, full recording in Chinese
     url: https://www.bilibili.com/video/BV1Yj411u7YR?p=1
-tldr: []
+tldr:
+  - "Cross-time-zone cooperation starts with a clear question: People can have different expectations about working hours, response speed and how to communicate progress."
+  - "Investigate both the employer and your own preparation: The host raised a common worry: are companies offering remote jobs reliable?"
+  - "Compensation, trends and employment form: Tom declined to give a standard remote salary range."
 faq: []
 featured: false
 draft: false

@@ -251,9 +251,32 @@ const chartData = {
   lastXDays: lastXDays.map(d => days > 90 ? d.substring(0, 7) : d.substring(5)),
   dailyUsage, dailyCost, metric: metricFilter
 };
+const profilePageUrl = new URL(`/tokenrank/user/${id}/`, Astro.site).toString();
+const profileJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    name: `${userData.name} 的 AI 编程 Token 数据看板 — T Salon TokenRank`,
+    url: profilePageUrl,
+    mainEntity: {
+      '@type': 'Person',
+      name: userData.name,
+      image: userData.image,
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '首页', item: new URL('/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: 'Token 排行榜', item: new URL('/tokenrank/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: userData.name, item: profilePageUrl },
+    ],
+  },
+];
 ---
 
-<BaseLayout alternatePath={`/en/tokenrank/user/${id}?time=${timeFilter}&metric=${metricFilter}`} title={`${userData.name} 的数据看板 - T Salon`} description={`查看 ${userData.name} 的详细 Token 消耗趋势和 AI 数据看板。`}>
+<BaseLayout alternatePath={`/en/tokenrank/user/${id}/`} languageSwitchPath={`/en/tokenrank/user/${id}?time=${timeFilter}&metric=${metricFilter}`} title={`${userData.name} 的数据看板 - T Salon`} description={`查看 ${userData.name} 的详细 Token 消耗趋势和 AI 数据看板。`} image={`/tokenrank/og/${id}.png`} jsonLd={profileJsonLd}>
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div class="user-info">

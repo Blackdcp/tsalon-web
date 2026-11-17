@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1rm4y1c7Nh
   - label: A/B testing system design, technical presentation in Chinese
     url: https://www.bilibili.com/video/BV1we4y1i7VG
-tldr: []
+tldr:
+  - "Data changes on the way from an SDK to a warehouse: The speakers walked through Zhihu's then-current path."
+  - "Reporting must protect both the data and the service: Events vary in importance."
+  - "An A/A period and company-level measures: The speakers ended with two analysis issues outside the mechanics of fetching a flag."
 faq: []
 featured: false
 draft: false

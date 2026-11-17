@@ -1,0 +1,761 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getResetRadarData } from '../lib/reset-radar';
+
+type ProviderKey = 'codex' | 'claude' | 'grok';
+
+interface Props {
+  provider: ProviderKey;
+  locale: 'zh' | 'en';
+}
+
+const { provider, locale } = Astro.props;
+const isEn = locale === 'en';
+const radarData = await getResetRadarData();
+const { updatedAtBeijing, status } = radarData;
+const pData = radarData[provider];
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
+
+const metaByProvider: Record<ProviderKey, {
+  titleZh: string;
+  titleEn: string;
+  descZh: string;
+  descEn: string;
+  h1Zh: string;
+  h1En: string;
+  introZh: string;
+  introEn: string;
+  guideTitleZh: string;
+  guideTitleEn: string;
+  guidePointsZh: { title: string; body: string }[];
+  guidePointsEn: { title: string; body: string }[];
+  faqZh: { q: string; a: string }[];
+  faqEn: { q: string; a: string }[];
+}> = {
+  claude: {
+    titleZh: 'Claude 额度重置时间与 5 小时限流恢复计算器 (Claude Code / Pro / Max) | T Salon',
+    titleEn: 'Claude Quota Reset Tracker & 5-Hour Limit Calculator (Claude Code / Pro / Max) | T Salon',
+    descZh: '实时查询 Anthropic Claude 与 Claude Code 的全局重置、指定范围重置与发卡记录，提供 5 小时滑动窗口恢复时间计算器与每周额度消耗预算规划。',
+    descEn: 'Track Anthropic Claude and Claude Code quota resets and bonus cards from WhenReset.dev, calculate your 5-hour rolling window recovery time, and plan weekly quota pacing.',
+    h1Zh: 'Anthropic Claude 额度重置雷达与 5 小时窗口计算器',
+    h1En: 'Anthropic Claude Quota Reset Radar & 5-Hour Window Calculator',
+    introZh: '汇总 WhenReset.dev 收录的 Anthropic Claude（含 Claude Web、Claude Code、Pro 与 Max 订阅）全网重置与发卡记录，提供 5 小时滑动窗口恢复时间换算与 7 天周度配额预算规划。',
+    introEn: 'Live WhenReset.dev event records for Anthropic Claude (including Claude Web, Claude Code, Pro, and Max tiers), paired with a 5-hour rolling window recovery calculator and 7-day weekly quota planner.',
+    guideTitleZh: 'Claude 与 Claude Code 额度机制与恢复时间排查要点',
+    guideTitleEn: 'Claude & Claude Code Quota Rules and Recovery Checklist',
+    guidePointsZh: [
+      {
+        title: '5 小时滑动窗口（Session Window）从第一条消息起算',
+        body: '当你遇到 Claude 提示达到使用上限时，恢复时间等于「本轮 5 小时窗口内的第一条有效请求时间 + 5 小时」，而不是报错发生的那一刻。在下方计算器输入已知窗口起点即可换算北京时间恢复点。',
+      },
+      {
+        title: '周度限额（Weekly Limit）与 5 小时窗口相互独立',
+        body: 'Claude Pro 与 Max 账号除 5 小时短窗口外，还受 7 天周期的周度配额约束。若周初高强度运行 Claude Code 多文件重构，建议用下方每周额度规划器计算每日安全消耗预算，防止周中提前触顶。',
+      },
+      {
+        title: '区分全网全局重置与特定范围调整',
+        body: '本页记录的「全局重置」指来源标注面向全部用户的重置事件；「指定范围重置」与「重置卡」仅适用于原帖说明的特定套餐或受影响用户，不代表你的个人账号已自动清零。',
+      },
+    ],
+    guidePointsEn: [
+      {
+        title: 'The 5-hour rolling window starts from your first message in the session',
+        body: 'When Claude displays a usage limit message, your recovery time is 5 hours after the first message that opened the current window—not 5 hours after you hit the cap. Enter your known window start below to calculate the assumed end time.',
+      },
+      {
+        title: '7-day weekly limits operate alongside 5-hour windows',
+        body: 'Claude Pro and Max accounts enforce both a 5-hour session cap and a 7-day rolling weekly budget. Heavy Claude Code refactoring early in the week can exhaust weekly quota ahead of schedule; use the weekly planner below to set a safe daily burn rate.',
+      },
+      {
+        title: 'Distinguish global resets from scoped events and bonus cards',
+        body: 'Only events explicitly marked for all users count as global resets on this page. Scoped resets and bonus cards apply only to the plans or users described in the linked source post.',
+      },
+    ],
+    faqZh: [
+      {
+        q: 'Claude 提示达到 5 小时限制后，什么时候恢复额度？',
+        a: 'Claude 的 5 小时限额按当前窗口的第一条请求时间起算，满 5 小时后重置该窗口。触顶报错时刻不等于窗口起点，请以客户端或网页设置内显示的重置时间为准，或用本页计算器按已知起点加 5 小时估算。',
+      },
+      {
+        q: 'Claude Code 周限额用完后，全网重置记录代表我的账号恢复了吗？',
+        a: '不一定。本页展示的是 WhenReset.dev 收录的公开事件记录，仅在官方执行全网重置时影响所有用户。常规情况下，个人周度限额需等待你账号自身的 7 天重置周期结束。',
+      },
+      {
+        q: '如何避免 Claude Pro / Max 每周额度在周中提前耗尽？',
+        a: '在客户端查看当前已消耗百分比与下次重置时间，填入本页的「每周额度规划计算器」，系统会自动算出距离重置的剩余小时数与建议每日消耗上限（如每天不超过 14%）。',
+      },
+    ],
+    faqEn: [
+      {
+        q: 'When does my Claude quota recover after hitting the 5-hour limit?',
+        a: 'Claude 5-hour windows reset 5 hours after the first message that started the active window, not 5 hours after the rate-limit message appeared. Check the exact reset timestamp inside your client or use the 5-hour calculator with a known start time.',
+      },
+      {
+        q: 'Does a recorded Claude event mean my personal Claude Code weekly limit was reset?',
+        a: 'Not necessarily. Records on this page reflect public events tracked by WhenReset.dev. Unless an event is a confirmed all-user global reset, your personal weekly quota follows the reset schedule shown in your account settings.',
+      },
+      {
+        q: 'How can I prevent exhausting my Claude Pro or Max weekly quota mid-week?',
+        a: 'Enter your current percentage used and next personal reset time into the Weekly Quota Planner on this page to compute your current burn pace and a safe daily percentage budget.',
+      },
+    ],
+  },
+  codex: {
+    titleZh: 'OpenAI Codex 额度重置雷达与发卡记录查询 (ChatGPT Plus / Pro) | T Salon',
+    titleEn: 'OpenAI Codex Quota Reset Radar & Bonus Card Tracker (ChatGPT Plus / Pro) | T Salon',
+    descZh: '实时追踪 OpenAI Codex 全局额度重置、指定范围重置与官方发卡（Reset Card）历史记录，提供北京时间换算、历史间隔参考与周度配额规划工具。',
+    descEn: 'Live tracker for OpenAI Codex global quota resets, scoped resets, and bonus reset cards from WhenReset.dev, with UTC+8 timestamps, historical cadence reference, and quota calculators.',
+    h1Zh: 'OpenAI Codex 额度重置与发卡记录雷达',
+    h1En: 'OpenAI Codex Quota Reset & Bonus Card Radar',
+    introZh: '实时同步 WhenReset.dev 收录的 OpenAI Codex 全局重置、指定范围重置与重置卡（Reset Card）发放记录，附原始推文出处链接、北京时间换算与配额规划计算器。',
+    introEn: 'Monitor OpenAI Codex global resets, scoped resets, and bonus reset card issuances tracked by WhenReset.dev, complete with original source post links, UTC+8 timestamps, and quota pacing calculators.',
+    guideTitleZh: 'OpenAI Codex 重置记录、重置卡与额度规划说明',
+    guideTitleEn: 'OpenAI Codex Reset Records, Bonus Cards & Pacing Guide',
+    guidePointsZh: [
+      {
+        title: '全局重置（Global Reset）与发重置卡（Reset Card）的区别',
+        body: '全局重置指官方对全部用户统一刷新可用配额；重置卡（Card）则是官方在特定活动或补偿中发放的额度卡，需要符合资格的账号按原帖说明领取或核销，不会自动清零所有人的已用额度。',
+      },
+      {
+        title: '历史间隔参考点如何辅助判断节奏',
+        body: '系统从已读取的最近最多 10 个不同全局重置时刻中计算相邻间隔中位数（自动剔除重置卡和局部重置），叠加到最近一次全局重置时间上作为历史算术参考，但不代表官方固定排期。',
+      },
+      {
+        title: '高并发任务与长任务的配额节奏控制',
+        body: '使用 Codex 跑批量 PR 审查或多仓库任务时，可通过下方每周额度规划器监控消耗斜率，并结合 TokenRank 对照本地实际 Token 消耗与缓存命中率。',
+      },
+    ],
+    guidePointsEn: [
+      {
+        title: 'Global resets vs. bonus reset cards',
+        body: 'A global reset refreshes quota across all users simultaneously, whereas a reset card represents a bonus issuance event that eligible users must claim or apply as described in the source post.',
+      },
+      {
+        title: 'How the historical interval reference is derived',
+        body: 'The median interval across up to 10 recent distinct global reset timestamps is added to the latest global reset time. Bonus cards and scoped resets are excluded so they never skew the cadence calculation.',
+      },
+      {
+        title: 'Pacing multi-repo and long-running Codex tasks',
+        body: 'When running parallel Codex tasks or automated reviews, use the Weekly Quota Planner below to keep daily usage within budget and check TokenRank to compare local token consumption.',
+      },
+    ],
+    faqZh: [
+      {
+        q: '为什么看到有人说 Codex 发卡了，我的额度却没有恢复？',
+        a: '发卡（重置卡）与全网重置不同。重置卡通常针对特定订阅层级（如 Pro 或 Plus）或需手动领取，具体适用范围与领取方式请点击本页记录表格中的「推文 ↗」查看官方原帖。',
+      },
+      {
+        q: 'Codex 的历史间隔参考点是官方公布的下次重置时间吗？',
+        a: '不是。该参考点仅基于已收录的历史全局重置间隔中位数做算术推算，供开发者了解过往频率，个人实际配额恢复时间始终以客户端内显示为准。',
+      },
+      {
+        q: '如何第一时间收到 OpenAI Codex 全局重置或发卡通知？',
+        a: '可使用本页下方的 RSS 订阅链接（https://www.tsalon.tech/whenreset/rss.xml），或接入飞书、企业微信 Webhook 与浏览器桌面通知。',
+      },
+    ],
+    faqEn: [
+      {
+        q: 'Why did my Codex quota not reset when a bonus card event was posted?',
+        a: 'Bonus reset cards are separate from all-user global resets. Cards often target specific tiers or require manual redemption; check the linked source post in the table for eligibility details.',
+      },
+      {
+        q: 'Is the Codex historical cadence reference an official schedule?',
+        a: 'No. It is an arithmetic reference computed from the median gap between past global resets. Always rely on your Codex client for your personal account reset schedule.',
+      },
+      {
+        q: 'How can I get notified immediately when a new Codex reset or card lands?',
+        a: 'Subscribe to our RSS feed, configure a GitHub Actions webhook to Feishu/Slack/Discord using /api/reset/data, or enable browser desktop notifications at the bottom of this page.',
+      },
+    ],
+  },
+  grok: {
+    titleZh: 'xAI Grok 额度重置时间与配额监控雷达 (SuperGrok / Grok) | T Salon',
+    titleEn: 'xAI Grok Quota Reset Tracker & Usage Pacing Calculator (SuperGrok) | T Salon',
+    descZh: '实时监控 xAI Grok 与 SuperGrok 全网额度重置、指定范围重置与发卡事件记录，提供 5 小时窗口时间计算器与每周配额消耗规划工具。',
+    descEn: 'Monitor xAI Grok and SuperGrok quota reset events and bonus cards from WhenReset.dev, with a 5-hour rolling window calculator and weekly quota pacing planner.',
+    h1Zh: 'xAI Grok 额度重置监控与配额规划雷达',
+    h1En: 'xAI Grok Quota Reset Tracker & Pacing Radar',
+    introZh: '实时读取 WhenReset.dev 收录的 xAI Grok 重置与发卡记录，提供北京时间换算、原帖追踪、5 小时滑动窗口计算器以及每周额度规划工具。',
+    introEn: 'Real-time WhenReset.dev event tracker for xAI Grok resets and bonus cards, complete with UTC+8 timestamps, source post links, a 5-hour window calculator, and weekly quota pacing tools.',
+    guideTitleZh: 'xAI Grok 配额监控与滑动窗口计算说明',
+    guideTitleEn: 'xAI Grok Quota Monitoring & Window Calculation Guide',
+    guidePointsZh: [
+      {
+        title: '追踪官方全局重置与服务恢复补偿',
+        body: '当 xAI 发布模型更新或完成服务恢复时，可能会触发全局或特定范围的配额重置。本页实时同步 WhenReset.dev 验证过的事件记录并保留原帖链接。',
+      },
+      {
+        title: '5 小时窗口与周度消耗双维度推算',
+        body: '针对高频深度推理与长上下文调用，可结合下方 5 小时窗口计算器（按已知窗口起点推算）与周度规划器，合理分配每日调用预算。',
+      },
+    ],
+    guidePointsEn: [
+      {
+        title: 'Track global resets and service recovery notices',
+        body: 'When xAI rolls out model updates or recovers from service incidents, global or scoped quota resets may occur. This page syncs verified WhenReset.dev records with direct links to original posts.',
+      },
+      {
+        title: 'Combine 5-hour window and weekly pacing calculations',
+        body: 'For intensive reasoning and long-context workflows, use both the 5-hour window calculator (from your known window start) and the weekly quota planner to keep daily consumption steady.',
+      },
+    ],
+    faqZh: [
+      {
+        q: 'Grok 额度重置记录的数据来源是什么？',
+        a: '本页在请求时读取 WhenReset.dev 公开记录接口（缓存 5 分钟），每条事件均附带触发原因、适用范围与官方或技术负责人的原帖链接。',
+      },
+      {
+        q: '如何用计算器推算 Grok 窗口恢复时间？',
+        a: '在「五小时窗口时间计算器」中输入已知的窗口起始时刻（非触顶报错时刻），即可换算假设 5 小时窗口结束的北京时间；个人实际限额请以 Grok 客户端内显示为准。',
+      },
+    ],
+    faqEn: [
+      {
+        q: 'Where do the xAI Grok reset records come from?',
+        a: 'T Salon reads the WhenReset.dev records API on request with a 5-minute cache. Every record displays its documented scope, reason, and original source post link.',
+      },
+      {
+        q: 'How do I estimate Grok window recovery time?',
+        a: 'Enter your known window start timestamp (not the moment you hit the rate limit) into the Five-Hour Window Calculator below to compute the assumed 5-hour window end in UTC+8.',
+      },
+    ],
+  },
+};
+
+const meta = metaByProvider[provider];
+const pagePath = isEn ? `/en/whenreset/${provider}/` : `/whenreset/${provider}/`;
+const altPath = isEn ? `/whenreset/${provider}/` : `/en/whenreset/${provider}/`;
+const hubPath = isEn ? '/en/whenreset/' : '/whenreset/';
+const guidePath = isEn ? '/en/articles/ai-quota-reset-radar-guide/' : '/articles/ai-quota-reset-radar-guide/';
+const pageUrl = new URL(pagePath, Astro.site).toString();
+const faqList = isEn ? meta.faqEn : meta.faqZh;
+const guidePoints = isEn ? meta.guidePointsEn : meta.guidePointsZh;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: isEn ? meta.h1En : meta.h1Zh,
+    url: pageUrl,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Web',
+    description: isEn ? meta.descEn : meta.descZh,
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: isEn ? 'Home' : '首页', item: new URL(isEn ? '/en/' : '/', Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: isEn ? 'Reset Radar' : '重置雷达', item: new URL(hubPath, Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: pData.name, item: pageUrl },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    url: pageUrl,
+    inLanguage: isEn ? 'en-US' : 'zh-CN',
+    mainEntity: faqList.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: stripTags(item.a) },
+    })),
+  },
+];
+---
+
+<BaseLayout
+  title={isEn ? meta.titleEn : meta.titleZh}
+  description={isEn ? meta.descEn : meta.descZh}
+  alternatePath={altPath}
+  locale={locale}
+  jsonLd={jsonLd}
+>
+  <main class="reset-page">
+    <div class="container">
+      <nav class="reset-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑'}>
+        <a href={isEn ? '/en/' : '/'}>{isEn ? 'Home' : '首页'}</a>
+        <span aria-hidden="true">/</span>
+        <a href={hubPath}>{isEn ? 'Reset Radar' : '重置雷达'}</a>
+        <span aria-hidden="true">/</span>
+        <span>{pData.name}</span>
+      </nav>
+
+      <section class="reset-hero">
+        <div class="hero-top-badge">
+          <span class:list={['pulse-dot', { unavailable: status === 'unavailable' }]}></span>
+          <span>
+            {isEn
+              ? (status === 'unavailable' ? 'WhenReset.dev records currently unavailable' : status === 'empty' ? 'No records available from WhenReset.dev' : 'WhenReset.dev Event Records')
+              : (status === 'unavailable' ? '暂时无法读取 WhenReset.dev 记录' : status === 'empty' ? 'WhenReset.dev 暂无可用记录' : 'WhenReset.dev 事件记录')}
+            {updatedAtBeijing && (isEn ? ` · Read at ${updatedAtBeijing} (UTC+8)` : ` · 北京时间 ${updatedAtBeijing} 读取`)}
+          </span>
+        </div>
+        <h1 class="hero-title">{isEn ? meta.h1En : meta.h1Zh}</h1>
+        <p class="hero-desc">{isEn ? meta.introEn : meta.introZh}</p>
+
+        <nav class="provider-tabs" aria-label={isEn ? 'Select model provider' : '选择模型平台'}>
+          <a href={hubPath} class="tab-btn">
+            <span class="tab-name">{isEn ? 'All Models Overview' : '全部模型总览'}</span>
+          </a>
+          <a href={isEn ? '/en/whenreset/codex/' : '/whenreset/codex/'} class:list={['tab-btn', { active: provider === 'codex' }]} aria-current={provider === 'codex' ? 'page' : undefined}>
+            <span class="tab-icon">⚡️</span>
+            <span class="tab-name">OpenAI Codex</span>
+          </a>
+          <a href={isEn ? '/en/whenreset/claude/' : '/whenreset/claude/'} class:list={['tab-btn', { active: provider === 'claude' }]} aria-current={provider === 'claude' ? 'page' : undefined}>
+            <span class="tab-icon">🧠</span>
+            <span class="tab-name">Anthropic Claude</span>
+          </a>
+          <a href={isEn ? '/en/whenreset/grok/' : '/whenreset/grok/'} class:list={['tab-btn', { active: provider === 'grok' }]} aria-current={provider === 'grok' ? 'page' : undefined}>
+            <span class="tab-icon">🚀</span>
+            <span class="tab-name">xAI Grok</span>
+          </a>
+        </nav>
+      </section>
+
+      <div class="provider-section active">
+        {pData.watchNotice?.isOpen && (
+          <div class="alert-banner">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-content">
+              <div class="alert-title">{isEn ? (pData.watchNotice.titleEn || 'Notice in the source feed') : (pData.watchNotice.titleZh || '来源中的待发生通知')}</div>
+              <p class="alert-text">{pData.watchNotice.text}</p>
+              {pData.watchNotice.scheduledAtBeijing && (
+                <div class="alert-meta">{isEn ? `Scheduled in the source: ${pData.watchNotice.scheduledAtBeijing} (UTC+8)` : `来源所列时间：北京时间 ${pData.watchNotice.scheduledAtBeijing}`}</div>
+              )}
+            </div>
+            {pData.watchNotice.tweetUrl && (
+              <a href={pData.watchNotice.tweetUrl} target="_blank" rel="noreferrer" class="btn btn-dark alert-btn">
+                {isEn ? 'Source Post' : '查看来源原帖'} <span>↗</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">{isEn ? 'Latest Event' : '最近一条事件'}</div>
+            <div class="card-value highlight">{isEn ? (pData.latestEvent?.typeLabelEn || 'No records') : (pData.latestEvent?.typeLabelZh || '暂无记录')}</div>
+            <div class="card-sub">{isEn ? (pData.latestEvent?.timeAgoEn || '—') : (pData.latestEvent?.timeAgoZh || '—')}</div>
+            <div class="card-sub">{isEn ? `Scope: ${pData.latestEvent?.scopeEn || 'Not specified'}` : `适用范围：${pData.latestEvent?.scopeZh || '未说明'}`}</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">{isEn ? 'Event Time (UTC+8)' : '该事件时间（北京时间）'}</div>
+            <div class="card-value">{pData.latestEvent?.landedAtBeijing || '—'}</div>
+            <div class="card-sub">{isEn ? `Reason: ${pData.latestEvent?.reasonEn || 'Not specified in this record'}` : `原因：${pData.latestEvent?.reasonZh || '该记录未说明'}`}</div>
+            {pData.latestEvent?.postUrl && (
+              <a href={pData.latestEvent.postUrl} target="_blank" rel="noreferrer" class="card-link">{isEn ? 'Source post ↗' : '该事件原帖 ↗'}</a>
+            )}
+          </div>
+          <div class="bento-card">
+            <div class="card-label">{isEn ? 'Historical Cadence Reference' : '历史间隔参考点'}</div>
+            <div class="card-value">{pData.nextEstimated.dateBeijing} <span class="time-sub">{pData.nextEstimated.timeBeijing}</span></div>
+            <div class="card-sub">{isEn ? pData.nextEstimated.relativeTextEn : pData.nextEstimated.relativeTextZh}</div>
+            <div class="card-hint">{isEn ? `Based on ${pData.cadenceIntervalCount} global reset intervals; not an official schedule` : `基于 ${pData.cadenceIntervalCount} 个全局重置间隔，不是官方排期`}</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">{isEn ? 'Median Global Gap' : '全局重置间隔中位数'}</div>
+            <div class="card-value">{pData.typicalGapDays ?? '—'} <span class="unit">{isEn ? 'days' : '天'}</span></div>
+            <div class="card-sub">
+              {isEn
+                ? `Loaded past 30 days: ${status === 'unavailable' ? '—' : pData.resets30d} resets, ${status === 'unavailable' ? '—' : pData.cards30d} cards`
+                : `已读取的近 30 天记录：${status === 'unavailable' ? '—' : pData.resets30d} 次重置，${status === 'unavailable' ? '—' : pData.cards30d} 次发卡`}
+            </div>
+            <div class="card-hint">{isEn ? 'Source: WhenReset.dev · Records may be partial' : '来源：WhenReset.dev · 记录可能不完整'}</div>
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">{isEn ? `${pData.name} Five-Hour Window Calculator` : `${pData.name} 五小时窗口时间计算器`}</h2>
+              <p class="tool-sub">
+                {isEn
+                  ? 'Enter a known window start, not the moment you hit the limit. Computes an assumed 5-hour window end only; refer to your product client for real account recovery.'
+                  : '填写已知窗口起点，不是触顶时刻。这里只按五小时假设计算结束时间；个人实际重置时间请以产品内显示为准。'}
+              </p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for={`${provider}-window-start`}>{isEn ? 'Known window start (UTC+8)' : '已知窗口起点（北京时间）'}</label>
+              <input type="datetime-local" id={`${provider}-window-start`} class="time-input" step="60" />
+              <button type="button" id={`${provider}-calculate`} class="btn btn-dark">{isEn ? 'Calculate with 5 hours' : '按 5 小时计算'}</button>
+            </div>
+            <div class="calc-arrow" aria-hidden="true">➔</div>
+            <div class="calc-result-box" aria-live="polite">
+              <div class="result-label">{isEn ? 'Assumed window end (UTC+8)' : '假设窗口结束时间（北京时间）'}</div>
+              <div class="result-time" id={`${provider}-calc-result`}>—</div>
+              <div class="result-tips" id={`${provider}-calc-tips`}>{isEn ? 'Enter a known start, then select Calculate.' : '输入已知起点后点击计算按钮。'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="history-section">
+          <div class="history-header">
+            <h2 class="history-title">{isEn ? `${pData.name} Reset & Card Records` : `${pData.name} 重置与重置卡记录`}</h2>
+            <span class="history-count">{isEn ? 'Up to 30 loaded records · UTC+8' : '最多 30 条已读取记录 · 北京时间'}</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="radar-table">
+              <thead>
+                <tr>
+                  <th>{isEn ? 'Date (UTC+8)' : '日期 (北京时间)'}</th>
+                  <th>{isEn ? 'Type' : '类型'}</th>
+                  <th>{isEn ? 'Scope' : '适用范围'}</th>
+                  <th>{isEn ? 'Reason / Context' : '触发原因 / 说明'}</th>
+                  <th>{isEn ? 'Ago' : '距今'}</th>
+                  <th>{isEn ? 'Source' : '出处'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pData.events.length === 0 && <tr><td colspan="6">{isEn ? 'No event records available.' : '暂无可用事件记录。'}</td></tr>}
+                {pData.events.map((e: any) => (
+                  <tr>
+                    <td class="cell-date">{e.landedAtBeijing}</td>
+                    <td>
+                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>{isEn ? e.typeLabelEn : e.typeLabelZh}</span>
+                    </td>
+                    <td class="cell-scope">{isEn ? e.scopeEn : e.scopeZh}</td>
+                    <td class="cell-reason">{isEn ? e.reasonEn : e.reasonZh}</td>
+                    <td class="cell-timeago">{isEn ? e.timeAgoEn : e.timeAgoZh}</td>
+                    <td class="cell-src">
+                      {e.postUrl ? (
+                        <a href={e.postUrl} target="_blank" rel="noreferrer" class="src-link">
+                          {isEn ? 'Post ↗' : '推文 ↗'}
+                        </a>
+                      ) : (
+                        '--'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <section class="guide-section">
+        <h2 class="section-title">{isEn ? meta.guideTitleEn : meta.guideTitleZh}</h2>
+        <div class="guide-grid">
+          {guidePoints.map((pt) => (
+            <article class="guide-card">
+              <h3>{pt.title}</h3>
+              <p>{pt.body}</p>
+            </article>
+          ))}
+        </div>
+        <p class="guide-more">
+          <a href={guidePath}>{isEn ? 'Read the full AI Quota Reset Radar practical guide →' : '阅读《AI 配额重置雷达实操指南：额度规则与用量规划》全文 →'}</a>
+          {' · '}
+          <a href={isEn ? '/en/tokenrank/' : '/tokenrank/'}>{isEn ? 'View TokenRank real-world AI coding token benchmarks →' : '查看 TokenRank 社区 AI 编程 Token 消耗排行榜 →'}</a>
+        </p>
+      </section>
+
+      <section id="weekly-calculator-app" class="planner-section">
+        <div class="section-badge-tag">{isEn ? 'Quota Planning Tool' : '额度规划工具'}</div>
+        <div class="planner-header">
+          <div>
+            <h2 class="section-title">{isEn ? 'Weekly Quota Planner Calculator' : '每周额度规划计算器'}</h2>
+            <p class="section-sub">
+              {isEn
+                ? 'Enter your percentage used and next reset time to estimate pacing, exhaustion risks, and recommended daily quota budgets.'
+                : '填入当前已用比例和你的个人重置时间，实时推算这周额度够不够用、什么时候耗尽，以及每天建议的消耗预算。'}
+            </p>
+          </div>
+          <div class="calc-presets">
+            <button type="button" class:list={['calc-preset-btn', { active: provider === 'claude' }]} data-preset="claude">{isEn ? 'Claude (Weekly)' : 'Claude (周限额)'}</button>
+            <button type="button" class:list={['calc-preset-btn', { active: provider === 'codex' }]} data-preset="codex">{isEn ? 'Codex (Weekly)' : 'Codex (周限额)'}</button>
+            <button type="button" class:list={['calc-preset-btn', { active: provider === 'grok' }]} data-preset="grok">{isEn ? 'Grok (Weekly)' : 'Grok (周限额)'}</button>
+            <button type="button" class="calc-preset-btn" data-preset="cursor">{isEn ? 'Cursor (Monthly 500)' : 'Cursor (月度 500 次)'}</button>
+          </div>
+        </div>
+
+        <div class="planner-body">
+          <div class="planner-controls">
+            <div class="control-card">
+              <label class="control-label" for="weekly-used-slider">
+                <span>{isEn ? 'Current Percentage Used' : '当前周期已用比例'}</span>
+                <span class="control-hint">{isEn ? 'As reported by your client or product settings' : '在客户端查看并填入当前已消耗百分比'}</span>
+              </label>
+              <div class="range-wrap">
+                <input type="range" id="weekly-used-slider" min="0" max="100" value="35" class="custom-range" />
+                <div class="range-number-box">
+                  <input type="number" id="weekly-used-number" min="0" max="100" value="35" class="number-input" />
+                  <span class="unit">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="control-card">
+              <label class="control-label" for="weekly-reset-time">
+                <span>{isEn ? 'Next Personal Reset Time (UTC+8)' : '个人下次重置时间（北京时间）'}</span>
+                <span class="control-hint">{isEn ? 'The next scheduled quota refresh time in your client' : '在官方客户端看到的下一次额度刷新时间'}</span>
+              </label>
+              <input type="datetime-local" id="weekly-reset-time" class="time-input full-width" step="60" />
+            </div>
+          </div>
+
+          <div class="planner-results">
+            <div class="planner-metrics">
+              <div class="metric-card">
+                <span class="metric-label">{isEn ? 'Pace Verdict' : '消耗节奏评定'}</span>
+                <div class="metric-val"><span id="weekly-calc-badge" class="pace-badge badge-success">{isEn ? 'Evaluating...' : '计算中...'}</span></div>
+                <span class="metric-hint">{isEn ? 'Estimated from current burn rate' : '根据当前消耗速度评估'}</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">{isEn ? 'Projected Total Usage' : '预计周期总消耗'}</span>
+                <div class="metric-val"><strong id="weekly-calc-burn">—</strong></div>
+                <span class="metric-hint">{isEn ? 'At your current pace until reset' : '按当前速度持续消耗的总比例'}</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">{isEn ? 'Daily Budget Recommendation' : '建议每日消耗预算'}</span>
+                <div class="metric-val"><strong id="weekly-calc-budget">—</strong></div>
+                <span class="metric-hint">{isEn ? 'Remaining quota distributed daily' : '剩余额度均摊到每日'}</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">{isEn ? 'Time Remaining' : '距离重置剩余'}</span>
+                <div class="metric-val"><strong id="weekly-calc-remaining">—</strong></div>
+                <span class="metric-hint">{isEn ? 'Until scheduled reset' : '剩余可用时间'}</span>
+              </div>
+            </div>
+
+            <div class="planner-verdict-box">
+              <div class="verdict-icon">💡</div>
+              <p id="weekly-calc-summary" class="verdict-text">{isEn ? 'Calculating usage pacing and recommended daily budgets from your input...' : '正在根据您的输入计算消耗节奏与剩余预算...'}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="faq-section">
+        <h2 class="faq-main-title">{isEn ? `${pData.name} Quota Rules & FAQ` : `${pData.name} 额度重置常见问题`}</h2>
+        <div class="faq-grid">
+          {faqList.map((item) => (
+            <div class="faq-item">
+              <h3 class="faq-q">{item.q}</h3>
+              <p class="faq-a" set:html={item.a} />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  </main>
+</BaseLayout>
+
+<script is:inline define:vars={{ provider, locale }}>
+  window.__WHENRESET_PROVIDER__ = provider;
+  window.__WHENRESET_LOCALE__ = locale;
+</script>
+
+<script>
+  import { initResetWindowCalculator } from '../lib/reset-window';
+  import { initWeeklyQuotaCalculator } from '../lib/weekly-calculator';
+
+  const provider = (window as any).__WHENRESET_PROVIDER__ || 'codex';
+  const locale = (window as any).__WHENRESET_LOCALE__ || 'zh';
+  initResetWindowCalculator(provider, locale);
+  initWeeklyQuotaCalculator(locale);
+</script>
+
+<style>
+  .reset-breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    font-size: var(--text-12);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-6);
+  }
+  .reset-breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .reset-breadcrumb a:hover {
+    text-decoration: underline;
+  }
+  .pulse-dot.unavailable { background: var(--text-tertiary); animation: none; }
+  .reset-page {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-24);
+    min-height: 80vh;
+  }
+  .reset-hero {
+    margin-bottom: var(--space-12);
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--border-default);
+  }
+  .hero-top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 12px;
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    font-size: var(--text-12);
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+    border-radius: 999px;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+  }
+  .hero-title {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin: 0 0 var(--space-4);
+  }
+  .hero-desc {
+    max-width: 740px;
+    color: var(--text-secondary);
+    font-size: var(--text-15);
+    line-height: 1.6;
+    margin: 0 0 var(--space-8);
+  }
+  .provider-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    font-size: var(--text-14);
+    font-weight: var(--font-weight-medium);
+    text-decoration: none;
+    transition: all var(--duration-base) var(--ease-standard);
+  }
+  .tab-btn:hover {
+    background: #fff;
+    border-color: var(--color-ink-950);
+    color: var(--color-ink-950);
+  }
+  .tab-btn.active {
+    background: var(--color-ink-950);
+    color: #fff;
+    border-color: var(--color-ink-950);
+  }
+  .alert-banner {
+    margin-bottom: var(--space-8);
+    padding: var(--space-5) var(--space-6);
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .alert-icon { font-size: 1.8rem; }
+  .alert-content { flex: 1; }
+  .alert-title { font-weight: 700; color: #92400e; margin-bottom: 4px; }
+  .alert-text { margin: 0; color: #78350f; font-size: var(--text-14); }
+  .alert-meta { margin-top: 4px; font-size: var(--text-12); color: #b45309; font-family: var(--font-mono); }
+  .stats-bento {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+  }
+  .bento-card {
+    background: #fff;
+    border: 1px solid var(--border-default);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .card-label { font-size: var(--text-12); color: var(--text-tertiary); margin-bottom: var(--space-2); }
+  .card-value { font-size: var(--text-24); font-weight: var(--font-weight-bold); color: var(--color-ink-950); margin-bottom: var(--space-2); }
+  .card-value.highlight { color: #2563eb; }
+  .card-sub { font-size: var(--text-13); color: var(--text-secondary); }
+  .card-hint { font-size: var(--text-11); color: var(--text-tertiary); margin-top: var(--space-2); }
+  .card-link { display: inline-block; margin-top: var(--space-2); font-size: var(--text-12); color: #2563eb; text-decoration: none; }
+  .tool-card {
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+    padding: var(--space-6);
+    margin-bottom: var(--space-10);
+  }
+  .tool-header { display: flex; gap: var(--space-4); align-items: flex-start; margin-bottom: var(--space-5); }
+  .tool-icon { font-size: 1.75rem; }
+  .tool-title { margin: 0 0 4px; font-size: var(--text-18); }
+  .tool-sub { margin: 0; font-size: var(--text-13); color: var(--text-secondary); }
+  .calc-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--space-6); align-items: center; }
+  .calc-input-group { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+  .calc-input-group label { width: 100%; font-size: var(--text-12); color: var(--text-secondary); }
+  .time-input { padding: 0.55rem 0.75rem; border: 1px solid var(--border-default); background: #fff; font-size: var(--text-14); }
+  .calc-result-box { background: #fff; border: 1px solid var(--border-default); padding: var(--space-4); }
+  .result-label { font-size: var(--text-12); color: var(--text-tertiary); }
+  .result-time { font-size: var(--text-20); font-weight: 700; margin: 4px 0; }
+  .result-tips { font-size: var(--text-12); color: var(--text-secondary); }
+  .history-section { margin-bottom: var(--space-12); }
+  .history-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-4); }
+  .history-title { margin: 0; font-size: var(--text-20); }
+  .history-count { font-size: var(--text-12); color: var(--text-tertiary); font-family: var(--font-mono); }
+  .table-responsive { overflow-x: auto; border: 1px solid var(--border-default); background: #fff; }
+  .radar-table { width: 100%; border-collapse: collapse; font-size: var(--text-13); text-align: left; }
+  .radar-table th, .radar-table td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-default); }
+  .radar-table th { background: var(--background-subtle); font-weight: 600; color: var(--text-secondary); }
+  .badge { display: inline-block; padding: 2px 8px; font-size: var(--text-11); border-radius: 4px; font-weight: 600; }
+  .badge-reset { background: #dbeafe; color: #1e40af; }
+  .badge-card { background: #fef3c7; color: #92400e; }
+  .guide-section { margin-bottom: var(--space-12); padding: var(--space-8); border: 1px solid var(--border-default); background: #fff; }
+  .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: var(--space-6); margin-top: var(--space-6); }
+  .guide-card h3 { margin: 0 0 var(--space-2); font-size: var(--text-16); }
+  .guide-card p { margin: 0; font-size: var(--text-13); color: var(--text-secondary); line-height: 1.65; }
+  .guide-more { margin: var(--space-6) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--border-default); font-size: var(--text-13); }
+  .planner-section { margin-bottom: var(--space-12); padding: var(--space-8); border: 1px solid var(--border-default); background: var(--background-subtle); }
+  .section-badge-tag { display: inline-block; font-size: var(--text-11); font-family: var(--font-mono); padding: 2px 8px; border: 1px solid var(--border-default); background: #fff; margin-bottom: var(--space-3); }
+  .planner-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-6); }
+  .section-title { margin: 0 0 var(--space-2); font-size: var(--text-22); }
+  .section-sub { margin: 0; font-size: var(--text-14); color: var(--text-secondary); max-width: 640px; }
+  .calc-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; }
+  .calc-preset-btn { padding: 0.4rem 0.85rem; border: 1px solid var(--border-default); background: #fff; cursor: pointer; font-size: var(--text-12); }
+  .calc-preset-btn.active { background: var(--color-ink-950); color: #fff; border-color: var(--color-ink-950); }
+  .planner-body { display: grid; grid-template-columns: 1fr 1.2fr; gap: var(--space-6); }
+  .planner-controls { display: grid; gap: var(--space-4); }
+  .control-card { background: #fff; border: 1px solid var(--border-default); padding: var(--space-5); }
+  .control-label { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-3); font-weight: 600; font-size: var(--text-14); }
+  .control-hint { font-weight: 400; font-size: var(--text-12); color: var(--text-tertiary); }
+  .range-wrap { display: flex; gap: var(--space-4); align-items: center; }
+  .custom-range { flex: 1; }
+  .range-number-box { display: flex; align-items: center; gap: 4px; }
+  .number-input { width: 64px; padding: 0.35rem; border: 1px solid var(--border-default); text-align: right; }
+  .full-width { width: 100%; }
+  .planner-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); margin-bottom: var(--space-4); }
+  .metric-card { background: #fff; border: 1px solid var(--border-default); padding: var(--space-4); }
+  .metric-label { font-size: var(--text-12); color: var(--text-tertiary); }
+  .metric-val { font-size: var(--text-20); margin: 6px 0; }
+  .metric-hint { font-size: var(--text-11); color: var(--text-tertiary); }
+  .pace-badge { display: inline-block; padding: 2px 8px; font-size: var(--text-12); border-radius: 4px; background: #dcfce7; color: #166534; }
+  .planner-verdict-box { display: flex; gap: var(--space-3); align-items: center; background: #fff; border: 1px solid var(--border-default); padding: var(--space-4); }
+  .verdict-text { margin: 0; font-size: var(--text-13); color: var(--text-secondary); }
+  .faq-section { margin-top: var(--space-12); }
+  .faq-main-title { margin: 0 0 var(--space-6); font-size: var(--text-22); }
+  .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--space-6); }
+  .faq-item { background: #fff; border: 1px solid var(--border-default); padding: var(--space-6); }
+  .faq-q { margin: 0 0 var(--space-3); font-size: var(--text-16); }
+  .faq-a { margin: 0; font-size: var(--text-14); color: var(--text-secondary); line-height: 1.65; }
+  @media (max-width: 960px) {
+    .stats-bento { grid-template-columns: repeat(2, 1fr); }
+    .calc-row, .planner-body { grid-template-columns: 1fr; }
+    .calc-arrow { display: none; }
+  }
+</style>

@@ -16,7 +16,10 @@ citations:
     url: https://www.bilibili.com/video/BV1cP4y137bk?p=1
   - label: Apple OpenGL ES Programming Guide — About OpenGL ES
     url: https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/OpenGLES_ProgrammingGuide/Introduction/Introduction.html
-tldr: []
+tldr:
+  - "When does building an engine make sense?: Wang begins by acknowledging that UIKit and other ordinary components cover most interactions."
+  - "A frame, from input to display: Wang first lists the familiar loop: update the camera, update scene elements and other state, render, and present."
+  - "An application: from gestures and configuration to drawing: The final complete example is a tracing interaction for children."
 faq: []
 featured: false
 draft: false

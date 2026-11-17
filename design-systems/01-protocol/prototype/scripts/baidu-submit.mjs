@@ -39,6 +39,14 @@ export async function getPublishedUrls() {
 }
 
 const PRIORITY_ORDER = [
+  'https://www.tsalon.tech/whenreset/claude/',
+  'https://www.tsalon.tech/whenreset/codex/',
+  'https://www.tsalon.tech/whenreset/grok/',
+  'https://www.tsalon.tech/topics/mobile/',
+  'https://www.tsalon.tech/topics/frontend/',
+  'https://www.tsalon.tech/topics/open-source/',
+  'https://www.tsalon.tech/topics/career/',
+  'https://www.tsalon.tech/topics/t-chat/',
   'https://www.tsalon.tech/articles/memos-async-write-task-id-verification/',
   'https://www.tsalon.tech/articles/tencent-databricks-memory-enterprise-rag/',
   'https://www.tsalon.tech/articles/github-octoverse-agent-pr-code-review/',

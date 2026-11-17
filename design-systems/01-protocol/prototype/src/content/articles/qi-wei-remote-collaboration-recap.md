@@ -14,7 +14,10 @@ coverAlt: T Salon 远程工作历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: 齐伟 Nick：远程工作的需求管理和高效沟通
     url: https://www.bilibili.com/video/BV1fk4y1872a?p=1
-tldr: []
+tldr:
+  - "四段经历，对应四种协作约束：Nick 的远程经历并不是从一套成熟制度开始的。"
+  - "异步优先，留下上下文与专注时间：远程沟通的困难包括时差、消息淹没、多人理解不一致，以及难以知道协作者进度。"
+  - "问答：工具、英语与寻找机会：<strong>用户故事一定要用 Jira 吗？</strong>片中使用的是 Shortcut。"
 faq: []
 featured: false
 draft: false

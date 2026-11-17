@@ -20,7 +20,10 @@ citations:
     url: https://developer.android.com/topic/architecture
   - label: Kotlin StateFlow API
     url: https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/
-tldr: []
+tldr:
+  - "A common architecture brings benefits and costs: Jake begins with maintainability, reuse, extensibility, and communication."
+  - "Step one: share local state between a text field and text: Jake opens a new Compose project and changes its generated greeting."
+  - "The team's circumstances at the time: Jake closes by describing the team's then-current iOS, Android, and some backend-for-frontend work, remote collaboration, learning time, and recruitment."
 faq: []
 featured: false
 draft: false

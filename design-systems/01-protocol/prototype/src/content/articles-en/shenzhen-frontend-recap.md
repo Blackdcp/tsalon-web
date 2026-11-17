@@ -26,6 +26,10 @@ featured: true
 draft: false
 translationOf: shenzhen-frontend-recap
 translationStatus: reviewed
+tldr:
+  - "A face-to-face conversation about modern frontend work: This was T Salon's second in-person event of 2022."
+  - "Shuyu Guo: how Flutter Web builds and renders: Shuyu Guo, author of a book on Flutter development, traced the evolution of cross-platform frameworks before examining Flutter Web’s build and rendering mechanisms, including platform engines, canvas text drawing and rendering choices."
+  - "Why we keep the record: Shenzhen was still affected by the pandemic when the event took place."
 seo:
   title: Modern Frontend Engineering in Shenzhen — T Salon
   description: A field report from five talks on frontend observability, Flutter mini programs, engineering systems, Flutter Web and Webpack performance.

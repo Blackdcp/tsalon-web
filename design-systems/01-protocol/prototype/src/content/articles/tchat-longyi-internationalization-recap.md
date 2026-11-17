@@ -29,7 +29,10 @@ citations:
     url: https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng
   - label: CNIL：Cookie 与追踪器规则
     url: https://www.cnil.fr/fr/cookies-et-autres-traceurs/que-dit-la-loi
-tldr: []
+tldr:
+  - "国际化先拆掉假设，本地化再填入具体答案：龙熠先区分全球化、国际化、本地化和翻译。"
+  - "把笔记变成知识，也给尚未确定的选择留位置：当话题转向如何成为优秀开发者，龙熠首先淡化性别标签，认为开发者需要的基本素质相通。"
+  - "给团队成长空间，也给自己的未来留余地：最后谈团队和个人规划，龙熠没有给出明确的晋升时间表。"
 faq: []
 featured: false
 draft: false

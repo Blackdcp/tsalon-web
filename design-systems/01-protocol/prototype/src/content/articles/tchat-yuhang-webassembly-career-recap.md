@@ -25,7 +25,10 @@ citations:
     url: https://shopify.engineering/shopify-webassembly
   - label: 于航的 WebAssembly 入门课开篇词
     url: https://time.geekbang.org/column/article/282984
-tldr: []
+tldr:
+  - "从 JavaScript 的执行过程说起：于航先用 JavaScript 引擎的执行流程解释背景：源代码需要经过解析，形成相应的内部表示，再由解释执行、运行时信息收集和优化编译等环节配合完成运行。"
+  - "从 VB、个人网站到前端工作：主持人的第一个问题是：为什么选择做前端？于航没有直接给出一个“从小立志”的答案，而是从初中讲起。"
+  - "架构能力从代码开始，成长也需要机会：说到架构能力，于航提醒听众不要被“架构师”这个称号带偏。"
 faq: []
 featured: false
 draft: false

@@ -95,6 +95,9 @@ export const GET: APIRoute = async ({ site }) => {
   };
 
   return new Response(JSON.stringify(body, null, 2), {
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+    },
   });
 };

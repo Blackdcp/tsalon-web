@@ -29,7 +29,10 @@ citations:
     url: https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng
   - label: CNIL guidance on cookies and trackers
     url: https://www.cnil.fr/fr/cookies-et-autres-traceurs/que-dit-la-loi
-tldr: []
+tldr:
+  - "Internationalization removes assumptions; localization supplies specific answers: Long Yi first distinguished globalization, internationalization, localization, and translation."
+  - "Optimism, curiosity, and reflection without self-punishment: Asked what had helped her through difficult periods, Long Yi named optimism, curiosity, and reflection."
+  - "Leave room for the team's growth and for your own future: On future plans, Long Yi offered no fixed promotion timetable."
 faq: []
 featured: false
 draft: false

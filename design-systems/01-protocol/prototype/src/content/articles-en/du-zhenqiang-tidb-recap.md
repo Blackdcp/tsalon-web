@@ -23,7 +23,10 @@ citations:
     url: https://www.bilibili.com/video/BV1Hh411V77v?p=1
   - label: "Official TiDB v6.5 documentation on TiFlash"
     url: https://docs.pingcap.com/tidb/v6.5/tiflash-overview/
-tldr: []
+tldr:
+  - "Database history reflects changing scale and uses: Du started with relational databases: commercial products and later open-source alternatives met the needs of different periods."
+  - "Elasticity depends on how data moves: In a traditional scale-out, a new storage node receives data from nodes already serving traffic."
+  - "Competing databases require years of product work: Finally, Du acknowledged the depth of established international database vendors."
 faq: []
 featured: false
 draft: false

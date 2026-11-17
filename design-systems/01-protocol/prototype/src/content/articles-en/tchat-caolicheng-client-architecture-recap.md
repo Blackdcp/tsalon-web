@@ -20,7 +20,10 @@ citations:
     url: https://www.bilibili.com/video/BV1YD4y1b7T9
   - label: "Full interview with Cao Licheng on his career"
     url: https://www.bilibili.com/video/BV1iG4y1h7FY
-tldr: []
+tldr:
+  - "Pages multiply faster than people or app releases: In an operations-heavy business, the first problem is the mismatch in speed."
+  - "Consolidate approaches and make the flow observable: A long-lived client can accumulate too many ways to solve the same problem."
+  - "Several growth directions can build on existing strengths: For client engineers, Cao outlined different paths: deepen a technical specialty and solve hard problems; improve architecture and development efficiency; or work close to business outcomes such as growth and retention by combining technologies."
 faq: []
 featured: false
 draft: false

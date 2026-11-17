@@ -14,7 +14,10 @@ coverAlt: T Salon 深圳前端历史分享通用封面，非嘉宾或现场照�
 citations:
   - label: 前端的挑战与机遇 Part 2：使用 Flutter 开发微信小程序 — 崔明辉
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=2
-tldr: []
+tldr:
+  - "问题从哪来：跨平台仍有宿主差异：崔明辉先介绍自己的 iOS 与 Web 开发背景，以及 SVGA 动画库的经历，再把问题限定到微信小程序。"
+  - "序列化与增量更新怎样配合：在具体讲解中，他围绕可复用的 Element 节点组织数据，将相关布局信息序列化为 JSON，再发给渲染端。"
+  - "构建链路仍以 Dart 与 Flutter 工具为主：最后，他说明项目没有把 webpack 或 TypeScript 当作核心构建起点，而是沿用 Dart 编译到 JavaScript、打包静态资源的路径，并针对输出体积作了精简。"
 faq: []
 featured: false
 draft: false

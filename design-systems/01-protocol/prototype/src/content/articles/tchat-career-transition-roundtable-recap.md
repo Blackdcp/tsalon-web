@@ -21,7 +21,10 @@ citations:
     url: https://www.bilibili.com/video/BV1GZ4y1i7uV
   - label: 日本厚生劳动省：劳动合同终止规则
     url: https://www.mhlw.go.jp/seisakunitsuite/bunya/koyou_roudou/roudouseisaku/chushoukigyou/keiyakushuryo_rule.html
-tldr: []
+tldr:
+  - "三种起点：技术、内容与海外创业：范飞龙介绍，自己原本走科研方向，后来进入 IT 行业，经历研发、平台等不同工作。"
+  - "下一步可以换环境，也需要了解转换的条件：对主动离开或被动离开的同学，李社长提出先区分个人能否影响的因素。"
+  - "读行业历史，也通过项目创造自己的下一步：范飞龙用《浪潮之巅》引出另一种准备：看过去的公司如何兴起、衰落和转型，帮助自己理解技术与组织的变化。"
 faq: []
 featured: false
 draft: false

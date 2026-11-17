@@ -24,7 +24,10 @@ citations:
     url: https://developer.apple.com/videos/play/wwdc2023/10187/
   - label: Swift Evolution SE-0289 Result builders
     url: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0289-result-builders.md
-tldr: []
+tldr:
+  - "Swift macros turn repetitive source into a compile-time problem: The first speaker, Rock, places macros in the longer development of Swift."
+  - "Spatial interfaces give old abstractions a new role: The number of SwiftUI sessions gave the guests a sense of Apple's investment, while existing UIKit projects and lower platform targets remained real constraints."
+  - "Developers can help find a use case; they cannot declare one in advance: For mobile developers, the new platform raises practical questions."
 faq: []
 featured: false
 draft: false

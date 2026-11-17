@@ -19,7 +19,10 @@ citations:
     url: https://www.apple.com/ie/newsroom/2022/04/apples-worldwide-developers-conference-returns-in-its-all-online-format/
   - label: Apple WWDC22 现场与 Developer Center 图片记录
     url: https://www.apple.com/newsroom/2022/06/wwdc22-highlights/
-tldr: []
+tldr:
+  - "一个社区系列，怎样围绕全球大会展开：开场时，主持人先解释 WWDC.playground 的来历：这一免费直播系列由 swift.gg 于 2021 年发起；到 2022 年，T 技术沙龙和老司机技术加入组织，少数派参与内容、策划与执行支持。"
+  - "第一次到场的开发者，期待的是新的工作可能：现场连线遇到一位从西雅图前来的中文开发者。"
+  - "从一场临时连线，走向接下来一周：临近结束时，两位现场嘉宾准备继续报到。"
 faq: []
 featured: false
 draft: false

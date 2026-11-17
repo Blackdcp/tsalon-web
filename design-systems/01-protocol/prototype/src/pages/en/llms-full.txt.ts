@@ -80,8 +80,11 @@ export const GET: APIRoute = async ({ site }) => {
   lines.push(
     '## Community tools',
     '',
-    `- TokenRank: ${origin}/en/tokenrank/ — AI coding usage reported by community contributors. Methodology and limitations: ${origin}/en/tokenrank/methodology/.`,
-    `- WhenReset: ${origin}/en/whenreset/ — Collected Codex and Claude quota reset schedules, notices and time estimates; check the product for your account's quota status.`,
+    `- TokenRank: ${origin}/en/tokenrank/ — AI coding usage reported by community contributors. Methodology and limitations: ${origin}/en/tokenrank/methodology/. Machine-readable stats: ${origin}/tokenrank/stats.json.`,
+    `- WhenReset: ${origin}/en/whenreset/ — Collected Codex, Claude, and Grok quota reset schedules, notices and time estimates; check the product for your account's quota status.`,
+    `  - OpenAI Codex Quota Reset Radar: ${origin}/en/whenreset/codex/`,
+    `  - Anthropic Claude Quota Reset Radar: ${origin}/en/whenreset/claude/`,
+    `  - xAI Grok Quota Reset Radar: ${origin}/en/whenreset/grok/`,
     '',
   );
 

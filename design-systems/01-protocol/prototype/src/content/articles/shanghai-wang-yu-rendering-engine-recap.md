@@ -16,7 +16,10 @@ citations:
     url: https://www.bilibili.com/video/BV1cP4y137bk?p=1
   - label: Apple OpenGL ES Programming Guide — About OpenGL ES
     url: https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/OpenGLES_ProgrammingGuide/Introduction/Introduction.html
-tldr: []
+tldr:
+  - "什么情况下，自己做一个引擎才有意义：王宇先承认 UIKit 等常规组件可以覆盖大部分交互。"
+  - "每一帧，从更新到显示：从概念上看，一轮渲染需要更新观察方式、场景元素和相关状态，再绘制并呈现结果。"
+  - "应用案例：从手势和配置走到绘制：最后的曲线案例面向儿童描画交互：用户操作小刷子沿路径画线，完成后呈现动态的绘制效果。"
 faq: []
 featured: false
 draft: false

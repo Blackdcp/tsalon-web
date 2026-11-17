@@ -14,6 +14,10 @@ cover: /images/articles/ai-agent-network-attacks-execution-environment-security.
 coverAlt: AI 智能体被用于网络攻击，执行环境安全为何值得关注？
 draft: false
 allowSingleLocale: true
+tldr:
+  - 评估 Agent 执行环境需从执行隔离、凭证与访问权限、故障现场保留、生命周期与成本四个独立维度逐项核对。
+  - 通过外部代理按规则自动注入 API 凭证（如 Secret 代理注入），可避免任务代码直接接触真实密钥。
+  - 规模化部署前应先以不涉及生产数据的可重复任务验证超时退出、越权拦截与资源回收机制。
 seo:
   title: AI 智能体被用于网络攻击，执行环境安全为何值得关注？
   description: AI 智能体被用于网络攻击事件引发产业对执行环境安全的深思。从执行隔离、凭证代理注入、故障现场保留到按任务回收，全面解析企业部署 Agent 时的安全基线与沙箱选型维度。

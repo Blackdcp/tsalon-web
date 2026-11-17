@@ -14,7 +14,10 @@ coverAlt: Generic cover for a historical T Salon Shenzhen frontend talk, not a p
 citations:
   - label: Frontend Challenges and Opportunities Part 2, Building WeChat Mini Programs with Flutter by Cui Minghui
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=2
-tldr: []
+tldr:
+  - "Where the problem begins: cross-platform still depends on the host: Cui first describes his experience in iOS and Web development and as the author of the SVGA animation library."
+  - "Serialization and incremental updates: In his explanation, Cui organizes data around reusable Element nodes, serializes relevant layout information as JSON, and sends it to the renderer."
+  - "The build still centers on Dart and Flutter tools: Cui says the project did not begin with webpack or a TypeScript build."
 faq: []
 featured: false
 draft: false

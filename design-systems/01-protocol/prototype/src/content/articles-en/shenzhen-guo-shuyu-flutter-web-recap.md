@@ -14,7 +14,10 @@ coverAlt: Generic cover for a historical T Salon Shenzhen frontend talk, not a p
 citations:
   - label: Frontend Challenges and Opportunities Part 4, Flutter Web by Guo Shuyu
     url: https://www.bilibili.com/video/BV1HY4y1r7rJ?p=4
-tldr: []
+tldr:
+  - "A shared framework still needs distinct browser implementations: Guo begins with Flutter's origins in web-related work, then contrasts it with approaches that started as web frameworks and later gained client support."
+  - "Why adding a background changes the same text's output: Guo starts with a simple Text widget."
+  - "Remove the text to inspect shapes and layers: In the final example, he removes text and leaves a simple rectangle and styling."
 faq: []
 featured: false
 draft: false

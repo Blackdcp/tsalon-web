@@ -27,7 +27,10 @@ citations:
     url: https://github.com/alibaba/fish-redux
   - label: Xianyu engineering article on Mural's rich-text protocol (Chinese)
     url: https://developer.aliyun.com/article/1225977
-tldr: []
+tldr:
+  - "The problem was cooperation between two image systems: A mature native image library can request a CDN asset suited to the displayed dimensions, decode formats supported by its platform implementation and load bundled resources."
+  - "Delivery efficiency and people's long-term growth: Zongxin traced the decision back to the team's circumstances around 2017."
+  - "Separate the Flutter artifact from the host build: The final audience question concerned slow builds in a hybrid application."
 faq: []
 featured: false
 draft: false

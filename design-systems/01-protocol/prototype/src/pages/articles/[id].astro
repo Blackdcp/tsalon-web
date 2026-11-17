@@ -1,19 +1,7 @@
 ---
 import { getCollection, getEntry, render, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import topicsData from '../../data/topics.json';
-
-const topicSlugMap = new Map<string, string>();
-for (const t of topicsData) {
-  topicSlugMap.set(t.name.toLowerCase(), t.slug);
-  topicSlugMap.set(t.nameZh.toLowerCase(), t.slug);
-}
-topicSlugMap.set('智能体', 'agent');
-topicSlugMap.set('工程实践', 'engineering');
-topicSlugMap.set('工程化', 'engineering');
-topicSlugMap.set('前端工程', 'engineering');
-topicSlugMap.set('人工智能', 'ai');
-topicSlugMap.set('安全', 'security');
+import { topicSlugFor } from '../../lib/topics';
 
 export async function getStaticPaths() {
   const articles = await getCollection('articles', ({ data }) => !data.draft);
@@ -82,8 +70,51 @@ const pageUrl = new URL(`/articles/${currentId}/`, Astro.site).toString();
 const bvidMatch = talk?.data.videoUrl?.match(/BV[a-zA-Z0-9]+/);
 const bvid = bvidMatch ? bvidMatch[0] : null;
 
-// Only the first video part is embedded on this page; the other parts link to Bilibili.
-const jsonLd = talk ? talk.data.videoParts.slice(0, 1).map((part) => ({
+const durationLabel = (seconds: number) => `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, '0')}秒`;
+const relatedRecaps = talk ? publishedArticles.filter(entry => entry.data.relatedTalks.some(ref => ref.id === talk.id)) : [];
+const recapDetails = await Promise.all(
+  relatedRecaps.map(async (recap) => {
+    const renderedRecap = await render(recap);
+    return {
+      recap,
+      headings: renderedRecap.headings.filter((h) => h.depth === 2),
+    };
+  }),
+);
+const relatedTalks = article ? publishedTalks.filter(entry => article.data.relatedTalks.some(ref => ref.id === entry.id)) : [];
+const relatedRecordings = article ? (await getCollection('recordings')).filter(entry => article.data.relatedRecordings.some(ref => ref.id === entry.id)) : [];
+
+const currentTopicSlugs = new Set((topics ?? []).map((t: string) => topicSlugFor(t)).filter(Boolean));
+const relatedByTopic = publishedArticles
+  .filter((entry) => entry.id !== currentId && !relatedRecaps.some((r) => r.id === entry.id))
+  .map((entry) => {
+    const entrySlugs = new Set(entry.data.topics.map((t) => topicSlugFor(t)).filter(Boolean));
+    let shared = 0;
+    for (const s of currentTopicSlugs) {
+      if (entrySlugs.has(s)) shared += 1;
+    }
+    const sameType = article && entry.data.type === article.data.type ? 0.5 : 0;
+    return { entry, score: shared + sameType };
+  })
+  .filter((item) => item.score >= 1)
+  .sort((a, b) => b.score - a.score || b.entry.data.publishedAt.getTime() - a.entry.data.publishedAt.getTime())
+  .slice(0, 3)
+  .map((item) => item.entry);
+
+const verifiedGuests = article
+  ? [
+      ...new Set([
+        ...relatedTalks.map((t) => t.data.speaker),
+        ...relatedRecordings.flatMap((r) => r.data.guests),
+      ].filter((name) => name && name !== 'T Salon')),
+    ]
+  : [];
+
+const resolvedArticleImage = article && article.data.cover !== '/images/default-cover.svg'
+  ? article.data.cover
+  : '/images/share-logo.jpg';
+
+const jsonLd = talk ? talk.data.videoParts.map((part) => ({
   '@context': 'https://schema.org',
   '@type': 'VideoObject',
   name: `${talk.data.speaker}：${part.title}`,
@@ -106,7 +137,7 @@ const jsonLd = talk ? talk.data.videoParts.slice(0, 1).map((part) => ({
   datePublished: article!.data.publishedAt.toISOString(),
   dateModified: (article!.data.updatedAt ?? article!.data.publishedAt).toISOString(),
   url: pageUrl,
-  image: new URL(article!.data.cover, Astro.site).toString(),
+  image: new URL(resolvedArticleImage, Astro.site).toString(),
   author: {
     '@type': 'Organization',
     name: author!.data.name,
@@ -114,6 +145,9 @@ const jsonLd = talk ? talk.data.videoParts.slice(0, 1).map((part) => ({
     url: new URL('/about/', Astro.site).toString(),
     ...(author!.data.links?.github ? { sameAs: [author!.data.links.github] } : {}),
   },
+  ...(verifiedGuests.length > 0
+    ? { contributor: verifiedGuests.map((guestName) => ({ '@type': 'Person', name: guestName })) }
+    : {}),
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
   inLanguage: 'zh-CN',
   about: article!.data.topics,
@@ -150,10 +184,6 @@ const pageDescription = talk
   ? `T Chat 第 ${talk.data.episode} 期原视频回看与分段目录。${talk.data.summary}`
   : article!.data.seo.description;
 const translation = article ? (await getCollection('articlesEn', ({ data }) => !data.draft)).find((entry) => entry.data.translationOf === article.id) : undefined;
-const durationLabel = (seconds: number) => `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, '0')}秒`;
-const relatedRecaps = talk ? publishedArticles.filter(entry => entry.data.relatedTalks.some(ref => ref.id === talk.id)) : [];
-const relatedTalks = article ? publishedTalks.filter(entry => article.data.relatedTalks.some(ref => ref.id === entry.id)) : [];
-const relatedRecordings = article ? (await getCollection('recordings')).filter(entry => article.data.relatedRecordings.some(ref => ref.id === entry.id)) : [];
 ---
 
 <BaseLayout alternatePath={translation ? `/en/articles/${translation.id}/` : null} title={pageTitle} description={pageDescription} image={cover} noindex={article?.data.seo.noindex ?? false} jsonLd={pageJsonLd}>
@@ -188,7 +218,30 @@ const relatedRecordings = article ? (await getCollection('recordings')).filter(e
       <article class="prose content-detail-prose">
         {talk ? (
           <>
-            {relatedRecaps.length > 0 && <section aria-label="文字回顾"><h2>文字回顾</h2><ul>{relatedRecaps.map(recap => <li><a href={`/articles/${recap.id}/`}>{recap.data.title}</a></li>)}</ul></section>}
+            {recapDetails.length > 0 && (
+              <section class="talk-recap-highlight" aria-label="文字回顾">
+                <h2>文字回顾与章节导读</h2>
+                {recapDetails.map(({ recap, headings: recapH2s }) => (
+                  <div class="talk-recap-card">
+                    <h3><a href={`/articles/${recap.id}/`}>{recap.data.title} →</a></h3>
+                    <p>{recap.data.summary}</p>
+                    {recap.data.tldr.length > 0 && (
+                      <ul>
+                        {recap.data.tldr.map((pt) => <li>{pt}</li>)}
+                      </ul>
+                    )}
+                    {recapH2s.length > 0 && (
+                      <div class="talk-recap-chapters">
+                        <span class="mono">章节导航：</span>
+                        {recapH2s.map((h) => (
+                          <a href={`/articles/${recap.id}/#${h.slug}`}>{h.text}</a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
             <h2 id="videos">视频回看</h2>
             <p>按原视频分段观看主题分享与对谈。下面标注的是 B 站稿件发布日期；同一稿件下各分 P 共用该日期，不代表各分 P 的独立上传时间。</p>
             <ol class="video-parts">
@@ -267,7 +320,7 @@ const relatedRecordings = article ? (await getCollection('recordings')).filter(e
           <span class="mono">主题</span>
           <div class="tag-list">
             {topics.map((topic) => {
-              const slug = topicSlugMap.get(topic.trim().toLowerCase());
+              const slug = topicSlugFor(topic);
               return slug ? (
                 <a href={`/topics/${slug}/`} class="tag tag-link">{topic}</a>
               ) : (
@@ -317,6 +370,24 @@ const relatedRecordings = article ? (await getCollection('recordings')).filter(e
         <p>从第 1 期到第 17 期，查看完整嘉宾与主题目录。</p>
         <a href="/events/series/t-chat/">打开系列 <span aria-hidden="true">→</span></a>
       </aside>
+    )}
+
+    {relatedByTopic.length > 0 && (
+      <section class="content-detail-shell related-articles-section" aria-label="相关阅读">
+        <header class="related-articles-head">
+          <p class="mono">RELATED / 同主题延伸</p>
+          <h2>相关阅读</h2>
+        </header>
+        <div class="related-articles-grid">
+          {relatedByTopic.map((rel) => (
+            <a class="related-article-card" href={`/articles/${rel.id}/`}>
+              <span class="mono">{articleTypeLabels[rel.data.type] ?? '文章'} · {rel.data.publishedAt.toISOString().slice(0, 10)}</span>
+              <h3>{rel.data.title}</h3>
+              <p>{rel.data.summary}</p>
+            </a>
+          ))}
+        </div>
+      </section>
     )}
 
     <nav class="content-pagination" aria-label="上一篇和下一篇">
@@ -403,5 +474,62 @@ const relatedRecordings = article ? (await getCollection('recordings')).filter(e
     background: color-mix(in srgb, var(--accent, #2b6cb0) 15%, transparent);
     color: var(--accent, #2b6cb0);
     border-color: color-mix(in srgb, var(--accent, #2b6cb0) 30%, transparent);
+  }
+  .talk-recap-highlight {
+    margin: 0 0 2rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--border-default);
+    background: var(--background-subtle);
+  }
+  .talk-recap-card h3 {
+    margin: 0.5rem 0;
+    font-size: 1.15rem;
+  }
+  .talk-recap-chapters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+  }
+  .related-articles-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-default);
+  }
+  .related-articles-head {
+    margin-bottom: 1.25rem;
+  }
+  .related-articles-head h2 {
+    margin: 0.25rem 0 0;
+    font-size: 1.35rem;
+  }
+  .related-articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 1.25rem;
+  }
+  .related-article-card {
+    display: block;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .related-article-card:hover {
+    border-color: var(--color-ink-950);
+  }
+  .related-article-card h3 {
+    margin: 0.5rem 0;
+    font-size: 1.05rem;
+    line-height: 1.4;
+  }
+  .related-article-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
   }
 </style>

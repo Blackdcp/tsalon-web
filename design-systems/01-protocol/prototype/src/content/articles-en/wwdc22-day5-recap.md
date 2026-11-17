@@ -25,7 +25,10 @@ citations:
     url: https://developer.apple.com/videos/play/wwdc2022/10127/
   - label: Apple WWDC22, Discover Benchmarks in App Analytics
     url: https://developer.apple.com/videos/play/wwdc2022/10044/
-tldr: []
+tldr:
+  - "What Labs, Lounges, and fellow developers each provide: Liu Yi and Ellen recall the week their clock app was nominated for an Apple Design Award."
+  - "Passkeys require the whole login path to change: A weak self host sees passkeys as potentially important beyond Apple's own ecosystem."
+  - "Closing Q&A: tools became easier, but taking part still costs time: Each guest names favorites and frustrations."
 faq: []
 featured: false
 draft: false

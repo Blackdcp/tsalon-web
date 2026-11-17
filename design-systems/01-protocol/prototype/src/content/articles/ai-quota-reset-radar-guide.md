@@ -10,7 +10,7 @@ topics:
   - AI
   - Engineering
   - Agent
-cover: /images/default-cover.svg
+cover: /images/articles/ai-quota-reset-radar-guide-cover.png
 coverAlt: T Salon AI 配额重置雷达实操指南与额度规划手册
 featured: true
 draft: false

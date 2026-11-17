@@ -14,7 +14,10 @@ coverAlt: General cover for a historical T Salon remote-work talk, not a photo o
 citations:
   - label: "Nick Qi: Requirements Management and Effective Communication in Remote Work"
     url: https://www.bilibili.com/video/BV1fk4y1872a?p=1
-tldr: []
+tldr:
+  - "Four experiences brought four collaboration constraints: Nick did not begin remote work within a mature set of procedures."
+  - "How one cross-device deep-link feature reached agreement: The detailed example involved guiding a user from the Web to a mobile app."
+  - "Tools still depend on responsibility and trust: Documents, boards, and meetings work only if people use them responsibly."
 faq: []
 featured: false
 draft: false
