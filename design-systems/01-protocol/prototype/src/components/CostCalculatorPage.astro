@@ -59,6 +59,38 @@ const description = isEn
   ? 'Calculate monthly API-equivalent costs for Claude Code, OpenAI Codex, and Gemini based on daily token volume and prompt cache hit rate, and see whether $20/$100/$200 subscriptions or pay-as-you-go API is cheaper.'
   : '输入每日 AI 编程 Token 用量与缓存命中率，实时对比 Claude、Codex、Gemini 等模型的月度 API 等效账单与 $20/$100/$200 订阅套餐盈亏平衡点。';
 
+const scriptLabels = isEn
+  ? {
+      billionUnit: 'B',
+      daysSuffix: 'days',
+      sub20Saves: '$20 plan saves $',
+      api20Saves: 'API cheaper by $',
+      perMo: '/mo',
+      sub200Saves: '$200 plan saves $',
+      betweenTiers: 'Between $20 & $200 tiers',
+      paygCheaper: 'Pay-as-you-go API cheaper',
+      paygBenchmark: 'Pay-as-you-go API benchmark',
+      subWins: 'Sub wins (+$',
+      apiWins: 'API wins ($',
+      sub200Wins: '$200 Pro wins (+$',
+      under200: 'Under $200 ($',
+    }
+  : {
+      billionUnit: '十亿',
+      daysSuffix: '天',
+      sub20Saves: '$20 订阅省 $',
+      api20Saves: 'API 省 $',
+      perMo: '/月',
+      sub200Saves: '$200 订阅省 $',
+      betweenTiers: '介于 $20 与 $200 档之间',
+      paygCheaper: '按量 API 更便宜',
+      paygBenchmark: '按量 API 参考基准',
+      subWins: '订阅划算 (省 $',
+      apiWins: 'API 更省 ($',
+      sub200Wins: '$200 Pro 值 (省 $',
+      under200: '未超 $200 ($',
+    };
+
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -242,7 +274,7 @@ const jsonLd = [
   </main>
 </BaseLayout>
 
-<script is:inline define:vars={{ models, isEn }}>
+<script is:inline define:vars={{ models, scriptLabels }}>
   (() => {
     const dailyInput = document.getElementById('daily-millions');
     const cacheInput = document.getElementById('cache-rate');
@@ -251,7 +283,7 @@ const jsonLd = [
     const presetBtns = document.querySelectorAll('.preset-btn');
 
     const formatTokens = (millions) => {
-      if (millions >= 1000) return (millions / 1000).toFixed(2) + (isEn ? 'B' : '十亿');
+      if (millions >= 1000) return (millions / 1000).toFixed(2) + scriptLabels.billionUnit;
       return millions.toFixed(1).replace(/\.0$/, '') + 'M';
     };
 
@@ -265,7 +297,7 @@ const jsonLd = [
       document.getElementById('daily-millions-val').textContent = `${dailyM}M`;
       document.getElementById('cache-rate-val').textContent = `${cachePct}%`;
       document.getElementById('output-rate-val').textContent = `${outPct}%`;
-      document.getElementById('active-days-val').textContent = isEn ? `${days} days` : `${days} 天`;
+      document.getElementById('active-days-val').textContent = `${days} ${scriptLabels.daysSuffix}`;
 
       const monthlyRawM = dailyM * days;
       const monthlyNetM = monthlyRawM * ((100 - cachePct) / 100);
@@ -290,27 +322,27 @@ const jsonLd = [
         let verdict = '';
         if (m.id === 'claude-3-5-sonnet' || m.id === 'gemini-2.5-pro') {
           verdict = cost > 20
-            ? (isEn ? `$20 plan saves $${(cost - 20).toFixed(0)}/mo` : `$20 订阅省 $${(cost - 20).toFixed(0)}/月`)
-            : (isEn ? `API cheaper by $${(20 - cost).toFixed(0)}/mo` : `API 省 $${(20 - cost).toFixed(0)}/月`);
+            ? `${scriptLabels.sub20Saves}${(cost - 20).toFixed(0)}${scriptLabels.perMo}`
+            : `${scriptLabels.api20Saves}${(20 - cost).toFixed(0)}${scriptLabels.perMo}`;
         } else if (m.id === 'claude-fable-5' || m.id === 'gpt-5.6-sol') {
           verdict = cost > 200
-            ? (isEn ? `$200 plan saves $${(cost - 200).toFixed(0)}/mo` : `$200 订阅省 $${(cost - 200).toFixed(0)}/月`)
+            ? `${scriptLabels.sub200Saves}${(cost - 200).toFixed(0)}${scriptLabels.perMo}`
             : cost > 20
-              ? (isEn ? `Between $20 & $200 tiers` : `介于 $20 与 $200 档之间`)
-              : (isEn ? `Pay-as-you-go API cheaper` : `按量 API 更便宜`);
+              ? scriptLabels.betweenTiers
+              : scriptLabels.paygCheaper;
         } else {
-          verdict = isEn ? 'Pay-as-you-go API benchmark' : '按量 API 参考基准';
+          verdict = scriptLabels.paygBenchmark;
         }
         row.querySelector('.verdict-cell').textContent = verdict;
       });
 
       document.getElementById('kpi-verdict-20').textContent = sonnetCost > 20
-        ? (isEn ? `Sub wins (+$${(sonnetCost - 20).toFixed(0)})` : `订阅划算 (省 $${(sonnetCost - 20).toFixed(0)})`)
-        : (isEn ? `API wins ($${sonnetCost.toFixed(0)} < $20)` : `API 更省 ($${sonnetCost.toFixed(0)})`);
+        ? `${scriptLabels.subWins}${(sonnetCost - 20).toFixed(0)})`
+        : `${scriptLabels.apiWins}${sonnetCost.toFixed(0)})`;
 
       document.getElementById('kpi-verdict-200').textContent = codexCost > 200
-        ? (isEn ? `$200 Pro wins (+$${(codexCost - 200).toFixed(0)})` : `$200 Pro 值 (省 $${(codexCost - 200).toFixed(0)})`)
-        : (isEn ? `Under $200 ($${codexCost.toFixed(0)})` : `未超 $200 ($${codexCost.toFixed(0)})`);
+        ? `${scriptLabels.sub200Wins}${(codexCost - 200).toFixed(0)})`
+        : `${scriptLabels.under200}${codexCost.toFixed(0)})`;
     };
 
     [dailyInput, cacheInput, outputInput, daysInput].forEach((el) => {
