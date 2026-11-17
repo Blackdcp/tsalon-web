@@ -215,7 +215,17 @@
     "https://www.tsalon.tech/en/articles/open-source-agent-memory-ownership-decision/",
     "https://www.tsalon.tech/articles/figma-runnable-prototype-interaction-ownership/",
     "https://www.tsalon.tech/articles/hy4-computer-use-enterprise-handoff/",
-    "https://www.tsalon.tech/articles/render-sandbox-sleep-long-task-cost/"
+    "https://www.tsalon.tech/articles/render-sandbox-sleep-long-task-cost/",
+    "https://www.tsalon.tech/whenreset/claude/",
+    "https://www.tsalon.tech/whenreset/codex/",
+    "https://www.tsalon.tech/whenreset/grok/",
+    "https://www.tsalon.tech/topics/mobile/",
+    "https://www.tsalon.tech/topics/frontend/",
+    "https://www.tsalon.tech/topics/open-source/",
+    "https://www.tsalon.tech/topics/career/",
+    "https://www.tsalon.tech/topics/t-chat/",
+    "https://www.tsalon.tech/en/topics/career/",
+    "https://www.tsalon.tech/en/topics/frontend/"
   ],
   "history": [
     {
@@ -599,6 +609,23 @@
         "https://www.tsalon.tech/articles/figma-runnable-prototype-interaction-ownership/",
         "https://www.tsalon.tech/articles/hy4-computer-use-enterprise-handoff/",
         "https://www.tsalon.tech/articles/render-sandbox-sleep-long-task-cost/"
+      ]
+    },
+    {
+      "date": "2026-11-17",
+      "count": 10,
+      "remainAfter": 0,
+      "urls": [
+        "https://www.tsalon.tech/whenreset/claude/",
+        "https://www.tsalon.tech/whenreset/codex/",
+        "https://www.tsalon.tech/whenreset/grok/",
+        "https://www.tsalon.tech/topics/mobile/",
+        "https://www.tsalon.tech/topics/frontend/",
+        "https://www.tsalon.tech/topics/open-source/",
+        "https://www.tsalon.tech/topics/career/",
+        "https://www.tsalon.tech/topics/t-chat/",
+        "https://www.tsalon.tech/en/topics/career/",
+        "https://www.tsalon.tech/en/topics/frontend/"
       ]
     }
   ]
