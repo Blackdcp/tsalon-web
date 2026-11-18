@@ -18,14 +18,20 @@ tldr:
   - "Where the problem begins: cross-platform still depends on the host: Cui first describes his experience in iOS and Web development and as the author of the SVGA animation library."
   - "Serialization and incremental updates: In his explanation, Cui organizes data around reusable Element nodes, serializes relevant layout information as JSON, and sends it to the renderer."
   - "The build still centers on Dart and Flutter tools: Cui says the project did not begin with webpack or a TypeScript build."
-faq: []
+faq:
+  - question: Why can't a standard Flutter Web build run directly inside a WeChat Mini Program?
+    answer: WeChat Mini Programs do not expose a full browser DOM or standard WebGL/Canvas runtime and enforce strict bundle-size caps; at the time of the talk, a baseline Flutter Web output carried a multi-megabyte bundle and uneven scrolling on some Android devices.
+  - question: How does MPFlutter render Flutter layouts inside a WeChat Mini Program?
+    answer: MPFlutter keeps business logic and layout computation inside Dart/Flutter, serializes reusable Element node positions, dimensions, text, and image fields as JSON, and maps incremental diffs onto mini-program host components through a DOM-simulation adapter layer.
+  - question: What is the core engineering tradeoff of using MPFlutter for WeChat Mini Programs?
+    answer: Teams can share one Dart/Flutter codebase across iOS, Android, Web, and WeChat Mini Programs, at the cost of maintaining Dart-to-JS bundle trimming, host bridge adapters, and accepting a gap compared with native mini-program scrolling and interaction polish.
 featured: false
 draft: false
 translationOf: shenzhen-cui-minghui-mpflutter-recap
 translationStatus: reviewed
 seo:
-  title: Cui Minghui on MPFlutter and WeChat Mini Programs
-  description: How MPFlutter serializes Flutter layout for mini programs, updates nodes, adapts to the host, and weighs shared code against native experience.
+  title: "Flutter for WeChat Mini Programs: Cui Minghui on MPFlutter"
+  description: "How MPFlutter brings Flutter apps to WeChat Mini Programs via Element layout serialization, incremental JSON diffs, DOM adaptation, and Dart-to-JS bundle trimming."
   noindex: false
 ---
 
@@ -76,3 +82,13 @@ He cites the mini program Yidoutang from an earlier company as a practical examp
 Cui says the project did not begin with webpack or a TypeScript build. It followed the Dart-to-JavaScript path and Flutter's resource bundling for static assets, with changes to trim an otherwise large output. The runtime adapter was only one part of the work; compilation and resource handling also had to fit the mini-program constraints.
 
 Evaluating MPFlutter therefore requires more than asking whether writing the page still feels like Flutter. Teams must inspect the generated bundle, the host bridge, the cost of adapting future Flutter releases, and the actual scrolling and text experience on each target. Cui closes by pointing to the open-source project and its toolchain. This recording ends at his invitation to move into Q&A; further audience questions are not included in this segment.
+
+## Comparison Table: WeChat Mini Program Rendering Approaches vs MPFlutter
+
+| Dimension | Native Mini Program / JS Cross-Compile | Direct Flutter Web Output | MPFlutter (Layout Serialization + Host Bridge) |
+| :--- | :--- | :--- | :--- |
+| **Primary Language** | JavaScript / TypeScript + WXML/WXSS | Dart (targeting full browser DOM/Canvas) | Dart (reusing existing Flutter Widgets & layout) |
+| **Where Layout Runs** | Mini-program host layout engine | Browser engine | **Computed directly on the Dart / Flutter side** |
+| **Host Rendering Bridge** | Native mini-program view components | Cannot run unchanged without full browser DOM | **Serializes Element geometry to JSON + WeChat DOM adapter** |
+| **Update Mechanism** | Scoped `setData` state updates | Heavy full-tree or canvas redraws | **Stable Element node IDs send incremental diffs only** |
+| **Best Fit & Tradeoff** | Best native UX, zero code reuse with Flutter apps | Multi-MB base bundle & mobile scroll lag | **Best for existing Flutter teams adding a Mini Program**, trading bridge maintenance for 4-end code reuse |

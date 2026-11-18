@@ -1,0 +1,609 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Props {
+  locale: 'zh' | 'en';
+}
+
+const { locale } = Astro.props;
+const isZh = locale === 'zh';
+const siteUrl = new URL(Astro.site ?? 'https://www.tsalon.tech');
+const altPath = isZh ? '/en/whenreset/quotas/' : '/whenreset/quotas/';
+
+const pageTitle = isZh
+  ? '2026 AI 编程订阅额度、RPM/TPM 与重置规则总表 — Claude / Codex / Gemini / Cursor | T Salon'
+  : '2026 AI Coding Subscription Quotas, RPM/TPM & Reset Master Cheat Sheet | T Salon';
+const pageDescription = isZh
+  ? '一站式收录 Anthropic Claude (Free/Pro/Max 5x/20x)、OpenAI Codex (Plus/Pro)、Google Gemini & Antigravity、Cursor (Pro 500 Fast Requests/Ultra) 的官方与实测配额上限、重置窗口与省额度策略。'
+  : 'Complete 2026 reference cheat sheet of subscription quotas, 5-hour & 7-day rolling limits, RPM/RPD caps, and reset schedules across Claude Code, OpenAI Codex, Google Gemini & Antigravity, and Cursor.';
+
+const canonicalPath = isZh ? '/whenreset/quotas/' : '/en/whenreset/quotas/';
+const canonicalUrl = new URL(canonicalPath, siteUrl).toString();
+
+const faqs = isZh
+  ? [
+      {
+        q: '为什么不同工具的订阅额度不能直接按月费对比？',
+        a: '因为各厂商采用的限流维度完全不同：Claude 采用「5 小时滚动窗口 + 7 天累计上限」双层机制；OpenAI Codex 采用「5 小时突发窗口 + 7 天周池」；Google Gemini / Antigravity 采用「每模型独立 5 小时桶 + 太平洋时间午夜（北京时间 15:00/16:00）每日重置」；而 Cursor 采用「每月 500 次 Fast Requests 硬配额 + 超出后按量/慢速排队」。',
+      },
+      {
+        q: 'Claude Max 5x ($100) 和 Max 20x ($200) 的实际额度差距有多大？',
+        a: 'Claude Pro ($20) 每个 5 小时窗口约可发送 45 条常规消息（或在 Claude Code 中运行约 10–40 次重度工具调用）；Max 5x ($100) 提供 Pro 的 5 倍 5 小时窗口预算（约 225 条消息级权重）；Max 20x ($200) 提供 Pro 的 20 倍预算（约 900 条消息级权重），且在高负载时段拥有最高优先级调度。',
+      },
+      {
+        q: 'Google Gemini CLI 和 Antigravity 什么时候重置每日免费额度？',
+        a: 'Google AI Studio Free Tier、Gemini CLI 每日免费请求（RPD）以及 Antigravity 的每日配额统一在太平洋时间午夜（Midnight PT）重置。夏令时（PDT，3 月至 11 月初）对应北京时间每日 15:00，冬令时（PST，11 月初至次年 3 月）对应北京时间每日 16:00。',
+      },
+      {
+        q: '哪个订阅或 API 方案受 Prompt Caching（提示词缓存）影响最大？',
+        a: '所有按 Token 计费的 API 模式（Anthropic API、OpenAI API、DeepSeek API）以及按 Token 权重折算窗口消耗的 Agent CLI（Claude Code、Codex CLI）都极度依赖 Prompt Caching。保持 85% 以上的 `cache_read_input_tokens` 命中率可将单次请求成本降低 70%–90%，并让 5 小时窗口耐受度提升 2.5 倍以上。',
+      },
+    ]
+  : [
+      {
+        q: 'Why can’t AI coding subscriptions be compared purely by monthly price?',
+        a: 'Each provider enforces a fundamentally different rate-limiting geometry: Anthropic Claude uses a dual 5-hour rolling window + 7-day cumulative cap; OpenAI Codex uses a 5-hour burst window + 7-day weekly pool; Google Gemini & Antigravity use per-model 5-hour buckets plus a daily Midnight Pacific Time reset; and Cursor uses a monthly 500 Fast Request pool with slow-queue fallback or usage-based billing.',
+      },
+      {
+        q: 'What is the real capacity gap between Claude Pro ($20), Max 5x ($100), and Max 20x ($200)?',
+        a: 'Claude Pro ($20) provides roughly ~45 standard messages (or ~10–40 heavy tool-calling turns in Claude Code) per 5-hour window. Max 5x ($100) scales that 5-hour token weight budget by 5x (~225 message-equivalents), while Max 20x ($200) scales it by 20x (~900 message-equivalents) with priority queue access during peak hours.',
+      },
+      {
+        q: 'When do Google Gemini CLI and Antigravity daily quotas reset?',
+        a: 'Google AI Studio Free Tier, Gemini CLI daily request limits (RPD), and Antigravity daily model pools reset at Midnight Pacific Time (00:00 PT)—which corresponds to 15:00 UTC+8 during US Daylight Saving Time (PDT) and 16:00 UTC+8 during Standard Time (PST).',
+      },
+      {
+        q: 'Where does Prompt Caching make the biggest difference in quota longevity?',
+        a: 'Both direct API billing (Anthropic, OpenAI, DeepSeek) and token-weighted CLI windows (Claude Code, Codex CLI) benefit massively from Prompt Caching. Keeping `cache_read_input_tokens` above 85% cuts effective API spend by 70%–90% and stretches 5-hour rolling window endurance by 2.5x or more.',
+      },
+    ];
+
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: pageTitle,
+    description: pageDescription,
+    url: canonicalUrl,
+    license: 'https://creativecommons.org/licenses/by/4.0/',
+    creator: {
+      '@type': 'Organization',
+      name: 'T Salon',
+      url: siteUrl.toString(),
+    },
+    keywords: [
+      'Claude Pro quota',
+      'Claude Max 5x 20x limits',
+      'OpenAI Codex Plus Pro limits',
+      'Google Gemini CLI RPD reset',
+      'Antigravity quota reset',
+      'Cursor 500 Fast Requests',
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.a,
+      },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: isZh ? '首页' : 'Home',
+        item: new URL(isZh ? '/' : '/en/', siteUrl).toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: isZh ? 'WhenReset 重置雷达' : 'WhenReset Radar',
+        item: new URL(isZh ? '/whenreset/' : '/en/whenreset/', siteUrl).toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: isZh ? '2026 配额与重置规则总表' : '2026 Quotas Cheat Sheet',
+        item: canonicalUrl,
+      },
+    ],
+  },
+];
+---
+
+<BaseLayout title={pageTitle} description={pageDescription} alternatePath={altPath} languageSwitchPath={altPath} jsonLd={structuredData}>
+  <main class="quota-sheet-page container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href={isZh ? '/' : '/en/'}>{isZh ? '首页' : 'Home'}</a>
+      <span>/</span>
+      <a href={isZh ? '/whenreset/' : '/en/whenreset/'}>{isZh ? 'WhenReset 重置雷达' : 'WhenReset Radar'}</a>
+      <span>/</span>
+      <span aria-current="page">{isZh ? '2026 订阅配额总表' : '2026 Quotas Cheat Sheet'}</span>
+    </nav>
+
+    <header class="hero-card">
+      <div class="eyebrow">2026 RATE-LIMIT &amp; QUOTA REFERENCE</div>
+      <h1>
+        {isZh
+          ? '2026 AI 编程订阅额度、RPM/TPM 与重置规则总表'
+          : '2026 AI Coding Subscription Quotas & Reset Master Cheat Sheet'}
+      </h1>
+      <p class="lead">
+        {isZh
+          ? '一张表查清 Anthropic Claude、OpenAI Codex、Google Gemini / Antigravity 与 Cursor 各档位订阅的 5 小时滚动窗口、7 天周限额、每日重置时刻（Midnight PT）与 API 阶梯速率上限。'
+          : 'One unified reference for 5-hour rolling windows, 7-day weekly pools, Midnight PT daily resets, and API rate tiers across Claude, OpenAI Codex, Google Gemini / Antigravity, and Cursor.'}
+      </p>
+      <div class="quick-links">
+        <a href="#anthropic-claude" class="pill-link">Anthropic Claude</a>
+        <a href="#openai-codex" class="pill-link">OpenAI Codex</a>
+        <a href="#google-gemini" class="pill-link">Google Gemini &amp; Antigravity</a>
+        <a href="#cursor-ide" class="pill-link">Cursor IDE</a>
+        <a href={isZh ? '/whenreset/' : '/en/whenreset/'} class="pill-link accent">
+          {isZh ? '⏱️ 返回实时重置雷达' : '⏱️ Live Reset Radar'}
+        </a>
+        <a href={isZh ? '/compare/' : '/en/compare/'} class="pill-link">
+          {isZh ? '⚖️ 订阅选型横评' : '⚖️ Side-by-Side Comparisons'}
+        </a>
+      </div>
+    </header>
+
+    <!-- Section 1: Anthropic Claude -->
+    <section id="anthropic-claude" class="sheet-section">
+      <div class="section-header">
+        <h2>{isZh ? '1. Anthropic Claude & Claude Code 订阅与 API 配额表' : '1. Anthropic Claude & Claude Code Subscription & API Quotas'}</h2>
+        <a href={isZh ? '/whenreset/claude/' : '/en/whenreset/claude/'} class="sub-link">
+          {isZh ? '查看 Claude 实时重置倒计时 →' : 'View Claude Live Reset Countdown →'}
+        </a>
+      </div>
+      <p class="section-desc">
+        {isZh
+          ? 'Claude 订阅采用「5 小时滚动窗口（自首条消息起算）+ 7 天累计周上限」双层限流机制；Opus 4.6 的单次 Token 权重消耗约为 Sonnet 4.6 的 3–5 倍。'
+          : 'Claude subscriptions enforce a dual-layer limit: a 5-hour rolling window (triggered by your first prompt) plus a 7-day rolling weekly cap. Opus 4.6 consumes roughly 3–5x the window weight of Sonnet 4.6.'}
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{isZh ? '套餐档位' : 'Plan / Tier'}</th>
+              <th>{isZh ? '月费 / 计费' : 'Monthly Price'}</th>
+              <th>{isZh ? '5 小时滚动窗口额度' : '5-Hour Rolling Window'}</th>
+              <th>{isZh ? '7 天周累计上限' : '7-Day Weekly Cap'}</th>
+              <th>{isZh ? '重置机制与优先级' : 'Reset Mechanism & Priority'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Claude Free</strong></td>
+              <td>$0</td>
+              <td>{isZh ? '约 10–15 条短消息（随负载浮动）' : '~10–15 short messages (load-dependent)'}</td>
+              <td>{isZh ? '受每日/周动态限流约束' : 'Subject to dynamic daily/weekly throttling'}</td>
+              <td>{isZh ? '首条消息后 5 小时滚动重置；仅 Web/移动端' : '5h rolling after 1st prompt; Web/Mobile only'}</td>
+            </tr>
+            <tr>
+              <td><strong>Claude Pro</strong></td>
+              <td>$20 / mo</td>
+              <td>{isZh ? '基准 1x（约 45 条 Web 消息或 10–40 轮 Claude Code 工具调用）' : '1x baseline (~45 web msgs or 10–40 Claude Code tool turns)'}</td>
+              <td>{isZh ? '约 40–80 小时每周等效 Sonnet 4.6 用量' : '~40–80 hrs/week equivalent Sonnet 4.6 usage'}</td>
+              <td>{isZh ? '首条消息起 +5h00m 整重置；支持 Claude Code' : '+5h00m from 1st prompt; includes Claude Code'}</td>
+            </tr>
+            <tr>
+              <td><strong>Claude Max 5x</strong></td>
+              <td>$100 / mo</td>
+              <td>{isZh ? 'Pro 的 5 倍预算（约 225 条消息权重 / 50–200 轮 Agent 交互）' : '5x Pro budget (~225 msg-equivalents / 50–200 Agent turns)'}</td>
+              <td>{isZh ? '约 140–280 小时每周 Sonnet + 15–35 小时 Opus' : '~140–280 hrs/wk Sonnet + 15–35 hrs/wk Opus'}</td>
+              <td>{isZh ? '+5h00m 滚动重置 + 7 天周池；支持 Extra Usage 溢出按量计费' : '+5h00m rolling + 7-day pool; supports Extra Usage overflow'}</td>
+            </tr>
+            <tr>
+              <td><strong>Claude Max 20x</strong></td>
+              <td>$200 / mo</td>
+              <td>{isZh ? 'Pro 的 20 倍预算（约 900 条消息权重 / 全天候多 Agent 并发）' : '20x Pro budget (~900 msg-equivalents / full-day multi-agent)'}</td>
+              <td>{isZh ? '约 240–480 小时每周 Sonnet + 24–40 小时 Opus' : '~240–480 hrs/wk Sonnet + 24–40 hrs/wk Opus'}</td>
+              <td>{isZh ? '最高队列优先级；+5h00m 滚动重置 + 7 天周池' : 'Highest queue priority; +5h00m rolling + 7-day pool'}</td>
+            </tr>
+            <tr>
+              <td><strong>Anthropic API (Tier 1–4)</strong></td>
+              <td>Pay-as-you-go</td>
+              <td>{isZh ? '无 5 小时锁死（按 RPM / ITPM / OTPM 令牌桶限流）' : 'No 5h lockout (governed by RPM / ITPM / OTPM token buckets)'}</td>
+              <td>{isZh ? '按月度消费上限（Spend Limit）控制' : 'Controlled by monthly workspace Spend Limit'}</td>
+              <td>{isZh ? '每分钟连续补充令牌桶；Prompt Cache 命中不计入常规 ITPM 惩罚' : 'Per-minute token bucket refill; cached tokens bypass standard ITPM cap'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2: OpenAI Codex -->
+    <section id="openai-codex" class="sheet-section">
+      <div class="section-header">
+        <h2>{isZh ? '2. OpenAI ChatGPT / Codex CLI 配额与重置规则表' : '2. OpenAI ChatGPT & Codex CLI Quotas & Reset Schedule'}</h2>
+        <a href={isZh ? '/whenreset/codex/' : '/en/whenreset/codex/'} class="sub-link">
+          {isZh ? '查看 Codex 实时重置与双倍卡状态 →' : 'View Codex Live Reset & Promo Status →'}
+        </a>
+      </div>
+      <p class="section-desc">
+        {isZh
+          ? 'OpenAI Codex（含 Codex CLI 与云端容器任务）共享 ChatGPT 账号的「5 小时突发窗口 + 7 天滚动周池」，且不定期发放官方补偿/里程碑 2x 额度重置。'
+          : 'OpenAI Codex (CLI and cloud container tasks) shares your ChatGPT subscription’s 5-hour burst window + 7-day rolling weekly pool, alongside periodic official rate-limit resets and 2x promos.'}
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{isZh ? '套餐档位' : 'Plan / Tier'}</th>
+              <th>{isZh ? '月费' : 'Monthly Price'}</th>
+              <th>{isZh ? '5 小时窗口配额' : '5-Hour Window Quota'}</th>
+              <th>{isZh ? '7 天周累计池与云端任务' : '7-Day Weekly Pool & Cloud Tasks'}</th>
+              <th>{isZh ? '重置与扩容机制' : 'Reset & Overflow Rules'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ChatGPT Plus (Codex)</strong></td>
+              <td>$20 / mo</td>
+              <td>{isZh ? '约 30–150 条本地 CLI 交互（视推理强度与上下文长度）' : '~30–150 local CLI turns (varies by reasoning effort & context)'}</td>
+              <td>{isZh ? '受 7 天滚动周池严格限制（约 2–3 个高强度工作日即触顶）' : 'Strict 7-day rolling cap (~2–3 heavy coding days per week)'}</td>
+              <td>{isZh ? '5h 滚动重置 + 7d 滚动释放；可购买 Codex Credits 补充包' : '5h rolling + 7d rolling release; expandable via Codex Credits'}</td>
+            </tr>
+            <tr>
+              <td><strong>ChatGPT Pro (Codex)</strong></td>
+              <td>$200 / mo</td>
+              <td>{isZh ? '约 Plus 的 6–10 倍 5 小时突发上限（约 300–1,500 轮 CLI）' : '~6–10x Plus 5-hour burst capacity (~300–1,500 CLI turns)'}</td>
+              <td>{isZh ? '高容量周池，支持全周多仓库并行重构与高频 Cloud 沙箱任务' : 'High-capacity weekly pool supporting full-week multi-repo work'}</td>
+              <td>{isZh ? '5h + 7d 双窗口自动滚动；官方事故补偿常直接清零已用周耗' : '5h + 7d auto-rolling; official incident grants often zero out usage'}</td>
+            </tr>
+            <tr>
+              <td><strong>OpenAI API (Tier 1–5)</strong></td>
+              <td>Pay-as-you-go</td>
+              <td>{isZh ? '按每分钟请求数（RPM）与每分钟 Token 数（TPM）限流' : 'Governed by per-minute RPM and TPM buckets'}</td>
+              <td>{isZh ? '无 7 天周锁死（仅受账户余额与月度预算约束）' : 'No 7-day lockout (bounded only by credit balance & budget)'}</td>
+              <td>{isZh ? '自动前缀缓存（≥1024 tokens）享 50%–75% 输入折扣' : 'Automatic prefix caching (≥1024 tokens) gives 50%–75% input discount'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 3: Google Gemini & Antigravity -->
+    <section id="google-gemini" class="sheet-section">
+      <div class="section-header">
+        <h2>{isZh ? '3. Google Gemini CLI / AI Studio / Antigravity 配额与每日重置表' : '3. Google Gemini CLI, AI Studio & Antigravity Quotas'}</h2>
+        <a href={isZh ? '/whenreset/google/' : '/en/whenreset/google/'} class="sub-link">
+          {isZh ? '查看 Google 15:00/16:00 每日重置倒计时 →' : 'View Google Midnight PT Countdown →'}
+        </a>
+      </div>
+      <p class="section-desc">
+        {isZh
+          ? 'Google 体系结合了「每模型独立 5 小时滚动配额桶（Antigravity）」与「太平洋时间午夜（Midnight PT，即北京时间夏令时 15:00 / 冬令时 16:00）每日请求数（RPD）硬重置」。'
+          : 'Google combines per-model independent 5-hour rolling buckets (in Antigravity) with a hard daily RPD reset at Midnight Pacific Time (15:00 UTC+8 during PDT / 16:00 UTC+8 during PST).'}
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{isZh ? '产品与档位' : 'Product & Tier'}</th>
+              <th>{isZh ? '费用' : 'Price'}</th>
+              <th>{isZh ? '速率与窗口上限 (RPM / RPD / 5h)' : 'Rate & Window Caps (RPM / RPD / 5h)'}</th>
+              <th>{isZh ? '多模型隔离机制' : 'Model Pool Isolation'}</th>
+              <th>{isZh ? '精确重置时间' : 'Exact Reset Schedule'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Gemini CLI / AI Studio Free</strong></td>
+              <td>$0</td>
+              <td>{isZh ? '约 5–15 RPM；每日约 25–1,000 RPD（Pro 额度严、Flash 额度宽）' : '~5–15 RPM; ~25–1,000 RPD (strict on Pro, generous on Flash)'}</td>
+              <td>{isZh ? 'Pro 耗尽后可降级至 Flash 继续使用' : 'Can fallback to Flash models when Pro RPD is exhausted'}</td>
+              <td>{isZh ? '太平洋时间 00:00（北京时间 15:00 PDT / 16:00 PST）每日重置' : 'Daily at 00:00 PT (15:00 UTC+8 PDT / 16:00 UTC+8 PST)'}</td>
+            </tr>
+            <tr>
+              <td><strong>Google AI Pro / Developer</strong></td>
+              <td>$19.99 / mo</td>
+              <td>{isZh ? '每 5 小时滚动窗口动态配额 + 更高每日 RPD 池' : 'Dynamic 5-hour rolling window + elevated daily RPD pool'}</td>
+              <td>{isZh ? 'Antigravity 中 Gemini Pro、Flash、Claude Sonnet 各自独立计费桶' : 'Separate buckets per model family inside Antigravity'}</td>
+              <td>{isZh ? '5 小时滚动恢复 + 太平洋时间午夜每日大重置' : '5-hour rolling recovery + Midnight PT daily master reset'}</td>
+            </tr>
+            <tr>
+              <td><strong>Google AI Ultra</strong></td>
+              <td>$249.99 / mo</td>
+              <td>{isZh ? '最高 5 小时并发预算与优先推理通道' : 'Highest 5-hour concurrent budget & priority inference lane'}</td>
+              <td>{isZh ? '全模型家族独立高配额池' : 'High-ceiling independent pools across all model families'}</td>
+              <td>{isZh ? '每 5 小时滚动补充' : 'Continuous 5-hour rolling replenishment'}</td>
+            </tr>
+            <tr>
+              <td><strong>Gemini API Paid Tier 1+</strong></td>
+              <td>Pay-as-you-go</td>
+              <td>{isZh ? '150–2,000+ RPM；2M+ TPM；高 RPD 上限' : '150–2,000+ RPM; 2M+ TPM; high RPD ceiling'}</td>
+              <td>{isZh ? '按模型独立计算 RPM/TPM' : 'Independent RPM/TPM per model endpoint'}</td>
+              <td>{isZh ? 'RPM/TPM 每分钟滑动恢复；Context Caching 享 75% 折扣' : 'Per-minute sliding RPM/TPM; 75% Context Caching discount'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 4: Cursor IDE -->
+    <section id="cursor-ide" class="sheet-section">
+      <div class="section-header">
+        <h2>{isZh ? '4. Cursor IDE 订阅配额与 Fast Requests 消耗倍率表' : '4. Cursor IDE Subscription Quotas & Fast Request Multipliers'}</h2>
+        <a href={isZh ? '/whenreset/cursor-fast-requests/' : '/en/whenreset/cursor-fast-requests/'} class="sub-link">
+          {isZh ? '查看 Cursor 500 次快速请求详解 →' : 'Read Cursor 500 Fast Requests Guide →'}
+        </a>
+      </div>
+      <p class="section-desc">
+        {isZh
+          ? 'Cursor 采用按账单周期重置的月度配额池（500 Fast Requests 或等效 $20 信用池），开启 Thinking 或 Max Mode 会按倍率加速消耗。'
+          : 'Cursor uses a monthly billing-date reset pool (500 Fast Requests / $20 included usage credit); enabling Thinking or Max Mode multiplies consumption per turn.'}
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{isZh ? '套餐档位' : 'Plan / Tier'}</th>
+              <th>{isZh ? '月费' : 'Monthly Price'}</th>
+              <th>{isZh ? '包含快速额度' : 'Included Fast Quota'}</th>
+              <th>{isZh ? '超出后行为' : 'Behavior After Exhaustion'}</th>
+              <th>{isZh ? '重置周期' : 'Reset Cycle'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cursor Hobby (Free)</strong></td>
+              <td>$0</td>
+              <td>{isZh ? '每月约 50 次慢速/试用模型请求 + 2,000 次代码补全' : '~50 slow/trial requests + 2,000 completions per month'}</td>
+              <td>{isZh ? '硬性阻断，需升级 Pro' : 'Hard block until upgrade or next cycle'}</td>
+              <td>{isZh ? '每月固定注册账单日重置' : 'Monthly on account creation date'}</td>
+            </tr>
+            <tr>
+              <td><strong>Cursor Pro</strong></td>
+              <td>$20 / mo</td>
+              <td>{isZh ? '500 次 Fast Requests（或 $20 等效前沿模型信用池）' : '500 Fast Requests (or $20 equivalent frontier credit pool)'}</td>
+              <td>{isZh ? '自动转入无限次 Slow Pool 排队，或开启 Usage-Based 按量计费' : 'Falls back to unlimited Slow Pool queue or Usage-Based billing'}</td>
+              <td>{isZh ? '每月订阅扣款日 00:00 UTC 重置' : 'Monthly on your billing renewal date'}</td>
+            </tr>
+            <tr>
+              <td><strong>Cursor Ultra</strong></td>
+              <td>$200 / mo</td>
+              <td>{isZh ? 'Pro 的 20 倍前沿模型额度池 + 优先推理通道' : '20x Pro frontier model pool + priority inference routing'}</td>
+              <td>{isZh ? '支持按量溢出计费（Usage-Based Pricing）' : 'Supports seamless Usage-Based overflow billing'}</td>
+              <td>{isZh ? '每月订阅扣款日重置' : 'Monthly on your billing renewal date'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Actionable Next Steps -->
+    <section class="action-grid">
+      <a href={isZh ? '/calculator/' : '/en/calculator/'} class="action-card">
+        <span class="action-tag">{isZh ? '算清真实账单' : 'COST SIMULATOR'}</span>
+        <h3>{isZh ? 'AI 编程 Token 成本与缓存收益计算器' : 'AI Coding Token & Cache Cost Calculator'}</h3>
+        <p>{isZh ? '输入你的日均 Token 与缓存命中率，对比 API 按量计费与 $20/$100/$200 订阅的盈亏平衡点。' : 'Compare API pay-as-you-go vs $20/$100/$200 subscriptions using your actual daily token volume and cache hit ratio.'}</p>
+      </a>
+      <a href={isZh ? '/templates/' : '/en/templates/'} class="action-card">
+        <span class="action-tag">{isZh ? '直接复制省额度' : 'CONFIG TEMPLATES'}</span>
+        <h3>{isZh ? '高缓存命中率 CLAUDE.md / AGENTS.md 配置模板库' : 'High-Cache-Hit CLAUDE.md & AGENTS.md Templates'}</h3>
+        <p>{isZh ? '一键复制经过实战验证的静态系统提示词与三阶段重构检查点模板，把 5 小时窗口续航提升 2.5 倍。' : 'Copy battle-tested static prompt prefixes and 3-stage refactoring checkpoints to stretch your 5-hour window by 2.5x.'}</p>
+      </a>
+      <a href={isZh ? '/errors/' : '/en/errors/'} class="action-card">
+        <span class="action-tag">{isZh ? '触发限流急救' : '429 TROUBLESHOOTING'}</span>
+        <h3>{isZh ? '429 / Quota Exceeded 报错速查与急救百科' : '429 & Quota Exceeded Error Troubleshooting Wiki'}</h3>
+        <p>{isZh ? '遇到 Claude 5 小时锁死、Codex 周限额耗尽或 Gemini 429 时的立即恢复命令与替代路由方案。' : 'Immediate recovery commands and fallback routing when you hit Claude 5-hour lockouts, Codex weekly caps, or Gemini 429s.'}</p>
+      </a>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section">
+      <h2>{isZh ? '常见问题解答 (FAQ)' : 'Frequently Asked Questions'}</h2>
+      <div class="faq-list">
+        {faqs.map((item) => (
+          <details class="faq-item" open>
+            <summary>{item.q}</summary>
+            <p>{item.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .quota-sheet-page {
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+    max-width: 1120px;
+    margin: 0 auto;
+  }
+  .breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted, #8b949e);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    text-decoration: underline;
+  }
+  .hero-card {
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    margin-bottom: 2.5rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #38bdf8;
+    margin-bottom: 0.75rem;
+  }
+  .hero-card h1 {
+    font-size: clamp(1.65rem, 3vw, 2.35rem);
+    line-height: 1.25;
+    margin: 0 0 1rem;
+  }
+  .lead {
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: var(--text-muted, #9ca3af);
+    margin: 0 0 1.5rem;
+  }
+  .quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+  .pill-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .pill-link:hover {
+    border-color: #38bdf8;
+    transform: translateY(-1px);
+  }
+  .pill-link.accent {
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+  }
+  .sheet-section {
+    margin-bottom: 2.75rem;
+  }
+  .section-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .section-header h2 {
+    font-size: 1.35rem;
+    margin: 0;
+  }
+  .sub-link {
+    font-size: 0.88rem;
+    color: #38bdf8;
+    text-decoration: none;
+  }
+  .sub-link:hover {
+    text-decoration: underline;
+  }
+  .section-desc {
+    color: var(--text-muted, #9ca3af);
+    font-size: 0.95rem;
+    margin: 0 0 1rem;
+    line-height: 1.6;
+  }
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.015);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    min-width: 720px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  th {
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+  }
+  tr:last-child td {
+    border-bottom: none;
+  }
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin: 3rem 0;
+  }
+  .action-card {
+    display: block;
+    padding: 1.5rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .action-card:hover {
+    border-color: #38bdf8;
+    transform: translateY(-2px);
+  }
+  .action-tag {
+    display: inline-block;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: #38bdf8;
+    margin-bottom: 0.5rem;
+  }
+  .action-card h3 {
+    font-size: 1.1rem;
+    margin: 0 0 0.5rem;
+  }
+  .action-card p {
+    font-size: 0.9rem;
+    color: var(--text-muted, #9ca3af);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .faq-section h2 {
+    font-size: 1.35rem;
+    margin-bottom: 1rem;
+  }
+  .faq-list {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .faq-item {
+    padding: 1.1rem 1.25rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .faq-item summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .faq-item p {
+    margin: 0.65rem 0 0;
+    color: var(--text-muted, #9ca3af);
+    line-height: 1.65;
+    font-size: 0.94rem;
+  }
+</style>

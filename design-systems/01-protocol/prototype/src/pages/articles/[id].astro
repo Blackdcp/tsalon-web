@@ -114,22 +114,27 @@ const resolvedArticleImage = article && article.data.cover !== '/images/default-
   ? article.data.cover
   : '/images/share-logo.jpg';
 
-const jsonLd = talk ? talk.data.videoParts.map((part) => ({
+const primaryPart = talk?.data.videoParts[0];
+const jsonLd = talk && primaryPart ? [{
   '@context': 'https://schema.org',
   '@type': 'VideoObject',
-  name: `${talk.data.speaker}：${part.title}`,
+  name: `${talk.data.speaker}：${talk.data.title}`,
   description: talk.data.summary,
-  thumbnailUrl: [new URL(talk.data.cover, Astro.site).toString()],
-  embedUrl: `https://player.bilibili.com/player.html?bvid=${part.url.match(/BV[a-zA-Z0-9]+/)?.[0]}&page=${new URL(part.url).searchParams.get('p') ?? '1'}&danmaku=0`,
-  url: part.url,
+  thumbnailUrl: [
+    new URL(talk.data.cover, Astro.site).toString(),
+    new URL('/images/share-logo.jpg', Astro.site).toString(),
+  ],
+  embedUrl: `https://player.bilibili.com/player.html?bvid=${bvid || primaryPart.url.match(/BV[a-zA-Z0-9]+/)?.[0]}&page=1&high_quality=1&danmaku=0`,
+  contentUrl: primaryPart.url,
+  url: pageUrl,
   mainEntityOfPage: pageUrl,
-  uploadDate: part.uploadedAt,
-  duration: `PT${part.durationSeconds}S`,
+  uploadDate: primaryPart.uploadedAt,
+  duration: `PT${primaryPart.durationSeconds}S`,
   publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
-  author: { '@type': 'Person', name: talk.data.speaker },
+  author: { '@type': 'Person', name: talk.data.speaker, url: 'https://www.tsalon.tech/about/' },
   about: talk.data.topics,
   inLanguage: 'zh-CN',
-})) : {
+}] : {
   '@context': 'https://schema.org',
   '@type': 'Article',
   headline: article!.data.title,
@@ -209,7 +214,7 @@ const translation = article ? (await getCollection('articlesEn', ({ data }) => !
       </div>
     </header>
 
-    {cover !== '/images/default-cover.svg' && <figure class="content-detail-shell content-detail-cover">
+    {!talk && cover !== '/images/default-cover.svg' && <figure class="content-detail-shell content-detail-cover">
       <div><img src={cover} alt={coverAlt} /></div>
       <figcaption class="mono">{coverAlt}</figcaption>
     </figure>}
@@ -218,6 +223,24 @@ const translation = article ? (await getCollection('articlesEn', ({ data }) => !
       <article class="prose content-detail-prose">
         {talk ? (
           <>
+            <h2 id="videos">视频回看</h2>
+            {bvid && (
+              <div class="talk-video-embed">
+                <iframe
+                  src={`https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`}
+                  allowfullscreen
+                  title={talk.data.title}
+                ></iframe>
+              </div>
+            )}
+            <p>按原视频分段观看主题分享与对谈。下面标注的是 B 站稿件发布日期；同一稿件下各分 P 共用该日期，不代表各分 P 的独立上传时间。</p>
+            <ol class="video-parts">
+              {talk.data.videoParts.map((part) => <li>
+                <a href={part.url} target="_blank" rel="noopener noreferrer">{part.title} ↗</a>
+                <p>{durationLabel(part.durationSeconds)} · 稿件发布于 <time datetime={part.uploadedAt}>{part.uploadedAt.slice(0, 10)}</time></p>
+              </li>)}
+            </ol>
+
             {recapDetails.length > 0 && (
               <section class="talk-recap-highlight" aria-label="文字回顾">
                 <h2>文字回顾与章节导读</h2>
@@ -241,25 +264,6 @@ const translation = article ? (await getCollection('articlesEn', ({ data }) => !
                   </div>
                 ))}
               </section>
-            )}
-            <h2 id="videos">视频回看</h2>
-            <p>按原视频分段观看主题分享与对谈。下面标注的是 B 站稿件发布日期；同一稿件下各分 P 共用该日期，不代表各分 P 的独立上传时间。</p>
-            <ol class="video-parts">
-              {talk.data.videoParts.map((part) => <li>
-                <a href={part.url} target="_blank" rel="noopener noreferrer">{part.title} ↗</a>
-                <p>{durationLabel(part.durationSeconds)} · 稿件发布于 <time datetime={part.uploadedAt}>{part.uploadedAt.slice(0, 10)}</time></p>
-              </li>)}
-            </ol>
-
-            {bvid && (
-              <div class="talk-video-embed">
-                <iframe
-                  src={`https://player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`}
-                  allowfullscreen
-                  title={talk.data.title}
-                  loading="lazy"
-                ></iframe>
-              </div>
             )}
 
             {talk.data.takeaways && talk.data.takeaways.length > 0 && (
@@ -316,6 +320,16 @@ const translation = article ? (await getCollection('articlesEn', ({ data }) => !
             )}
           </>
         )}
+        <div style="margin: 2rem 0 1.25rem; padding: 1.1rem 1.25rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 10px; background: #f8fafc;">
+          <strong class="mono" style="font-size: 0.78rem; color: #c2410c; display: block; margin-bottom: 0.45rem;">⚡ T SALON 开发者工具箱</strong>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.65rem 1.25rem; font-size: 0.9rem;">
+            <a href="/whenreset/">WhenReset 额度重置雷达 →</a>
+            <a href="/calculator/">AI 编程成本与缓存计算器 →</a>
+            <a href="/errors/">限流与报错速查库 →</a>
+            <a href="/reports/">2026 AI 编程消耗基准报告 →</a>
+            <a href="/tokenrank/">TokenRank 排行榜 →</a>
+          </div>
+        </div>
         <footer class="content-detail-tags">
           <span class="mono">主题</span>
           <div class="tag-list">

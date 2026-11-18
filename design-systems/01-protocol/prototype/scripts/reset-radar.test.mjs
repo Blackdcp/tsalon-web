@@ -144,6 +144,42 @@ test('grok provider events and stats are parsed correctly', async (t) => {
   assert.equal(data.grok.events.length, 1);
   assert.equal(data.grok.latestEvent.id, 'grok-reset-1');
   assert.equal(data.grok.latestEvent.typeLabelZh, '全局重置');
+  assert.equal(data.grok.latestEvent.category, 'incident-compensation');
   assert.equal(data.grok.watchNotice.isOpen, true);
   assert.equal(data.grok.watchNotice.text, 'Grok reset incoming');
+});
+
+test('distinguishes banked reset cards, incident compensation, and direct global resets', async (t) => {
+  const data = await loadRadar(t, {
+    events: [
+      reset,
+      card,
+      { ...reset, id: 'codex-regular', reason: 'weekly flush', reasonNote: undefined, landedAt: '2026-09-25T10:00:00Z' },
+    ],
+    stats: {},
+    watch: {},
+  });
+  const byId = Object.fromEntries(data.codex.events.map((e) => [e.id, e]));
+  assert.equal(byId['codex-card-sep23'].category, 'banked-card');
+  assert.equal(byId['codex-reset-sep12'].category, 'incident-compensation');
+  assert.equal(byId['codex-regular'].category, 'scheduled-global');
+});
+
+test('computes Google Gemini / Antigravity daily Midnight PT schedule and parses gemini/google events', async (t) => {
+  const geminiEvent = {
+    id: 'gemini-promo-1',
+    provider: 'gemini',
+    type: 'reset',
+    scope: 'all',
+    reason: 'milestone flush',
+    landedAt: '2026-09-21T08:00:00Z',
+    sources: [{ role: 'landed', url: 'https://x.com/googledevs/status/1' }],
+  };
+  const data = await loadRadar(t, { events: [geminiEvent], stats: {}, watch: {} });
+  assert.equal(data.google.name, 'Google Gemini / Antigravity');
+  assert.equal(data.google.events.length, 1);
+  assert.equal(data.google.latestEvent.provider, 'google');
+  assert.equal(data.google.latestEvent.category, 'milestone-promo');
+  assert.ok(data.google.dailySchedule);
+  assert.match(data.google.dailySchedule.resetHourBeijing, /^(15|16):00$/);
 });

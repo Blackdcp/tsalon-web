@@ -6,7 +6,7 @@ import { getResetRadarData } from '../../lib/reset-radar';
 export const prerender = false;
 
 const radarData = await getResetRadarData();
-const { codex, claude, grok, updatedAtBeijing, status } = radarData;
+const { codex, claude, grok, google, updatedAtBeijing, status } = radarData;
 Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
@@ -25,12 +25,16 @@ const faqItems = [
     "a": "从本次读取的记录中取最近最多 10 个不同的全局重置时刻，计算相邻间隔的中位数，再加到最近一次全局重置时刻上。重置卡和指定范围重置不参与计算。全局重置少于两次时不显示参考点。这只是历史时间计算，不是官方排期，也不是个人额度恢复预测。"
   },
   {
-    "q": "Codex、Claude 与 Grok 记录来自哪里？",
-    "a": "T Salon 在页面被请求时读取 <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev 记录接口</a>，缓存 5 分钟，各条记录附原帖链接。“读取时间”表示获取来源数据的时刻，不代表刚发生新重置。请求失败时显示暂不可用；来源记录可能不完整。"
+    "q": "Codex（Tibo / @thsottiaux）、Claude 与 Grok 记录来自哪里？",
+    "a": "T Salon 在页面被请求时读取 <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev 记录接口</a>，缓存 5 分钟，各条记录附官方或技术负责人（如 OpenAI Codex 负责人 Thibault Sottiaux，即 Tibo / <code>@thsottiaux</code>）的原帖链接。“读取时间”表示获取来源数据的时刻，不代表刚发生新重置。"
   },
   {
-    "q": "每周额度规划计算器如何使用？",
-    "a": "在客户端用量页查看本周已消耗百分比并设置下次重置时间，计算器将自动推算当前消耗速度、距重置剩余时间以及建议的每日消耗预算。数据仅保存在浏览器本地，不会上传服务器。"
+    "q": "Claude 或 Codex 额度重置时怎么收到实时通知？",
+    "a": "本页支持 4 种免登录实时通知方式：① 订阅标准 RSS 2.0（<code>/whenreset/rss.xml</code>）；② 一键开启本设备浏览器桌面弹窗通知；③ 通过 <code>/api/reset/data</code> 接入飞书、企微、钉钉或 Slack 群机器人；④ 在 Claude Code / Cursor 中配置 <code>/api/reset/mcp</code> 直接查询。"
+  },
+  {
+    "q": "提示将提前耗尽周限额（on pace to hit your weekly limit early）时如何使用每周规划器？",
+    "a": "在客户端用量页查看本周已消耗百分比并设置下次重置时间，每周额度规划计算器将自动推算当前消耗速度、预计提前耗尽的具体时刻以及建议的每日消耗预算（7 天周期安全线约为 14.2%/天）。数据仅保存在浏览器本地。"
   }
 ];
 
@@ -63,8 +67,8 @@ const jsonLd = [
 ---
 
 <BaseLayout
-  title="AI 编程额度重置雷达 · 多产品监控与周额度规划 | T Salon"
-  description="查看 WhenReset.dev 收录的 Codex、Claude、Grok 重置和重置卡记录及原帖，提供每周额度规划计算、五小时窗口计算与 RSS/Webhook 多渠道订阅。"
+  title="Codex / GPT / Claude 重置雷达 (WhenReset) · 实时额度与发卡监控 | T Salon"
+  description="实时查询 OpenAI Codex（ChatGPT / Tibo）、Anthropic Claude、xAI Grok 与 Google Gemini 的全网额度重置与发卡（Reset Card）记录，提供北京时间换算、5 小时滑动窗口恢复计算器、每周配额规划与 RSS/MCP 订阅。"
   alternatePath="/en/whenreset/"
   locale="zh"
   jsonLd={jsonLd}
@@ -79,6 +83,30 @@ const jsonLd = [
         </div>
         <h1 class="hero-title">AI 编程额度重置雷达</h1>
         <p class="hero-desc">实时监控 OpenAI Codex、Anthropic Claude 与 xAI Grok 的全网重置与发卡记录，支持每周配额节奏规划与多渠道消息订阅。全局重置、指定范围重置与重置卡均不代表个人额度恢复时间。</p>
+
+        <!-- Unified 4-Provider At-a-Glance Strip -->
+        <div class="unified-overview-strip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:0.75rem; margin: 1.25rem 0;">
+          {[codex, claude, grok, google].map((p) => (
+            <div style="padding:0.85rem 1rem; border-radius:10px; border:1px solid var(--border-default, #e2e8f0); background:var(--background-page, #ffffff); text-align:left; display:flex; flex-direction:column; gap:0.25rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:0.9rem;">{p.name}</strong>
+                <span class="mono" style="font-size:0.72rem; padding:0.15rem 0.45rem; border-radius:99px; background:#f1f5f9; color:#334155;">
+                  {p.latestEvent?.categoryLabelZh || (p.dailySchedule ? `每日 ${p.dailySchedule.resetHourBeijing}` : '监控中')}
+                </span>
+              </div>
+              <div style="font-size:0.82rem; color:var(--text-secondary);">
+                {p.dailySchedule && !p.latestEvent ? (
+                  <>下次日清零：<strong>{p.dailySchedule.nextDateBeijing} {p.dailySchedule.nextTimeBeijing}</strong></>
+                ) : (
+                  <>距上次全局重置：<strong>{p.sinceLastReset.textZh}</strong> · 近30天 {p.resets30d} 重置 / {p.cards30d} 发卡</>
+                )}
+              </div>
+              <div style="font-size:0.76rem; color:var(--text-tertiary);">
+                {p.dailySchedule ? p.dailySchedule.countdownZh : `参考点：${p.nextEstimated.relativeTextZh}`} · <a href={`/whenreset/${p.provider}/`} style="color:var(--action-link);">详情 ↗</a>
+              </div>
+            </div>
+          ))}
+        </div>
 
         <!-- Provider Switcher Tabs -->
         <div class="provider-tabs">
@@ -97,12 +125,18 @@ const jsonLd = [
             <span class="tab-name">xAI Grok</span>
             <span class="tab-badge">事件记录</span>
           </button>
+          <button class="tab-btn" data-provider="google">
+            <span class="tab-icon">✨</span>
+            <span class="tab-name">Google Gemini</span>
+            <span class="tab-badge">每日清零+事件</span>
+          </button>
         </div>
         <nav class="provider-direct-links mono" aria-label="模型专属监控页与实操指南" style="margin-top: 1rem; font-size: 0.8125rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary);">
           <span>独立看板：</span>
           <a href="/whenreset/codex/">OpenAI Codex 专属页 →</a>
           <a href="/whenreset/claude/">Anthropic Claude 专属页 →</a>
           <a href="/whenreset/grok/">xAI Grok 专属页 →</a>
+          <a href="/whenreset/google/">Google Gemini 专属页 →</a>
           <a href="/articles/ai-quota-reset-radar-guide/">额度规则与规划实操指南 →</a>
         </nav>
       </section>
@@ -470,6 +504,59 @@ const jsonLd = [
         </div>
       </div>
 
+      <!-- Google Section -->
+      <div id="section-google" class="provider-section">
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">每日 RPD 固定清零（太平洋午夜）</div>
+            <div class="card-value highlight">{google.dailySchedule?.nextDateBeijing} <span class="time-sub">{google.dailySchedule?.nextTimeBeijing}</span></div>
+            <div class="card-sub">{google.dailySchedule?.countdownZh}</div>
+            <div class="card-sub">{google.dailySchedule?.ruleNoteZh}</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">最近一次午夜清零（北京时间）</div>
+            <div class="card-value">{google.dailySchedule?.lastDailyBeijing || '—'}</div>
+            <div class="card-sub">适用：Google AI Studio / Gemini CLI 每日配额</div>
+            <a href="/whenreset/google/" class="card-link">查看 Google 专属页与按模型计池规则 ↗</a>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Antigravity 配额隔离机制</div>
+            <div class="card-value">按模型独立计池</div>
+            <div class="card-sub">高阶推理模型限流时，切换 Flash / Flash-Lite 可继续使用</div>
+            <div class="card-hint"><a href="/errors/gemini-cli-quota-exceeded-429/">查看 429 Resource Exhausted 排查指南 →</a></div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">全局重置与发卡事件（近 30 天）</div>
+            <div class="card-value">{status === 'unavailable' ? '—' : google.resets30d} <span class="unit">次重置</span></div>
+            <div class="card-sub">最近公开事件：{google.latestEvent?.typeLabelZh || '暂无公开全局事件'}</div>
+            <div class="card-hint">来源：Google AI / WhenReset.dev</div>
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">Google / Antigravity 五小时窗口计算器</h2>
+              <p class="tool-sub">针对采用 5 小时滚动窗口的 Pro / Ultra 档位，输入已知窗口首条请求时间推算恢复时刻。</p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for="google-window-start">已知窗口起点（北京时间）</label>
+              <input type="datetime-local" id="google-window-start" class="time-input" step="60" />
+              <button type="button" id="google-calculate" class="btn btn-dark">按 5 小时计算</button>
+            </div>
+            <div class="calc-arrow" aria-hidden="true">➔</div>
+            <div class="calc-result-box" aria-live="polite">
+              <div class="result-label">假设窗口结束时间（北京时间）</div>
+              <div class="result-time" id="google-calc-result">—</div>
+              <div class="result-tips" id="google-calc-tips">输入已知起点后点击计算按钮。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Weekly Quota & Pacing Calculator -->
       <section id="weekly-calculator-app" class="planner-section">
         <div class="section-badge-tag">额度规划工具</div>
@@ -537,7 +624,12 @@ const jsonLd = [
 
             <div class="planner-verdict-box">
               <div class="verdict-icon">💡</div>
-              <p id="weekly-calc-summary" class="verdict-text">正在根据您的输入计算消耗节奏与剩余预算...</p>
+              <div>
+                <p id="weekly-calc-summary" class="verdict-text">正在根据您的输入计算消耗节奏与剩余预算...</p>
+                <p style="margin:0.4rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+                  不确定剩余额度价值多少钱？<a href="/calculator/">用 AI 成本计算器折算等效账单 →</a> · <a href="/whenreset/claude-5-hour-calculator/">5 小时窗口单页计算器 →</a> · <a href="/whenreset/cursor-fast-requests/">Cursor 500 次请求估算 →</a>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -592,6 +684,21 @@ const jsonLd = [
               <button type="button" class="btn btn-dark full-width" id="desktop-notification-btn">开启本设备桌面通知</button>
             </div>
           </div>
+
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">🔌</span>
+              <div>
+                <h3 class="hub-title">Claude Code / Cursor MCP 接入</h3>
+                <span class="hub-tag">Streamable HTTP MCP</span>
+              </div>
+            </div>
+            <p class="hub-desc">将我们的免鉴权 MCP Server 填入 <code>.mcp.json</code>，即可在 IDE 或终端里直接让 Agent 查询最新重置预测与 5 小时恢复时间。</p>
+            <div class="hub-action">
+              <input type="text" readonly value="https://www.tsalon.tech/api/reset/mcp" class="hub-input" id="mcp-link-input" />
+              <button type="button" class="btn btn-outline" onclick="navigator.clipboard?.writeText('https://www.tsalon.tech/api/reset/mcp'); this.textContent='已复制 ✓';">复制 MCP</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -640,6 +747,7 @@ const jsonLd = [
   initResetWindowCalculator('codex', 'zh');
   initResetWindowCalculator('claude', 'zh');
   initResetWindowCalculator('grok', 'zh');
+  initResetWindowCalculator('google', 'zh');
   initWeeklyQuotaCalculator('zh');
 
   // RSS Copy button

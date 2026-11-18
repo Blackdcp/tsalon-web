@@ -58,3 +58,13 @@ test('custom cycle days like 30-day billing works smoothly', () => {
   assert.equal(res.isValid, true);
   assert.ok(res.remainingDays > 10);
 });
+
+test('flags surplus before rollover when < 24h left and >= 25% quota remains unused', () => {
+  const fakeNow = Date.parse('2026-10-05T10:00:00+08:00');
+  const soonReset = '2026-10-05T22:00';
+  const res = calculateWeeklyPace(40, soonReset, 7, fakeNow);
+  assert.equal(res.isValid, true);
+  assert.equal(res.tier, 'comfortable');
+  assert.equal(res.badgeEn, 'Surplus Before Rollover');
+  assert.match(res.summaryEn, /does not carry over/);
+});

@@ -20,10 +20,14 @@ tldr:
   - Cursor reports roughly 80% on a held-out sqllogictest suite after four hours with the new Grok 4.5 swarm; all new configurations eventually passed the suite.
   - The experiment uses tree decomposition, shared decisions, dedicated merging, file decomposition and multiple review perspectives.
   - Benchmark completion does not establish production SQLite compatibility or reliability; T Salon has not independently reproduced the runs.
-faq: []
+faq:
+  - question: "How did Cursor's Grok 4.5 agent swarm build a Rust SQLite implementation?"
+    answer: "Cursor coordinated multiple AI coding agents using tree task decomposition, shared architectural decisions, dedicated merge agents, and multi-perspective code review against the sqllogictest suite."
+  - question: "Does passing 80%+ of sqllogictest mean an AI agent swarm built production-ready SQLite?"
+    answer: "No. Passing a held-out SQL logic test suite demonstrates multi-agent coordination on specification benchmarks, but does not establish crash safety, concurrency correctness, or production storage reliability."
 seo:
-  title: "Cursor’s SQLite Agent Swarm: Coordination and Benchmark Limits"
-  description: An analysis of Cursor’s SQLite experiment, its five coordination problems and engineering responses, with clear limits on what sqllogictest results establish.
+  title: "Cursor SQLite Rust Agent Swarm (Grok 4.5): Architecture & Limits"
+  description: "Technical breakdown of Cursor's Grok 4.5 multi-agent swarm building SQLite in Rust: tree decomposition, merge agents, sqllogictest scores, and production limits."
   noindex: false
 updatedAt: 2026-09-27
 citations:

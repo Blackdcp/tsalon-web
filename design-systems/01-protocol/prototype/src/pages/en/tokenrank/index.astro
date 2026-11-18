@@ -11,6 +11,17 @@ import { resolveRankQuery, secondaryRankMetric } from '../../../lib/tokenrank-do
 export const prerender = false;
 
 const { time: timeFilter, metric: metricFilter } = resolveRankQuery(Astro.url.searchParams);
+const sortMode = Astro.url.searchParams.get('sort') === 'cache' ? 'cache' : 'metric';
+const userCacheRate = (user: any): number => {
+  let cacheRead = 0;
+  let total = 0;
+  for (const [k, raw] of Object.entries(user?.tokens || {})) {
+    if (k === 'total' || k === 'history' || !raw || typeof raw !== 'object') continue;
+    cacheRead += Number((raw as any).cache_read) || 0;
+    total += Number((raw as any).total) || 0;
+  }
+  return total > 0 ? Math.min(100, (cacheRead / total) * 100) : 0;
+};
 const rankValue = (user: any) => Number(user?.metrics?.[metricFilter]) || 0;
 const secondaryMetric = secondaryRankMetric(metricFilter);
 const secondaryValue = (user: any) => Number(user?.metrics?.[secondaryMetric]) || 0;
@@ -20,6 +31,9 @@ let stats = { totalUsers: 0, totalTokens: 0 };
 try {
   leaderboard = await getLeaderboard(100, timeFilter, metricFilter);
   stats = await getGlobalStats(leaderboard, metricFilter);
+  if (sortMode === 'cache') {
+    leaderboard = [...leaderboard].sort((a, b) => userCacheRate(b) - userCacheRate(a) || rankValue(b) - rankValue(a));
+  }
 } catch (e) {
   console.error('Failed to fetch leaderboard data:', e);
 }
@@ -93,6 +107,7 @@ const seoJsonLd = [
     url: tokenRankUrl,
     creator: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
     publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    license: 'https://creativecommons.org/licenses/by/4.0/',
     isAccessibleForFree: true,
     inLanguage: 'en',
     keywords: ['AI coding', 'token consumption', 'Codex', 'Claude Code', 'developer productivity'],
@@ -335,18 +350,19 @@ seoJsonLd.push({
     <!-- Time Filters -->
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
-        <a href={`?time=today&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>Today</a>
-        <a href={`?time=yesterday&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>Yesterday</a>
-        <a href={`?time=3d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>3D</a>
-        <a href={`?time=7d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>7D</a>
-        <a href={`?time=30d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>30D</a>
-        <a href={`?time=90d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>90D</a>
-        <a href={`?time=all&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>All</a>
+        <a rel="nofollow" href={`?time=today&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>Today</a>
+        <a rel="nofollow" href={`?time=yesterday&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>Yesterday</a>
+        <a rel="nofollow" href={`?time=3d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>3D</a>
+        <a rel="nofollow" href={`?time=7d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>7D</a>
+        <a rel="nofollow" href={`?time=30d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>30D</a>
+        <a rel="nofollow" href={`?time=90d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>90D</a>
+        <a rel="nofollow" href={`?time=all&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>All</a>
       </div>
       <div class="time-filter-pills metric-filter-pills">
-        <a href={`?time=${timeFilter}&metric=total`} class={`pill-item ${metricFilter === 'total' ? 'active' : ''}`}>With cache</a>
-        <a href={`?time=${timeFilter}&metric=norm`} class={`pill-item ${metricFilter === 'norm' ? 'active' : ''}`}>No cache</a>
-        <a href={`?time=${timeFilter}&metric=cost`} class={`pill-item ${metricFilter === 'cost' ? 'active' : ''}`}>Estimated cost</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=total`} class={`pill-item ${sortMode !== 'cache' && metricFilter === 'total' ? 'active' : ''}`}>With cache</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=norm`} class={`pill-item ${sortMode !== 'cache' && metricFilter === 'norm' ? 'active' : ''}`}>No cache</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=cost`} class={`pill-item ${sortMode !== 'cache' && metricFilter === 'cost' ? 'active' : ''}`}>Estimated cost</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=total&sort=cache`} class={`pill-item ${sortMode === 'cache' ? 'active' : ''}`}>⚡ Cache Efficiency</a>
       </div>
 
       <div class="date-display">
@@ -460,6 +476,9 @@ seoJsonLd.push({
                     else if (t.includes('claude')) tagClass = 'tag-claude';
                     return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, metricFilter)}</span>;
                 })}
+                {userCacheRate(user) > 0 && (
+                  <span class="tool-tag" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;">⚡ Cache {userCacheRate(user).toFixed(1)}%</span>
+                )}
               </div>
               <div class="lb-col-tokens">
                 <div class="lb-num-tokens">{formatDisplayAmount(rankValue(user), metricFilter)}</div>

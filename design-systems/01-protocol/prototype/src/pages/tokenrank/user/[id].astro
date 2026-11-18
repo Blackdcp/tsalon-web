@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import TokenRankBadgeEmbed from '../../../components/TokenRankBadgeEmbed.astro';
 import { getUserRankData, getLeaderboard, getUserAnalytics } from '../../../lib/kv';
 import { beijingDateString, beijingDateNDaysAgo } from '../../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../../lib/token-pricing.mjs';
@@ -297,16 +298,16 @@ const profileJsonLd = [
     </header>
 
     <div class="tabs">
-      <a href={`?time=today&metric=${metricFilter}`} class={timeFilter === 'today' ? 'active' : ''}>今天</a>
-      <a href={`?time=yesterday&metric=${metricFilter}`} class={timeFilter === 'yesterday' ? 'active' : ''}>昨天</a>
-      <a href={`?time=3d&metric=${metricFilter}`} class={timeFilter === '3d' ? 'active' : ''}>近3天</a>
-      <a href={`?time=7d&metric=${metricFilter}`} class={timeFilter === '7d' ? 'active' : ''}>近7天</a>
-      <a href={`?time=30d&metric=${metricFilter}`} class={timeFilter === '30d' ? 'active' : ''}>近30天</a>
-      <a href={`?time=90d&metric=${metricFilter}`} class={timeFilter === '90d' ? 'active' : ''}>近90天</a>
-      <a href={`?time=all&metric=${metricFilter}`} class={timeFilter === 'all' ? 'active' : ''}>整体</a>
-      <a href={`?time=${timeFilter}&metric=total`} class={metricFilter === 'total' ? 'active' : ''}>含缓存</a>
-      <a href={`?time=${timeFilter}&metric=norm`} class={metricFilter === 'norm' ? 'active' : ''}>不含缓存</a>
-      <a href={`?time=${timeFilter}&metric=cost`} class={metricFilter === 'cost' ? 'active' : ''}>预估费用</a>
+      <a rel="nofollow" href={`?time=today&metric=${metricFilter}`} class={timeFilter === 'today' ? 'active' : ''}>今天</a>
+      <a rel="nofollow" href={`?time=yesterday&metric=${metricFilter}`} class={timeFilter === 'yesterday' ? 'active' : ''}>昨天</a>
+      <a rel="nofollow" href={`?time=3d&metric=${metricFilter}`} class={timeFilter === '3d' ? 'active' : ''}>近3天</a>
+      <a rel="nofollow" href={`?time=7d&metric=${metricFilter}`} class={timeFilter === '7d' ? 'active' : ''}>近7天</a>
+      <a rel="nofollow" href={`?time=30d&metric=${metricFilter}`} class={timeFilter === '30d' ? 'active' : ''}>近30天</a>
+      <a rel="nofollow" href={`?time=90d&metric=${metricFilter}`} class={timeFilter === '90d' ? 'active' : ''}>近90天</a>
+      <a rel="nofollow" href={`?time=all&metric=${metricFilter}`} class={timeFilter === 'all' ? 'active' : ''}>整体</a>
+      <a rel="nofollow" href={`?time=${timeFilter}&metric=total`} class={metricFilter === 'total' ? 'active' : ''}>含缓存</a>
+      <a rel="nofollow" href={`?time=${timeFilter}&metric=norm`} class={metricFilter === 'norm' ? 'active' : ''}>不含缓存</a>
+      <a rel="nofollow" href={`?time=${timeFilter}&metric=cost`} class={metricFilter === 'cost' ? 'active' : ''}>预估费用</a>
       <span class="current-date">{todayDateStr}</span>
     </div>
 
@@ -508,6 +509,8 @@ const profileJsonLd = [
         </table>
       </div>
     </div>
+
+    <TokenRankBadgeEmbed userId={id as string} userName={userData.name} locale="zh" />
 
   </div>
 </BaseLayout>

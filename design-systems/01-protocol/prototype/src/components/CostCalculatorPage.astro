@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import CommunityConversionCard from './CommunityConversionCard.astro';
-import { MODEL_PRICING, PRICING_SNAPSHOT_DATE } from '../lib/token-pricing.mjs';
+import { PRICING_SNAPSHOT_DATE } from '../lib/token-pricing.mjs';
+import { CALCULATOR_MODELS } from '../lib/cost-calculator.mjs';
 
 interface Props {
   locale: 'zh' | 'en';
@@ -13,14 +14,7 @@ const pagePath = isEn ? '/en/calculator/' : '/calculator/';
 const altPath = isEn ? '/calculator/' : '/en/calculator/';
 const pageUrl = new URL(pagePath, Astro.site).toString();
 
-const models = [
-  { id: 'claude-3-5-sonnet', label: 'Claude 3.5 / Sonnet', subTier: '$20 Pro / $100 Max', pricing: MODEL_PRICING['claude-3-5-sonnet'] },
-  { id: 'claude-fable-5', label: 'Claude Opus / Fable 5', subTier: '$100 / $200 Max', pricing: MODEL_PRICING['claude-fable-5'] },
-  { id: 'gpt-5.6-sol', label: 'OpenAI Codex / GPT-5.6 Sol', subTier: '$20 Plus / $200 Pro', pricing: MODEL_PRICING['gpt-5.6-sol'] },
-  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', subTier: 'API / Standard', pricing: MODEL_PRICING['gpt-5.6-terra'] },
-  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (Mini)', subTier: 'API / High-volume', pricing: MODEL_PRICING['gpt-5.6-luna'] },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', subTier: '$19.99 Google AI Pro', pricing: MODEL_PRICING['gemini-2.5-pro'] },
-];
+const models = CALCULATOR_MODELS;
 
 const faqList = isEn
   ? [
@@ -74,6 +68,16 @@ const scriptLabels = isEn
       apiWins: 'API wins ($',
       sub200Wins: '$200 Pro wins (+$',
       under200: 'Under $200 ($',
+      syncing: 'Loading TokenRank...',
+      syncedPrefix: 'Loaded live TokenRank baseline: cache ',
+      syncFailed: 'Live stats unavailable right now',
+      copiedLink: 'Link copied!',
+      copyLink: 'Copy shareable link',
+      copiedSummary: 'Summary copied!',
+      copySummary: 'Copy cost summary',
+      inputCostLabel: 'Fresh input',
+      cacheCostLabel: 'Cache read',
+      outputCostLabel: 'Output',
     }
   : {
       billionUnit: '十亿',
@@ -89,6 +93,16 @@ const scriptLabels = isEn
       apiWins: 'API 更省 ($',
       sub200Wins: '$200 Pro 值 (省 $',
       under200: '未超 $200 ($',
+      syncing: '正在拉取 TokenRank...',
+      syncedPrefix: '已导入社区实测均值：缓存命中率 ',
+      syncFailed: '暂时无法读取社区实时均值',
+      copiedLink: '参数链接已复制 ✓',
+      copyLink: '复制参数分享链接',
+      copiedSummary: '测算结论已复制 ✓',
+      copySummary: '复制文本测算结论',
+      inputCostLabel: '新输入费用',
+      cacheCostLabel: '缓存读费用',
+      outputCostLabel: '输出费用',
     };
 
 const jsonLd = [
@@ -139,8 +153,8 @@ const jsonLd = [
         <h1>{isEn ? 'AI Coding Cost & Subscription Break-Even Calculator' : 'AI 编程 Token 成本与订阅盈亏计算器'}</h1>
         <p class="calc-lead">
           {isEn
-            ? 'Estimate your monthly API-equivalent spend across Claude, Codex, and Gemini from daily token volume and prompt cache hit rate—and find out when a $20, $100, or $200 flat-rate plan beats pay-as-you-go API.'
-            : '根据每日 Token 消耗量、工作天数与 Prompt 缓存命中率，实时测算 Claude、Codex、Gemini 的月度 API 等效成本，直接对比 $20 / $100 / $200 订阅套餐的盈亏平衡点。'}
+            ? 'Estimate your monthly API-equivalent spend across Claude, Codex, Cursor, DeepSeek, and Gemini from daily token volume and prompt cache hit rate—and find out when a $20, $100, or $200 flat-rate plan beats pay-as-you-go API.'
+            : '根据每日 Token 消耗量、工作天数与 Prompt 缓存命中率，实时测算 Claude、Codex、Cursor、DeepSeek、Gemini 的月度 API 等效成本，直接对比 $20 / $100 / $200 订阅套餐的盈亏平衡点。'}
         </p>
 
         <div class="preset-row" role="group" aria-label={isEn ? 'Usage presets' : '用量预设场景'}>
@@ -157,7 +171,11 @@ const jsonLd = [
           <button type="button" class="preset-btn" data-daily="25" data-cache="0" data-output="2" data-days="22">
             {isEn ? 'Cache-Miss Stress Test (0% Cache)' : '缓存全失效对照 (0% 缓存)'}
           </button>
+          <button type="button" id="import-tokenrank-btn" class="preset-btn preset-live">
+            {isEn ? 'Import Live TokenRank Average' : '导入 TokenRank 社区实测均值'}
+          </button>
         </div>
+        <p id="live-import-status" class="mono live-status-note" hidden></p>
       </header>
 
       <section class="calc-workspace" aria-label={isEn ? 'Cost calculator controls and results' : '成本计算参数与结果'}>
@@ -202,6 +220,11 @@ const jsonLd = [
             </label>
             <input type="range" id="active-days" min="1" max="31" step="1" value="22" />
           </div>
+
+          <div class="share-actions">
+            <button type="button" id="copy-calc-link" class="btn btn-outline">{scriptLabels.copyLink}</button>
+            <button type="button" id="copy-calc-summary" class="btn btn-dark">{scriptLabels.copySummary}</button>
+          </div>
         </div>
 
         <div class="calc-summary-panel">
@@ -221,6 +244,18 @@ const jsonLd = [
             <div class="kpi-box">
               <span class="kpi-label">{isEn ? 'Codex / Opus vs $200 Plan' : '高阶模型对比 $200 订阅'}</span>
               <strong id="kpi-verdict-200" class="kpi-value verdict-sub">—</strong>
+            </div>
+          </div>
+
+          <div class="cost-split-card">
+            <div class="cost-split-head">
+              <span class="mono">{isEn ? 'CLAUDE SONNET BILL COMPOSITION' : 'CLAUDE SONNET 月度账单构成拆解'}</span>
+              <span id="cost-split-legend" class="mono">—</span>
+            </div>
+            <div class="cost-split-bar" aria-hidden="true">
+              <div id="bar-in" class="bar-seg seg-in" style="width: 40%;"></div>
+              <div id="bar-cache" class="bar-seg seg-cache" style="width: 30%;"></div>
+              <div id="bar-out" class="bar-seg seg-out" style="width: 30%;"></div>
             </div>
           </div>
 
@@ -254,6 +289,25 @@ const jsonLd = [
               ? `Note: Uses the T Salon TokenRank pricing snapshot (${PRICING_SNAPSHOT_DATE}). Assumes fresh input = 100% − cache% − output%. Real API bills vary by provider cache TTL and long-context tiers.`
               : `注：单价与 TokenRank 排行榜（${PRICING_SNAPSHOT_DATE} 快照）一致；新输入占比按 100% − 缓存占比 − 输出占比计算。实际账单受长上下文加价及缓存写入 TTL 影响。`}
           </p>
+          <p class="table-footnote" style="margin-top:0.5rem;">
+            {isEn ? (
+              <>
+                📖 Deep dives:{' '}
+                <a href="/en/reports/">2026 AI Coding Token & Cache Benchmark Report →</a> ·{' '}
+                <a href="/en/articles/prompt-caching-cost-and-quota-guide/">Prompt Caching Cost Breakdown →</a> ·{' '}
+                <a href="/en/articles/long-horizon-agent-refactoring-within-5-hour-limit/">Long-Horizon Refactoring Within 5h Limits →</a> ·{' '}
+                <a href="/en/tokenrank/connect/">Run Local --dry-run Token Checkup →</a>
+              </>
+            ) : (
+              <>
+                📖 配套深度实测与报告：{' '}
+                <a href="/reports/">《2026 AI 编程真实消耗与缓存基准报告》→</a> ·{' '}
+                <a href="/articles/prompt-caching-cost-and-quota-guide/">《Prompt Caching 成本定量拆解》→</a> ·{' '}
+                <a href="/articles/long-horizon-agent-refactoring-within-5-hour-limit/">《长链路 Agent 重构防 5 小时限流手册》→</a> ·{' '}
+                <a href="/tokenrank/connect/">免登录跑一次本地 Token 体检 →</a>
+              </>
+            )}
+          </p>
         </div>
       </section>
 
@@ -280,12 +334,25 @@ const jsonLd = [
     const cacheInput = document.getElementById('cache-rate');
     const outputInput = document.getElementById('output-rate');
     const daysInput = document.getElementById('active-days');
-    const presetBtns = document.querySelectorAll('.preset-btn');
+    const presetBtns = document.querySelectorAll('.preset-btn:not(#import-tokenrank-btn)');
+    const importBtn = document.getElementById('import-tokenrank-btn');
+    const liveNote = document.getElementById('live-import-status');
+    const copyLinkBtn = document.getElementById('copy-calc-link');
+    const copySummaryBtn = document.getElementById('copy-calc-summary');
+
+    // Hydrate from URL query params if present
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('daily')) dailyInput.value = String(Math.min(300, Math.max(1, Number(params.get('daily')) || 25)));
+    if (params.get('cache')) cacheInput.value = String(Math.min(96, Math.max(0, Number(params.get('cache')) || 85)));
+    if (params.get('out')) outputInput.value = String(Math.min(20, Math.max(1, Number(params.get('out')) || 2)));
+    if (params.get('days')) daysInput.value = String(Math.min(31, Math.max(1, Number(params.get('days')) || 22)));
 
     const formatTokens = (millions) => {
       if (millions >= 1000) return (millions / 1000).toFixed(2) + scriptLabels.billionUnit;
       return millions.toFixed(1).replace(/\.0$/, '') + 'M';
     };
+
+    let latestSummaryText = '';
 
     const update = () => {
       const dailyM = Number(dailyInput.value) || 1;
@@ -310,10 +377,17 @@ const jsonLd = [
 
       let sonnetCost = 0;
       let codexCost = 0;
+      let sonnetSplit = { inCost: 0, cacheCost: 0, outCost: 0 };
 
       models.forEach((m) => {
-        const cost = inM * m.pricing.input + cacheM * m.pricing.cacheRead + outM * m.pricing.output;
-        if (m.id === 'claude-3-5-sonnet') sonnetCost = cost;
+        const inCost = inM * m.pricing.input;
+        const cacheCost = cacheM * m.pricing.cacheRead;
+        const outCost = outM * m.pricing.output;
+        const cost = inCost + cacheCost + outCost;
+        if (m.id === 'claude-3-5-sonnet') {
+          sonnetCost = cost;
+          sonnetSplit = { inCost, cacheCost, outCost };
+        }
         if (m.id === 'gpt-5.6-sol') codexCost = cost;
 
         const row = document.querySelector(`tr[data-model="${m.id}"]`);
@@ -336,6 +410,15 @@ const jsonLd = [
         row.querySelector('.verdict-cell').textContent = verdict;
       });
 
+      const inShare = sonnetCost > 0 ? (sonnetSplit.inCost / sonnetCost) * 100 : 0;
+      const cacheShare = sonnetCost > 0 ? (sonnetSplit.cacheCost / sonnetCost) * 100 : 0;
+      const outShare = sonnetCost > 0 ? (sonnetSplit.outCost / sonnetCost) * 100 : 0;
+      document.getElementById('bar-in').style.width = `${inShare.toFixed(1)}%`;
+      document.getElementById('bar-cache').style.width = `${cacheShare.toFixed(1)}%`;
+      document.getElementById('bar-out').style.width = `${outShare.toFixed(1)}%`;
+      document.getElementById('cost-split-legend').textContent =
+        `${scriptLabels.inputCostLabel} $${sonnetSplit.inCost.toFixed(0)} (${inShare.toFixed(0)}%) · ${scriptLabels.cacheCostLabel} $${sonnetSplit.cacheCost.toFixed(0)} (${cacheShare.toFixed(0)}%) · ${scriptLabels.outputCostLabel} $${sonnetSplit.outCost.toFixed(0)} (${outShare.toFixed(0)}%)`;
+
       document.getElementById('kpi-verdict-20').textContent = sonnetCost > 20
         ? `${scriptLabels.subWins}${(sonnetCost - 20).toFixed(0)})`
         : `${scriptLabels.apiWins}${sonnetCost.toFixed(0)})`;
@@ -343,6 +426,8 @@ const jsonLd = [
       document.getElementById('kpi-verdict-200').textContent = codexCost > 200
         ? `${scriptLabels.sub200Wins}${(codexCost - 200).toFixed(0)})`
         : `${scriptLabels.under200}${codexCost.toFixed(0)})`;
+
+      latestSummaryText = `T Salon AI Cost Check (${dailyM}M/day, ${cachePct}% cache, ${days}d): Sonnet API ≈ $${sonnetCost.toFixed(2)}/mo, Codex API ≈ $${codexCost.toFixed(2)}/mo -> ${window.location.origin}${window.location.pathname}?daily=${dailyM}&cache=${cachePct}&out=${outPct}&days=${days}`;
     };
 
     [dailyInput, cacheInput, outputInput, daysInput].forEach((el) => {
@@ -362,6 +447,51 @@ const jsonLd = [
         daysInput.value = btn.dataset.days;
         update();
       });
+    });
+
+    importBtn?.addEventListener('click', async () => {
+      const origText = importBtn.textContent;
+      importBtn.textContent = scriptLabels.syncing;
+      try {
+        const res = await fetch('/tokenrank/stats.json');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const devs = Math.max(1, Number(data?.totals?.developers) || 1);
+        const avgDailyM = Math.max(1, Math.min(300, Math.round((Number(data?.totals?.tokensTotal) || 0) / devs / 1_000_000)));
+        const cacheRate = Math.max(0, Math.min(96, Math.round(Number(data?.totals?.cacheHitRate) || 85)));
+        dailyInput.value = String(avgDailyM);
+        cacheInput.value = String(cacheRate);
+        presetBtns.forEach((b) => b.classList.remove('active'));
+        update();
+        if (liveNote) {
+          liveNote.textContent = `${scriptLabels.syncedPrefix}${cacheRate}% (${avgDailyM}M/day)`;
+          liveNote.hidden = false;
+        }
+      } catch {
+        if (liveNote) {
+          liveNote.textContent = scriptLabels.syncFailed;
+          liveNote.hidden = false;
+        }
+      } finally {
+        importBtn.textContent = origText;
+      }
+    });
+
+    copyLinkBtn?.addEventListener('click', async () => {
+      const url = `${window.location.origin}${window.location.pathname}?daily=${dailyInput.value}&cache=${cacheInput.value}&out=${outputInput.value}&days=${daysInput.value}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        copyLinkBtn.textContent = scriptLabels.copiedLink;
+        setTimeout(() => { copyLinkBtn.textContent = scriptLabels.copyLink; }, 2000);
+      } catch {}
+    });
+
+    copySummaryBtn?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(latestSummaryText);
+        copySummaryBtn.textContent = scriptLabels.copiedSummary;
+        setTimeout(() => { copySummaryBtn.textContent = scriptLabels.copySummary; }, 2000);
+      } catch {}
     });
 
     update();
@@ -420,11 +550,21 @@ const jsonLd = [
     font-size: var(--text-13);
     cursor: pointer;
   }
+  .preset-live {
+    border-color: #2563eb;
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
   .preset-btn.active,
   .preset-btn:hover {
     background: var(--color-ink-950);
     color: #fff;
     border-color: var(--color-ink-950);
+  }
+  .live-status-note {
+    margin: 0.75rem 0 0;
+    font-size: var(--text-12);
+    color: #1d4ed8;
   }
   .calc-workspace {
     display: grid;
@@ -456,11 +596,18 @@ const jsonLd = [
     color: var(--text-tertiary);
     line-height: 1.5;
   }
+  .share-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-default);
+  }
   .summary-kpis {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-4);
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-5);
   }
   .kpi-box {
     padding: var(--space-4);
@@ -481,6 +628,31 @@ const jsonLd = [
     font-size: 1.05rem;
     color: #2563eb;
   }
+  .cost-split-card {
+    padding: var(--space-4);
+    border: 1px solid var(--border-default);
+    background: #fff;
+    margin-bottom: var(--space-5);
+  }
+  .cost-split-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: var(--text-12);
+    color: var(--text-secondary);
+    margin-bottom: 0.65rem;
+  }
+  .cost-split-bar {
+    display: flex;
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #f1f5f9;
+  }
+  .seg-in { background: #2563eb; }
+  .seg-cache { background: #10b981; }
+  .seg-out { background: #f59e0b; }
   .table-wrap {
     overflow-x: auto;
     border: 1px solid var(--border-default);

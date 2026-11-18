@@ -27,8 +27,8 @@ faq:
   - question: 每周规划计算器是怎么帮团队控制消耗节奏的？
     answer: 只要输入当前已消耗的百分比和预计重置日期，计算器就会根据剩余天数自动计算每日安全消耗预算，并在消耗速度过快时给出明确的耗尽预警和预计枯竭日期。
 seo:
-  title: AI 配额重置雷达实操指南：搞懂 Codex、Claude 与 Grok 的额度规则与用量规划
-  description: 写代码或跑 Agent 时总被额度卡住？T Salon AI 配额重置雷达汇总 Codex、Claude 与 Grok 的全网重置与发卡动态，教你推算 5 小时滑动恢复时间，用周度计算器稳住消耗步调，并把报警推送到飞书与企业微信群。
+  title: Codex / GPT / Claude 重置雷达实操指南：额度规则与 5 小时恢复计算
+  description: 写代码或跑 Agent 被额度卡住？T Salon 重置雷达（WhenReset）实时汇总 OpenAI Codex（Tibo）、Claude Code、Grok 与 Gemini 的全网重置与发卡动态，教你推算 5 小时滑动恢复时间并接入飞书/MCP 告警。
   noindex: false
 citations:
   - label: T Salon AI 配额重置雷达

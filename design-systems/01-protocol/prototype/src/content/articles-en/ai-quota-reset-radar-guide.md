@@ -29,8 +29,8 @@ faq:
   - question: "How does the weekly quota planner prevent teams from burning out early?"
     answer: "Given your current consumption percentage and target reset date, the planner computes an allowable daily budget for the remaining days and flags early-exhaustion risks with an exact predicted cutoff date."
 seo:
-  title: "AI Quota Reset Radar: How to Track Codex, Claude & Grok Limits"
-  description: "Tired of hitting rate limits mid-refactor? Learn how T Salon Reset Radar tracks Codex, Claude, and Grok resets, projects recovery times, and alerts your team."
+  title: "Codex & Claude Reset Tracker: 5-Hour Limit & Quota Radar Guide"
+  description: "Track OpenAI Codex, ChatGPT, Claude Code, Grok, and Gemini quota resets with T Salon Reset Radar. Calculate 5-hour recovery times and plan weekly budgets."
   noindex: false
 citations:
   - label: "T Salon AI Quota Reset Radar"

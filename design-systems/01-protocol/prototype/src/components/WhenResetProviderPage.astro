@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import CommunityConversionCard from './CommunityConversionCard.astro';
 import { getResetRadarData } from '../lib/reset-radar';
 
-type ProviderKey = 'codex' | 'claude' | 'grok';
+type ProviderKey = 'codex' | 'claude' | 'grok' | 'google';
 
 interface Props {
   provider: ProviderKey;
@@ -223,6 +223,74 @@ const metaByProvider: Record<ProviderKey, {
       },
     ],
   },
+  google: {
+    titleZh: 'Google Gemini / Antigravity 额度重置时间与每日 15:00/16:00 清零雷达 | T Salon',
+    titleEn: 'Google Gemini & Antigravity Quota Reset Radar (Daily Midnight PT & 5h Window) | T Salon',
+    descZh: '实时换算 Google Gemini API / Gemini CLI / AI Studio 每日太平洋午夜（北京时间 15:00 夏令时 / 16:00 冬令时）RPD 配额清零倒计时，并提供 Antigravity 按模型独立配额池与 5 小时窗口恢复计算器。',
+    descEn: 'Live countdown for Google Gemini API, Gemini CLI, and AI Studio daily Midnight PT (15:00 PDT / 16:00 PST UTC+8) quota resets, plus Antigravity per-model pool rules and 5-hour window calculator.',
+    h1Zh: 'Google Gemini / Antigravity 额度重置与每日清零雷达',
+    h1En: 'Google Gemini & Antigravity Quota Reset Radar',
+    introZh: '追踪 Google Gemini CLI、Google AI Studio 每日太平洋午夜（北京时间 15:00 / 16:00）RPD 配额自动清零倒计时，同步 Antigravity / Google AI Pro & Ultra 全网重置事件、按模型独立计池规则与 5 小时窗口恢复计算器。',
+    introEn: 'Track Google Gemini CLI and AI Studio daily Midnight Pacific Time (15:00 PDT / 16:00 PST in UTC+8) RPD resets, Antigravity per-model quota isolation rules, global reset notices, and 5-hour rolling window recovery times.',
+    guideTitleZh: 'Google Gemini CLI / AI Studio 与 Antigravity 三层配额重置规则',
+    guideTitleEn: 'Google Gemini CLI, AI Studio & Antigravity 3-Tier Quota Reset Rules',
+    guidePointsZh: [
+      {
+        title: '每日固定清零（RPD）：太平洋时间午夜 00:00（北京时间 15:00 或 16:00）',
+        body: 'Google AI Studio 与 Gemini CLI 免费/按量层级的每日请求上限（RPD）严格在太平洋时间午夜 00:00 清零：北美夏令时（PDT，3 月中旬至 11 月初）为每日北京时间 15:00；北美冬令时（PST，11 月初至 3 月中旬）为每日北京时间 16:00。',
+      },
+      {
+        title: 'Antigravity 按模型独立计池（Per-Model Quota Pools）',
+        body: '与单一账号总池不同，Google Antigravity 按具体模型层级独立计量配额。当高阶推理模型触发限额时，直接切换至 Flash 或 Flash-Lite 模型通常仍可继续编码，无需原地干等。',
+      },
+      {
+        title: '5 小时滑动窗口与全局容量刷新',
+        body: 'Google AI Pro / Ultra 及 Antigravity 高阶模型采用滚动窗口恢复机制（可用下方 5 小时计算器按首条请求推算），且在重大版本发布或里程碑节点会不定期触发全量用户配额桶刷新。',
+      },
+    ],
+    guidePointsEn: [
+      {
+        title: 'Daily RPD Reset: Midnight Pacific Time (15:00 PDT / 16:00 PST in UTC+8)',
+        body: 'Google AI Studio and Gemini CLI daily request quotas (RPD) reset at 00:00 America/Los_Angeles: 15:00 Beijing Time (07:00 UTC) during Daylight Saving Time (PDT) and 16:00 Beijing Time (08:00 UTC) during Standard Time (PST).',
+      },
+      {
+        title: 'Antigravity Per-Model Quota Isolation',
+        body: 'Google Antigravity meters quota per model tier rather than a single monolithic lock. Exhausting a flagship reasoning model generally leaves Flash and Flash-Lite models available so you can finish verification tasks.',
+      },
+      {
+        title: '5-Hour Rolling Windows & Promotional Flushes',
+        body: 'Consumer Pro/Ultra and IDE agent tiers enforce rolling capacity windows alongside occasional global milestone bucket flushes tracked below.',
+      },
+    ],
+    faqZh: [
+      {
+        q: 'Google Gemini CLI 和 AI Studio 的每日免费额度（RPD）几点重置？',
+        a: '官方固定在太平洋时间午夜 00:00（Midnight PT）重置。换算成北京时间：夏令时（3 月–11 月）为每天下午 15:00，冬令时（11 月–次年 3 月）为每天下午 16:00。注意每分钟限制（RPM/TPM）是按分钟滚动恢复的，无需等到下午。',
+      },
+      {
+        q: '在 Antigravity 遇到模型配额耗尽报错，为什么切换成 Flash 还能用？',
+        a: '因为 Antigravity 采用按模型独立计池（Per-Model Quota）机制。重度规划和长上下文循环会优先耗尽旗舰推理模型配额，此时将子任务或简单修改切换到 Flash / Flash-Lite 可绕过单模型锁死。',
+      },
+      {
+        q: '为什么刚过北京时间 16:00，AI Studio 面板还显示额度已满？',
+        a: 'Google AI Studio 网页控制台的统计图表有时存在数分钟至半小时的展示延迟。只要已过太平洋午夜重置点，直接在终端发起一次新的 API / CLI 请求即可验证后端配额是否已实际放行。',
+      },
+    ],
+    faqEn: [
+      {
+        q: 'What time do Google Gemini API and Gemini CLI daily quotas (RPD) reset?',
+        a: 'Daily quotas reset at Midnight Pacific Time (00:00 PT), which corresponds to 07:00 UTC (15:00 Beijing Time) during PDT and 08:00 UTC (16:00 Beijing Time) during PST. Per-minute limits (RPM/TPM) recover on a 60-second rolling basis.',
+      },
+      {
+        q: 'Why can I still use Flash when a flagship model hits a quota cap in Antigravity?',
+        a: 'Antigravity enforces per-model quota buckets. Exhausting a heavy reasoning model does not lock out lighter tiers like Flash or Flash-Lite.',
+      },
+      {
+        q: 'Why does the AI Studio dashboard still show 100% used right after Midnight PT?',
+        a: 'The visual usage dashboard can lag behind the backend quota counter right at rollover. Sending a fresh API or CLI request is the most reliable way to verify that your daily bucket has cleared.',
+      },
+    ],
+  },
 };
 
 const meta = metaByProvider[provider];
@@ -315,6 +383,10 @@ const jsonLd = [
             <span class="tab-icon">🚀</span>
             <span class="tab-name">xAI Grok</span>
           </a>
+          <a href={isEn ? '/en/whenreset/google/' : '/whenreset/google/'} class:list={['tab-btn', { active: provider === 'google' }]} aria-current={provider === 'google' ? 'page' : undefined}>
+            <span class="tab-icon">✨</span>
+            <span class="tab-name">Google Gemini</span>
+          </a>
         </nav>
       </section>
 
@@ -334,6 +406,27 @@ const jsonLd = [
                 {isEn ? 'Source Post' : '查看来源原帖'} <span>↗</span>
               </a>
             )}
+          </div>
+        )}
+
+        {pData.dailySchedule && (
+          <div class="alert-banner" style="background:#eff6ff; border-color:#bfdbfe; margin-bottom:1.25rem;">
+            <div class="alert-icon">🕒</div>
+            <div class="alert-content">
+              <div class="alert-title" style="color:#1e3a8a;">
+                {isEn
+                  ? `Google Daily RPD Reset Schedule: ${pData.dailySchedule.nextDateBeijing} ${pData.dailySchedule.nextTimeBeijing} (UTC+8)`
+                  : `Google 每日 RPD 固定清零时间：北京时间 ${pData.dailySchedule.nextDateBeijing} ${pData.dailySchedule.nextTimeBeijing}`}
+              </div>
+              <p class="alert-text" style="color:#1e40af; margin:0.25rem 0;">
+                {isEn ? pData.dailySchedule.countdownEn : pData.dailySchedule.countdownZh} · {isEn ? pData.dailySchedule.ruleNoteEn : pData.dailySchedule.ruleNoteZh}
+              </p>
+              <div class="alert-meta" style="color:#3b82f6;">
+                {isEn
+                  ? `Last daily Midnight PT reset: ${pData.dailySchedule.lastDailyBeijing} (UTC+8)`
+                  : `最近一次太平洋午夜清零：北京时间 ${pData.dailySchedule.lastDailyBeijing}`}
+              </div>
+            </div>
           </div>
         )}
 
@@ -393,6 +486,13 @@ const jsonLd = [
               <div class="result-label">{isEn ? 'Assumed window end (UTC+8)' : '假设窗口结束时间（北京时间）'}</div>
               <div class="result-time" id={`${provider}-calc-result`}>—</div>
               <div class="result-tips" id={`${provider}-calc-tips`}>{isEn ? 'Enter a known start, then select Calculate.' : '输入已知起点后点击计算按钮。'}</div>
+              <div class="result-hook" style="margin-top:0.55rem; padding-top:0.55rem; border-top:1px dashed rgba(148,163,184,0.35); font-size:0.78rem; color:var(--text-secondary);">
+                {isEn ? (
+                  <>Tired of manual checks? <a href="/whenreset/rss.xml">Subscribe via RSS</a> · <a href="/en/about/#join">Join T Salon Community →</a></>
+                ) : (
+                  <>不想每次手动算或错过全网刷新？<a href="/whenreset/rss.xml">订阅 RSS / 接入群机器人</a>，或 <a href="/about/#join">加入 T Salon 开发者交流群同步实时状态 →</a></>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -421,7 +521,15 @@ const jsonLd = [
                   <tr>
                     <td class="cell-date">{e.landedAtBeijing}</td>
                     <td>
-                      <span class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}>{isEn ? e.typeLabelEn : e.typeLabelZh}</span>
+                      <span
+                        class={`badge ${e.type === 'reset' ? 'badge-reset' : 'badge-card'}`}
+                        title={isEn ? e.rolloverRuleEn : e.rolloverRuleZh}
+                      >
+                        {isEn ? e.typeLabelEn : e.typeLabelZh}
+                      </span>
+                      <div style="font-size:0.72rem; color:var(--text-tertiary); margin-top:0.2rem;">
+                        {isEn ? e.categoryLabelEn : e.categoryLabelZh}
+                      </div>
                     </td>
                     <td class="cell-scope">{isEn ? e.scopeEn : e.scopeZh}</td>
                     <td class="cell-reason">{isEn ? e.reasonEn : e.reasonZh}</td>
@@ -457,6 +565,23 @@ const jsonLd = [
           <a href={guidePath}>{isEn ? 'Read the full AI Quota Reset Radar practical guide →' : '阅读《AI 配额重置雷达实操指南：额度规则与用量规划》全文 →'}</a>
           {' · '}
           <a href={isEn ? '/en/tokenrank/' : '/tokenrank/'}>{isEn ? 'View TokenRank real-world AI coding token benchmarks →' : '查看 TokenRank 社区 AI 编程 Token 消耗排行榜 →'}</a>
+          {' · '}
+          <a href={isEn
+            ? (provider === 'claude' ? '/en/errors/claude-5-hour-limit-reached/' : provider === 'codex' ? '/en/errors/codex-usage-limit-and-reset-card/' : provider === 'grok' ? '/en/errors/grok-supergrok-rate-limit/' : '/en/errors/gemini-cli-quota-exceeded-429/')
+            : (provider === 'claude' ? '/errors/claude-5-hour-limit-reached/' : provider === 'codex' ? '/errors/codex-usage-limit-and-reset-card/' : provider === 'grok' ? '/errors/grok-supergrok-rate-limit/' : '/errors/gemini-cli-quota-exceeded-429/')
+          }>
+            {isEn
+              ? (provider === 'claude' ? 'Fix Claude 5-hour limit errors →' : provider === 'codex' ? 'Fix Codex usage limit errors →' : provider === 'grok' ? 'Fix Grok rate limit errors →' : 'Fix Google Gemini / Antigravity 429 quota errors →')
+              : (provider === 'claude' ? '排查 Claude 5 小时限额报错 →' : provider === 'codex' ? '排查 Codex 用量限额报错 →' : provider === 'grok' ? '排查 Grok 频率限额报错 →' : '排查 Google Gemini / Antigravity 429 限额报错 →')}
+          </a>
+          {' · '}
+          <a href={isEn ? '/en/whenreset/claude-5-hour-calculator/' : '/whenreset/claude-5-hour-calculator/'}>{isEn ? 'Claude 5-Hour Calculator →' : 'Claude 5 小时计算器 →'}</a>
+          {' · '}
+          <a href={isEn ? '/en/whenreset/cursor-fast-requests/' : '/whenreset/cursor-fast-requests/'}>{isEn ? 'Cursor 500 Fast Requests →' : 'Cursor 500 次请求估算 →'}</a>
+          {' · '}
+          <a href={isEn ? '/en/articles/long-horizon-agent-refactoring-within-5-hour-limit/' : '/articles/long-horizon-agent-refactoring-within-5-hour-limit/'}>{isEn ? 'Long-Horizon Agent Refactoring Guide →' : '阅读《长链路重构防 5 小时限流手册》→'}</a>
+          {' · '}
+          <a href={isEn ? '/en/reports/' : '/reports/'}>{isEn ? '2026 Token & Cache Benchmark Report →' : '2026 AI 编程消耗与缓存基准报告 →'}</a>
         </p>
       </section>
 
@@ -530,7 +655,16 @@ const jsonLd = [
 
             <div class="planner-verdict-box">
               <div class="verdict-icon">💡</div>
-              <p id="weekly-calc-summary" class="verdict-text">{isEn ? 'Calculating usage pacing and recommended daily budgets from your input...' : '正在根据您的输入计算消耗节奏与剩余预算...'}</p>
+              <div>
+                <p id="weekly-calc-summary" class="verdict-text">{isEn ? 'Calculating usage pacing and recommended daily budgets from your input...' : '正在根据您的输入计算消耗节奏与剩余预算...'}</p>
+                <p style="margin:0.45rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+                  {isEn ? (
+                    <>Want to compare your actual burn against community averages? <a href="/en/calculator/">Check API break-even</a> · <a href="/en/tokenrank/connect/">Run local --dry-run token checkup →</a></>
+                  ) : (
+                    <>想知道你的消耗处于社区什么分位？<a href="/calculator/">测算订阅盈亏平衡点</a> · <a href="/tokenrank/connect/">免登录跑一次本地 Token 体检 →</a></>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
         </div>

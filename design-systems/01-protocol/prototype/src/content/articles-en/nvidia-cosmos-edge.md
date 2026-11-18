@@ -20,10 +20,16 @@ tldr:
   - Cosmos 3 Edge is a 4B world model for physical AI, covering understanding, prediction and action generation.
   - The model card specifies task-dependent runtimes and Linux/BF16 test conditions; action outputs still need robot and controller integration.
   - Physical modeling is approximate. This article has not verified consumer-GPU fine-tuning, mobile NPUs or CoreML ports.
-faq: []
+faq:
+  - question: "What are the official hardware requirements for NVIDIA Cosmos 3 Edge (Cosmos3-Edge)?"
+    answer: "According to NVIDIA's official model card, Cosmos 3 Edge is a 4B-parameter physical AI world model validated on Linux with BF16 precision, with task-specific runtime configurations for perception, prediction, and policy generation."
+  - question: "Does Cosmos 3 Edge support GGUF quantization, consumer GPUs, or mobile NPUs?"
+    answer: "Official documentation focuses on Linux/BF16 deployment and robotics integration; community GGUF quantizations, consumer-GPU fine-tuning, and mobile NPU or CoreML ports require independent verification."
+  - question: "Can Cosmos3-Edge-Policy outputs drive a physical robot directly?"
+    answer: "No. Policy action outputs must be mapped and calibrated against your specific robot kinematics, low-level controller loop, and safety constraints."
 seo:
-  title: "NVIDIA Cosmos 3 Edge: Capabilities and Deployment Limits"
-  description: An analysis of Cosmos 3 Edge’s world modeling and action generation, official runtime and hardware conditions, and the limits of claims about consumer GPUs and mobile NPUs.
+  title: "NVIDIA Cosmos 3 Edge (Cosmos3-Edge): Specs, Policy & Limits"
+  description: "Breakdown of NVIDIA's 4B Cosmos 3 Edge (Cosmos3-Edge) physical AI model: perception, prediction, Policy action generation, Linux/BF16 specs, and GGUF limits."
   noindex: false
 updatedAt: 2026-09-27
 citations:

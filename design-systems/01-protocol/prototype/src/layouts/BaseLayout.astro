@@ -42,6 +42,13 @@ const alternate = resolvedAlternatePath ? new URL(resolvedAlternatePath, Astro.s
 const zhUrl = locale === 'zh' ? canonical : alternate;
 const enUrl = locale === 'en' ? canonical : alternate;
 const ga4MeasurementId = 'G-E2TDGW26H0';
+const cleanDesc = (description || '').trim();
+const metaDescription =
+  cleanDesc.length < 115
+    ? locale === 'zh'
+      ? `${cleanDesc.replace(/[。.\s]+$/, '')}。在 T Salon（tsalon.tech）探索一线开发者工程实践、AI 编程配额重置雷达（WhenReset）、Token 成本与缓存计算器、常见报错速查库及 TokenRank 开源消耗排行榜。`
+      : `${cleanDesc.replace(/[.\s]+$/, '')}. Explore T Salon (tsalon.tech) for first-hand developer engineering guides, Codex & Claude quota reset radar, AI token cost calculator, error troubleshooting wiki, and TokenRank benchmarks.`
+    : cleanDesc;
 ---
 <!doctype html>
 <html lang={locale === 'zh' ? 'zh-CN' : 'en'} data-locale={locale}>
@@ -54,7 +61,7 @@ const ga4MeasurementId = 'G-E2TDGW26H0';
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>{title}</title>
-    <meta name="description" content={description} />
+    <meta name="description" content={metaDescription} />
     <meta name="keywords" content={keywords} />
     <link rel="canonical" href={canonical} />
     <link
@@ -83,7 +90,7 @@ const ga4MeasurementId = 'G-E2TDGW26H0';
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="T Salon" />
     <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:description" content={metaDescription} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={socialImage} />
     <meta property="og:image:alt" content={title} />
@@ -91,7 +98,7 @@ const ga4MeasurementId = 'G-E2TDGW26H0';
     {alternate && <meta property="og:locale:alternate" content={locale === 'zh' ? 'en_US' : 'zh_CN'} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
+    <meta name="twitter:description" content={metaDescription} />
     <meta name="twitter:image" content={socialImage} />
     <meta name="twitter:image:alt" content={title} />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
@@ -101,6 +108,21 @@ const ga4MeasurementId = 'G-E2TDGW26H0';
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', ga4MeasurementId);
+      document.addEventListener('click', (e) => {
+        const el = e.target instanceof Element ? e.target.closest('button, a') : null;
+        if (!el || typeof window.gtag !== 'function') return;
+        const id = el.id || '';
+        if (/calculate|fivehour-btn|cursor-btn|preset-btn|import-tokenrank-btn/.test(id) || el.classList.contains('preset-btn')) {
+          window.gtag('event', 'tool_calculate', { element_id: id || el.textContent?.trim()?.slice(0, 32) });
+        } else if (/copy|tr-copy-btn/.test(id) || el.classList.contains('tr-copy-btn')) {
+          window.gtag('event', 'tool_copy', { element_id: id || 'badge_md' });
+        } else if (el.tagName === 'A') {
+          const href = el.getAttribute('href') || '';
+          if (/\/(whenreset|calculator|errors|tokenrank|reports)\//.test(href)) {
+            window.gtag('event', 'tool_navigation', { target_path: href });
+          }
+        }
+      });
     </script>
   </head>
   <body>

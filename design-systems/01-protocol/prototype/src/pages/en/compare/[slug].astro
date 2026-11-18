@@ -1,0 +1,19 @@
+---
+import CompareDetailPage from '../../../components/CompareDetailPage.astro';
+import { COMPARISONS, type ComparisonEntry } from '../../../data/comparisons';
+
+export function getStaticPaths() {
+  return COMPARISONS.map((entry) => ({
+    params: { slug: entry.slug },
+    props: { entry },
+  }));
+}
+
+interface Props {
+  entry: ComparisonEntry;
+}
+
+const { entry } = Astro.props;
+---
+
+<CompareDetailPage entry={entry} locale="en" />

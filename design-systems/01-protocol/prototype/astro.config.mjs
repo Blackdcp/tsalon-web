@@ -91,15 +91,29 @@ for (const p of ['/en/', '/en/articles/', '/en/events/', '/en/events/series/t-ch
   lastmodBySlug.set(p, latestEnArticleDate);
 }
 for (const p of [
-  '/whenreset/', '/whenreset/codex/', '/whenreset/claude/', '/whenreset/grok/',
-  '/en/whenreset/', '/en/whenreset/codex/', '/en/whenreset/claude/', '/en/whenreset/grok/',
+  '/whenreset/', '/whenreset/codex/', '/whenreset/claude/', '/whenreset/grok/', '/whenreset/google/',
+  '/whenreset/claude-5-hour-calculator/', '/whenreset/cursor-fast-requests/', '/whenreset/quotas/',
+  '/en/whenreset/', '/en/whenreset/codex/', '/en/whenreset/claude/', '/en/whenreset/grok/', '/en/whenreset/google/',
+  '/en/whenreset/claude-5-hour-calculator/', '/en/whenreset/cursor-fast-requests/', '/en/whenreset/quotas/',
+  '/compare/', '/en/compare/',
+  '/compare/claude-code-vs-codex-vs-cursor-vs-antigravity/', '/en/compare/claude-code-vs-codex-vs-cursor-vs-antigravity/',
+  '/compare/claude-pro-vs-claude-max-vs-api/', '/en/compare/claude-pro-vs-claude-max-vs-api/',
+  '/compare/chatgpt-plus-vs-pro-for-codex/', '/en/compare/chatgpt-plus-vs-pro-for-codex/',
+  '/compare/sonnet-vs-codex-vs-deepseek-vs-gemini-coding-cost/', '/en/compare/sonnet-vs-codex-vs-deepseek-vs-gemini-coding-cost/',
+  '/compare/cursor-500-fast-requests-vs-claude-5-hour-window/', '/en/compare/cursor-500-fast-requests-vs-claude-5-hour-window/',
+  '/templates/', '/en/templates/',
   '/calculator/', '/en/calculator/',
+  '/reports/', '/en/reports/',
   '/errors/', '/en/errors/',
   '/errors/claude-5-hour-limit-reached/', '/en/errors/claude-5-hour-limit-reached/',
   '/errors/claude-weekly-limit-exhausted/', '/en/errors/claude-weekly-limit-exhausted/',
   '/errors/codex-usage-limit-and-reset-card/', '/en/errors/codex-usage-limit-and-reset-card/',
   '/errors/prompt-cache-miss-high-cost/', '/en/errors/prompt-cache-miss-high-cost/',
   '/errors/cursor-fast-requests-exhausted/', '/en/errors/cursor-fast-requests-exhausted/',
+  '/errors/grok-supergrok-rate-limit/', '/en/errors/grok-supergrok-rate-limit/',
+  '/errors/claude-code-context-window-full/', '/en/errors/claude-code-context-window-full/',
+  '/errors/openai-codex-sandbox-limit/', '/en/errors/openai-codex-sandbox-limit/',
+  '/errors/gemini-cli-quota-exceeded-429/', '/en/errors/gemini-cli-quota-exceeded-429/',
   '/tokenrank/', '/tokenrank/methodology/', '/tokenrank/connect/',
   '/en/tokenrank/', '/en/tokenrank/methodology/', '/en/tokenrank/connect/',
 ]) {
@@ -133,7 +147,7 @@ export default defineConfig({
   integrations: [
     auth(),
     sitemap({
-      filter: (page) => !['/gallery/', '/join/', '/reset/', '/whenrest/', '.png'].some((suffix) => page.endsWith(suffix)),
+      filter: (page) => !['/gallery/', '/join/', '/reset/', '/whenrest/', '.png', '.svg'].some((suffix) => page.endsWith(suffix)),
       serialize: (item) => {
         const lastmod = lastmodFor(item.url);
         return lastmod ? { ...item, lastmod } : item;

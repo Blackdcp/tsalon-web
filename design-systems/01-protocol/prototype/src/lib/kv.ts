@@ -848,7 +848,14 @@ export async function getUserRankDataWithRedis(redis: any, userId: string): Prom
 }
 
 export async function getUserRankData(userId: string) {
-  return kv ? getUserRankDataWithRedis(kv, userId) : null;
+  if (!kv) return null;
+  const direct = await getUserRankDataWithRedis(kv, userId);
+  if (direct) return direct;
+  const normQuery = String(userId || '').trim().toLowerCase();
+  if (!normQuery) return null;
+  const rows = await getLeaderboardWithRedis(kv, 200, 'all', 'total');
+  const matched = rows.find((r) => String(r.name || '').trim().toLowerCase() === normQuery);
+  return matched ? getUserRankDataWithRedis(kv, String(matched.userId)) : null;
 }
 
 async function readVisibleTimeseries(redis: any, userId: string, dates: string[], existingView?: CodexRankView) {

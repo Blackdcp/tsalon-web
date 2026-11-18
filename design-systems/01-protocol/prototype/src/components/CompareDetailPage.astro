@@ -1,0 +1,178 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+import { COMPARISONS, type ComparisonEntry } from '../data/comparisons';
+
+interface Props {
+  entry: ComparisonEntry;
+  locale: 'zh' | 'en';
+}
+
+const { entry, locale } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+const pagePath = `${prefix}/compare/${entry.slug}/`;
+const altPath = isEn ? `/compare/${entry.slug}/` : `/en/compare/${entry.slug}/`;
+const canonicalUrl = new URL(pagePath, Astro.site).toString();
+const faqs = isEn ? entry.faqEn : entry.faqZh;
+const columns = isEn ? entry.columnsEn : entry.columnsZh;
+const choices = isEn ? entry.whenToChooseEn : entry.whenToChooseZh;
+const others = COMPARISONS.filter((c) => c.slug !== entry.slug);
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: isEn ? entry.titleEn : entry.titleZh,
+    description: isEn ? entry.descEn : entry.descZh,
+    datePublished: '2026-11-18',
+    dateModified: '2026-11-18',
+    url: canonicalUrl,
+    author: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: isEn ? 'Home' : '首页', item: new URL(`${prefix}/`, Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: isEn ? 'Comparisons' : '选型对比库', item: new URL(`${prefix}/compare/`, Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: isEn ? entry.titleEn : entry.titleZh, item: canonicalUrl },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title={isEn ? entry.seoTitleEn : entry.seoTitleZh}
+  description={isEn ? entry.descEn : entry.descZh}
+  alternatePath={altPath}
+  languageSwitchPath={altPath}
+  jsonLd={jsonLd}
+>
+  <main class="cmp-detail-page">
+    <div class="container cmp-detail-container">
+      <nav class="cmp-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑导航'}>
+        <a href={`${prefix}/`}>{isEn ? 'Home' : '首页'}</a>
+        <span>/</span>
+        <a href={`${prefix}/compare/`}>{isEn ? 'Comparisons' : '选型对比库'}</a>
+        <span>/</span>
+        <span>{isEn ? entry.titleEn : entry.titleZh}</span>
+      </nav>
+
+      <header class="cmp-detail-hero">
+        <span class="mono cmp-badge">{entry.badge}</span>
+        <h1>{isEn ? entry.titleEn : entry.titleZh}</h1>
+
+        <div class="cmp-verdict-box">
+          <span class="mono cmp-verdict-label">{isEn ? 'DIRECT VERDICT (TL;DR)' : '一句话选型结论（TL;DR）'}</span>
+          <p>{isEn ? entry.directVerdictEn : entry.directVerdictZh}</p>
+          <a class="btn btn-dark" href={isEn ? entry.toolPathEn : entry.toolPathZh}>
+            {isEn ? entry.toolLabelEn : entry.toolLabelZh}
+          </a>
+        </div>
+      </header>
+
+      <section class="cmp-section">
+        <h2>{isEn ? '1. Side-by-Side Parameter & Quota Matrix' : '一、核心参数与配额机制横向对比表'}</h2>
+        <div class="cmp-table-wrap">
+          <table class="cmp-table">
+            <thead>
+              <tr>
+                {columns.map((col) => <th>{col}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {entry.rows.map((r) => {
+                const vals = isEn ? r.valuesEn : r.valuesZh;
+                return (
+                  <tr>
+                    <td><strong>{isEn ? r.dimensionEn : r.dimensionZh}</strong></td>
+                    {vals.map((v) => <td>{v}</td>)}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="cmp-section">
+        <h2>{isEn ? '2. Decision Guide: When to Choose Which' : '二、按工程场景对号入座：怎么选最划算'}</h2>
+        <div class="cmp-choice-grid">
+          {choices.map((c) => (
+            <div class="cmp-choice-card">
+              <strong>{c.option}</strong>
+              <p>{c.reason}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="cmp-section">
+        <h2>{isEn ? '3. Frequently Asked Questions' : '三、常见选型与成本疑问（FAQ）'}</h2>
+        <div class="cmp-faq-list">
+          {faqs.map((f) => (
+            <div class="cmp-faq-item">
+              <h3>{f.q}</h3>
+              <p>{f.a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="cmp-section">
+        <h2>{isEn ? 'More Side-by-Side Comparisons' : '更多 AI 编程横向对比'}</h2>
+        <div class="cmp-other-grid">
+          {others.map((o) => (
+            <a class="cmp-other-card" href={`${prefix}/compare/${o.slug}/`}>
+              <span class="mono">{o.badge}</span>
+              <strong>{isEn ? o.titleEn : o.titleZh} →</strong>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <CommunityConversionCard locale={locale} context="calculator" />
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .cmp-detail-page { padding-top: var(--space-12); padding-bottom: var(--space-24); }
+  .cmp-detail-container { max-width: 960px; }
+  .cmp-breadcrumb { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: var(--text-12); color: var(--text-tertiary); margin-bottom: var(--space-6); }
+  .cmp-breadcrumb a { color: var(--text-secondary); text-decoration: none; }
+  .cmp-badge { font-size: 0.74rem; color: #c2410c; font-weight: 700; display: block; margin-bottom: 0.5rem; }
+  .cmp-detail-hero h1 { font-size: clamp(1.7rem, 3vw, 2.35rem); line-height: 1.25; margin: 0 0 1.25rem; }
+  .cmp-verdict-box { padding: 1.35rem 1.5rem; border-radius: 14px; background: #f8fafc; border-left: 4px solid #c2410c; margin-bottom: 2.25rem; }
+  .cmp-verdict-label { font-size: 0.74rem; color: #c2410c; font-weight: 700; display: block; margin-bottom: 0.45rem; }
+  .cmp-verdict-box p { margin: 0 0 1rem; line-height: 1.7; color: var(--text-primary); font-size: 0.96rem; }
+  .cmp-section { margin-bottom: 2.5rem; }
+  .cmp-section h2 { font-size: 1.3rem; margin: 0 0 1rem; }
+  .cmp-table-wrap { overflow-x: auto; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px; }
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .cmp-table th, .cmp-table td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-default, #e2e8f0); text-align: left; vertical-align: top; line-height: 1.55; }
+  .cmp-table th { background: #f8fafc; font-weight: 700; color: var(--text-primary); }
+  .cmp-choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .cmp-choice-card { padding: 1.15rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px; background: #ffffff; }
+  .cmp-choice-card strong { display: block; font-size: 0.98rem; color: #c2410c; margin-bottom: 0.4rem; }
+  .cmp-choice-card p { margin: 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; }
+  .cmp-faq-list { display: flex; flex-direction: column; gap: 1rem; }
+  .cmp-faq-item { padding: 1.15rem 1.25rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px; background: #ffffff; }
+  .cmp-faq-item h3 { font-size: 1rem; margin: 0 0 0.45rem; }
+  .cmp-faq-item p { margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.65; }
+  .cmp-other-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.85rem; }
+  .cmp-other-card { padding: 1rem 1.15rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 10px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 0.3rem; }
+  .cmp-other-card span { font-size: 0.7rem; color: #c2410c; }
+  .cmp-other-card strong { font-size: 0.92rem; line-height: 1.4; }
+</style>

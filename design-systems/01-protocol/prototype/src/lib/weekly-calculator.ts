@@ -159,6 +159,11 @@ export function calculateWeeklyPace(
     badgeEn = 'On Track';
     summaryZh = `当前消耗速度与时间进度相符，预计使用 ${Math.round(projectedTotalPercent)}%，保持现有频率即可。`;
     summaryEn = `Your usage pace is well-balanced. Projected total: ${Math.round(projectedTotalPercent)}%.`;
+  } else if (remainingHours <= 24 && remainingPercent >= 25) {
+    badgeZh = '重置前余量充裕（不用即清零）';
+    badgeEn = 'Surplus Before Rollover';
+    summaryZh = `距离下次重置仅剩 ${remainingHours} 小时，仍有 ${Math.round(remainingPercent)}% 额度未用完（自动刷新后不结转），建议趁重置前集中跑批量重构、全量单测或文档生成任务。`;
+    summaryEn = `Only ${remainingHours}h until rollover with ${Math.round(remainingPercent)}% unused quota (does not carry over). Ideal window to run heavy refactors, test generation, or repo-wide audits.`;
   }
 
   return {

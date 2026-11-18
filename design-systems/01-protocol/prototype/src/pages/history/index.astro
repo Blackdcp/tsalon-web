@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 const gallery = (await getCollection('gallery')).sort((a, b) => b.data.order - a.data.order);
+const archiveEvents = (await getCollection('activityArchive')).sort((a, b) => a.data.order - b.data.order);
 const years = [...new Set(gallery.map((item) => item.data.year))].sort((a, b) => b - a);
 ---
 <BaseLayout alternatePath="/en/history/" title="社区年鉴 — T Salon 2016 至今" description="通过历年活动现场照片、城市与社区成员，回看 T Salon 从 2016 年 iOS 开发者组织发展至今的社区轨迹。年鉴按年份整理线下相聚与技术分享的现场切片，并提供当前活动目录和下一场交流的参与入口。" image="/images/gallery/gallery-1.jpeg">
@@ -12,6 +13,19 @@ const years = [...new Set(gallery.map((item) => item.data.year))].sort((a, b) =>
     <section class="history-opening"><div class="container"><figure><img src="/images/gallery/gallery-17.jpeg" alt="2016 年 7 月 T Salon 早期活动参与者合影" /></figure><blockquote><span class="mono">起点 / 2016</span><p>最初，我们只是想让 iOS 开发者有一个可以认真交流技术的地方。</p></blockquote></div></section>
 
     {years.map((year) => <section id={`year-${year}`} class="container history-year"><header><span class="mono">年份 / {year}</span><strong>{gallery.filter((item) => item.data.year === year).length} 个现场切片</strong></header><div class="history-photo-grid">{gallery.filter((item) => item.data.year === year).map((item, index) => <figure class:list={{ wide: index === 0 && gallery.filter((entry) => entry.data.year === year).length > 1 }}><img src={item.data.cover} alt={item.data.coverAlt} loading={year === years[0] ? 'eager' : 'lazy'} /><figcaption><strong>{item.data.title}</strong><span>{item.data.city ?? 'T Salon'} · {item.data.year}{item.data.month ? `.${String(item.data.month).padStart(2, '0')}` : ''}</span></figcaption></figure>)}</div></section>)}
+
+    <section class="container" style="margin-top: 3rem; padding: 1.5rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px;">
+      <span class="mono" style="font-size: 0.78rem; color: var(--text-secondary);">历史活动档案目录</span>
+      <h2 style="font-size: 1.35rem; margin: 0.35rem 0 1rem;">历年线下与线上技术沙龙记录</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem;">
+        {archiveEvents.map((ev) => (
+          <a href={`/events/archive/${ev.id}/`} style="padding: 0.85rem 1rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 8px; text-decoration: none; color: inherit;">
+            <span class="mono" style="font-size: 0.75rem; color: var(--text-tertiary); display: block;">{ev.data.province} · {ev.data.city} · {ev.data.startDate.toISOString().slice(0, 10)}</span>
+            <strong style="font-size: 0.95rem; display: block; margin-top: 0.25rem;">{ev.data.title} →</strong>
+          </a>
+        ))}
+      </div>
+    </section>
 
     <section class="container history-end"><span class="mono">年鉴仍在继续</span><h2>过去用来建立信任<br />未来仍由现场写下</h2><div><a class="btn btn-dark" href="/events/">查看现在的活动 <span>→</span></a><a class="btn btn-outline" href="/about/#join">参与下一场</a></div></section>
   </main>

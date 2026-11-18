@@ -782,6 +782,23 @@ async function main() {
   if (accountAudit) payload.account_audit = accountAudit;
 
   if (dryRun) {
+    let totalCacheRead = 0;
+    for (const [k, v] of Object.entries(finalTokens)) {
+      if (k === 'history' || k === 'total' || !v || typeof v !== 'object') continue;
+      totalCacheRead += Number(v.cache_read) || 0;
+    }
+    const cachePct = totalAll > 0 ? ((totalCacheRead / totalAll) * 100).toFixed(1) : '0.0';
+    const savedUsd = ((totalCacheRead / 1_000_000) * 2.7).toFixed(2);
+    console.log('\n================================================');
+    console.log('🧾 T SALON · LOCAL AI TOKEN RECEIPT (DRY-RUN)');
+    console.log('================================================');
+    console.log(`  Grand Total Tokens : ${totalAll.toLocaleString()}`);
+    console.log(`  Prompt Cache Read  : ${totalCacheRead.toLocaleString()} (${cachePct}%)`);
+    console.log(`  Est. Cache Savings : ~$${savedUsd} USD`);
+    console.log('------------------------------------------------');
+    console.log('  🔒 Local-only audit complete. Nothing was uploaded.');
+    console.log(`  👉 Join the leaderboard & get your GitHub badge: ${host.replace(/\/$/, '')}/tokenrank/connect/`);
+    console.log('================================================\n');
     console.log('🧪 DRY-RUN: not uploading. Payload:');
     console.log(JSON.stringify(payload, null, 2));
     return;

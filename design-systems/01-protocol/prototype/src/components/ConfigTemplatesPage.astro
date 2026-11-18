@@ -1,0 +1,494 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Props {
+  locale: 'zh' | 'en';
+}
+
+const { locale } = Astro.props;
+const isZh = locale === 'zh';
+const siteUrl = new URL(Astro.site ?? 'https://www.tsalon.tech');
+const altPath = isZh ? '/en/templates/' : '/templates/';
+
+const pageTitle = isZh
+  ? 'AI 编程省 Token 与高缓存命中率配置模板库 — CLAUDE.md / AGENTS.md / .cursorrules / .mcp.json | T Salon'
+  : 'Token-Saving & High-Cache-Hit AI Coding Config Templates — CLAUDE.md / AGENTS.md / .cursorrules / .mcp.json | T Salon';
+const pageDescription = isZh
+  ? '开源可直接复制的 CLAUDE.md（85%+ 提示词缓存稳定前缀）、AGENTS.md（防 5 小时锁死的三阶段检查点）、.cursorrules（省 500 Fast Requests）与 WhenReset MCP 配置模板。'
+  : 'Copy-ready CLAUDE.md (85%+ prompt cache prefix stability), AGENTS.md (3-stage checkpoint workflow to prevent 5-hour lockouts), .cursorrules (500 Fast Request saver), and WhenReset .mcp.json templates.';
+
+const canonicalPath = isZh ? '/templates/' : '/en/templates/';
+const canonicalUrl = new URL(canonicalPath, siteUrl).toString();
+
+const templates = [
+  {
+    id: 'claude-md',
+    fileName: 'CLAUDE.md',
+    badge: isZh ? 'Prompt Cache 命中率 ≥ 85%' : 'Prompt Cache Hit Ratio ≥ 85%',
+    title: isZh
+      ? '1. CLAUDE.md — 静态前缀锁死与 5 小时窗口省额度配置'
+      : '1. CLAUDE.md — Static Prefix Lock & 5-Hour Window Endurance Template',
+    summary: isZh
+      ? '专为 Claude Code 设计：固定系统规则头部顺序、禁止全仓盲扫、限定单次输出行数，并强制在上下文达到 90k tokens 或每完成一个子模块时执行 /compact。'
+      : 'Engineered for Claude Code: locks static instruction ordering to preserve prompt cache prefixes, forbids blind repo-wide greps, caps tool output lines, and enforces /compact checkpoints before context bloat.',
+    code: `# CLAUDE.md — High-Cache-Stability & Quota-Efficient Engineering Protocol
+# Keep sections 1-3 strictly static. Do NOT inject dynamic timestamps or git hashes here.
+
+## 1. Repository Architecture & Commands (Static Prefix)
+- Package Manager & Build: \`npm run build\` | Validation: \`npm test\`
+- Primary Source Root: \`src/\` | Tests: \`scripts/\`
+- Never read \`node_modules/\`, \`dist/\`, \`.astro/\`, or lockfiles.
+
+## 2. Prompt Cache & Context Hygiene Rules
+1. **Preserve Prefix Stability**: Never mutate system prompt ordering or toggle MCP servers mid-session.
+2. **Targeted File Reads Only**: Always specify line ranges (\`sed -n '1,120p'\` or line-bounded reads) instead of dumping files > 300 lines into context.
+3. **Cap Command Output**: Pipe verbose test/build logs through \`| tail -n 60\` so raw stack traces do not pollute the sliding context window.
+4. **Checkpoint & Compact**: After completing each self-contained sub-task (or when context exceeds ~90k tokens), write state to \`REFACTOR_PLAN.md\` and run \`/compact\`.
+
+## 3. Verification Discipline
+- Run unit tests on the touched module first before running full-site builds.
+- Never end markdown headings (\`#\`, \`##\`, \`###\`) with trailing periods.`,
+  },
+  {
+    id: 'agents-md',
+    fileName: 'AGENTS.md',
+    badge: isZh ? '防 5 小时窗口中途锁死' : 'Zero Mid-Refactor Lockout',
+    title: isZh
+      ? '2. AGENTS.md — 跨窗口三阶段磁盘检查点重构工作流'
+      : '2. AGENTS.md — 3-Stage Disk-Checkpointed Multi-Agent Workflow',
+    summary: isZh
+      ? '兼容 OpenAI Codex CLI、Claude Code 与 Antigravity：将长程重构拆解为「接口契约 → 3-5 文件微批次 → 增量测试闭环」，即使遭遇 429 限流也能零损耗续跑。'
+      : 'Compatible with OpenAI Codex CLI, Claude Code, and Antigravity: decomposes multi-file refactors into Contract Freeze → 3-5 File Micro-Batches → Disk Checkpoint so any 429 rate limit resumes with zero wasted tokens.',
+    code: `# AGENTS.md — 3-Stage Disk-Checkpointed Refactoring Protocol
+
+## Stage 1: Dependency Graph & Contract Freeze (Budget <= 15% of 5h Window)
+- Before editing implementation files, update \`REFACTOR_PLAN.md\` with:
+  - [ ] Shared types / schema changes
+  - [ ] Ordered micro-batches of 3–5 files each
+  - [ ] Verification command per batch
+
+## Stage 2: Micro-Batch Execution (3–5 Files per Session)
+- Process ONE micro-batch at a time.
+- After passing the batch verification command:
+  1. Mark the batch \`[x]\` in \`REFACTOR_PLAN.md\`.
+  2. Record any edge cases under \`## Handover Notes\` in \`REFACTOR_PLAN.md\`.
+  3. Clear or compact conversation history before starting the next batch.
+
+## Stage 3: Quota-Aware Model Routing
+- Reserve high-weight reasoning models (Opus 4.6 / GPT-5.4 high-effort / Gemini 2.5 Pro) strictly for Stage 1 architecture design.
+- Execute Stage 2 file migrations and test fixes with high-efficiency coding models (Sonnet 4.6 / Codex standard / Gemini 2.5 Flash).`,
+  },
+  {
+    id: 'cursorrules',
+    fileName: '.cursorrules',
+    badge: isZh ? '500 Fast Requests 续航翻倍' : '2x 500 Fast Request Longevity',
+    title: isZh
+      ? '3. .cursorrules — 抑制多轮重发与 Max Mode 额度暴增规则'
+      : '3. .cursorrules — Fast Request Multiplier & Context Discipline',
+    summary: isZh
+      ? '针对 Cursor Pro 每月 500 次 Fast Requests 设计：通过一次性计划确认、精确文件引用与终端报错截断，避免因反复修正消耗 3–5 倍快速请求。'
+      : 'Tailored for Cursor Pro’s 500 Fast Requests pool: enforces single-turn plan alignment, surgical file edits, and terminal log truncation to avoid burning 3–5x requests on retry loops.',
+    code: `# .cursorrules — Cursor Fast Request & Context Efficiency Rules
+
+1. **Plan Before Multi-File Edits**:
+   - If a request touches > 2 files, list the exact target files and function signatures in 5 bullet points before applying edits.
+2. **Surgical Context Attachment**:
+   - Read only the relevant symbol or 80-line window rather than attaching entire directories.
+   - Exclude generated assets (\`dist/\`, \`coverage/\`, \`*.min.js\`, \`package-lock.json\`).
+3. **Single-Pass Verification**:
+   - Group related edits in the same file into a single atomic change to minimize round-trip tool turns.
+   - When terminal commands fail, inspect only the first error and the last 40 lines of output.`,
+  },
+  {
+    id: 'mcp-json',
+    fileName: '.mcp.json',
+    badge: isZh ? '内置 WhenReset 实时配额感知' : 'Live WhenReset Quota Awareness',
+    title: isZh
+      ? '4. .mcp.json — 接入 T Salon WhenReset 实时重置雷达 MCP Server'
+      : '4. .mcp.json — Connect T Salon WhenReset Live Quota Radar MCP Server',
+    summary: isZh
+      ? '零鉴权接入 T Salon 官方 Streamable HTTP MCP 端点：让 Claude Code、Cursor 或 Antigravity 在启动大规模任务前自动查询当前是否处于双倍额度窗口或距每日重置还有多久。'
+      : 'Zero-auth configuration for T Salon’s official Streamable HTTP MCP endpoint: lets Claude Code, Cursor, or Antigravity query active 2x quota promos, banked reset cards, and Midnight PT countdowns before starting heavy tasks.',
+    code: `{
+  "mcpServers": {
+    "tsalon-whenreset": {
+      "type": "http",
+      "url": "https://www.tsalon.tech/api/reset/mcp"
+    }
+  }
+}`,
+  },
+];
+
+const faqs = isZh
+  ? [
+      {
+        q: '为什么固定 CLAUDE.md 的前三节顺序能大幅提升 Prompt Cache 命中率？',
+        a: '因为 Anthropic、OpenAI 与 DeepSeek 的 Prompt Caching 均采用「严格前缀匹配（Exact Prefix Matching）」。只要系统提示词、工具定义（MCP）与 CLAUDE.md 头部字节完全不变，后续每一轮对话都能直接复用 90% 折扣（Anthropic/DeepSeek）或 50%–75% 折扣（OpenAI）的缓存块。',
+      },
+      {
+        q: '这些配置文件应该放在项目仓库的哪个位置？',
+        a: '将 `CLAUDE.md`、`AGENTS.md`、`.cursorrules` 与 `.mcp.json` 直接放在 Git 仓库根目录下。Claude Code 会自动加载 `CLAUDE.md` 与 `.mcp.json`，OpenAI Codex CLI 与 Antigravity 会自动读取 `AGENTS.md`，Cursor 会自动应用 `.cursorrules`。',
+      },
+      {
+        q: '配置 .mcp.json 接入 tsalon-whenreset 后可以调用哪些工具？',
+        a: '支持调用 `get_reset_radar`（查询 Claude / Codex / Gemini / Grok 实时重置状态与 2x 促销活动）、`get_google_daily_reset`（查询距离北京时间 15:00/16:00 太平洋午夜重置的精确秒数）以及 `calculate_weekly_burn`（计算 7 天滚动窗口剩余安全消耗速率）。',
+      },
+    ]
+  : [
+      {
+        q: 'Why does keeping the top of CLAUDE.md static boost Prompt Cache hit rates?',
+        a: 'Anthropic, OpenAI, and DeepSeek all use exact byte-for-byte prefix matching for Prompt Caching. Keeping your system prompt, MCP tool definitions, and the top of CLAUDE.md immutable allows every subsequent turn in a session to read cached tokens at a 75%–90% discount.',
+      },
+      {
+        q: 'Where should I place these configuration files in my repository?',
+        a: 'Place `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, and `.mcp.json` in your Git repository root. Claude Code automatically loads `CLAUDE.md` and `.mcp.json`, OpenAI Codex CLI and Antigravity read `AGENTS.md`, and Cursor loads `.cursorrules`.',
+      },
+      {
+        q: 'What tools does the tsalon-whenreset MCP server expose?',
+        a: 'It exposes `get_reset_radar` (live status of Claude, Codex, Google Gemini/Antigravity, and Grok resets & 2x promos), `get_google_daily_reset` (exact countdown to Midnight Pacific Time daily RPD reset), and `calculate_weekly_burn` (safe burn-rate calculator for 7-day rolling caps).',
+      },
+    ];
+
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareSourceCode',
+    name: pageTitle,
+    description: pageDescription,
+    url: canonicalUrl,
+    programmingLanguage: 'Markdown',
+    license: 'https://creativecommons.org/licenses/by/4.0/',
+    author: {
+      '@type': 'Organization',
+      name: 'T Salon',
+      url: siteUrl.toString(),
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.a,
+      },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: isZh ? '首页' : 'Home',
+        item: new URL(isZh ? '/' : '/en/', siteUrl).toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: isZh ? '省额度配置模板库' : 'Config Templates',
+        item: canonicalUrl,
+      },
+    ],
+  },
+];
+
+const copyLabel = isZh ? '复制配置' : 'Copy Template';
+const copiedLabel = isZh ? '已复制 ✓' : 'Copied ✓';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription} alternatePath={altPath} languageSwitchPath={altPath} jsonLd={structuredData}>
+  <main class="templates-page container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href={isZh ? '/' : '/en/'}>{isZh ? '首页' : 'Home'}</a>
+      <span>/</span>
+      <span aria-current="page">{isZh ? '省 Token 配置模板库' : 'Config Templates'}</span>
+    </nav>
+
+    <header class="hero-card">
+      <div class="eyebrow">OPEN-SOURCE AGENT CONFIG TEMPLATES</div>
+      <h1>
+        {isZh
+          ? 'AI 编程省 Token 与高缓存命中率配置模板库'
+          : 'Token-Saving & High-Cache-Hit AI Coding Config Templates'}
+      </h1>
+      <p class="lead">
+        {isZh
+          ? '基于 T Salon TokenRank 实测数据提炼：只需将以下 4 份标准化配置文件放入仓库根目录，即可将 Prompt Cache 命中率稳定在 85% 以上，并将 5 小时滚动窗口续航提升 2.5 倍。'
+          : 'Distilled from T Salon TokenRank telemetry: drop these 4 standardized config files into your repo root to stabilize Prompt Cache hit ratios above 85% and stretch 5-hour rolling windows by 2.5x.'}
+      </p>
+      <div class="quick-links">
+        {templates.map((t) => (
+          <a href={`#${t.id}`} class="pill-link">{t.fileName}</a>
+        ))}
+        <a href={isZh ? '/calculator/' : '/en/calculator/'} class="pill-link accent">
+          {isZh ? '🧮 测算缓存省钱金额' : '🧮 Calculate Cache Savings'}
+        </a>
+        <a href={isZh ? '/whenreset/quotas/' : '/en/whenreset/quotas/'} class="pill-link">
+          {isZh ? '📊 2026 订阅配额总表' : '📊 2026 Quotas Cheat Sheet'}
+        </a>
+      </div>
+    </header>
+
+    <div class="templates-stack">
+      {templates.map((item) => (
+        <section id={item.id} class="template-card">
+          <div class="template-header">
+            <div>
+              <span class="badge">{item.badge}</span>
+              <h2>{item.title}</h2>
+            </div>
+            <button
+              type="button"
+              class="copy-btn"
+              data-copy-target={`code-${item.id}`}
+              data-copy-default={copyLabel}
+              data-copy-done={copiedLabel}
+              data-ga-event="tool_copy"
+            >
+              {copyLabel}
+            </button>
+          </div>
+          <p class="template-summary">{item.summary}</p>
+          <pre class="code-box"><code id={`code-${item.id}`}>{item.code}</code></pre>
+        </section>
+      ))}
+    </div>
+
+    <section class="related-links-card">
+      <h2>{isZh ? '配套工程指南与实测工具' : 'Companion Engineering Guides & Live Tools'}</h2>
+      <div class="related-grid">
+        <a href={isZh ? '/articles/prompt-caching-cost-and-quota-guide/' : '/en/articles/prompt-caching-cost-and-quota-guide/'} class="rel-item">
+          <strong>{isZh ? 'Prompt Caching 深度指南' : 'Prompt Caching Deep Dive'}</strong>
+          <span>{isZh ? '为什么 85%+ 缓存命中率能省下 70% 预算并避免前缀失效' : 'How 85%+ cache hit ratio cuts AI coding spend by 70%'}</span>
+        </a>
+        <a href={isZh ? '/articles/long-horizon-agent-refactoring-within-5-hour-limit/' : '/en/articles/long-horizon-agent-refactoring-within-5-hour-limit/'} class="rel-item">
+          <strong>{isZh ? '5 小时窗口长程重构工程手册' : 'Long-Horizon Agent Refactoring Guide'}</strong>
+          <span>{isZh ? '如何在不触发 429 锁死的前提下完成 50+ 文件重构' : 'Executing 50+ file refactors without 5-hour quota lockouts'}</span>
+        </a>
+        <a href={isZh ? '/compare/' : '/en/compare/'} class="rel-item">
+          <strong>{isZh ? 'AI 编程工具与订阅选型横评中心' : 'AI Coding Tools & Subscription Comparison Hub'}</strong>
+          <span>{isZh ? 'Claude Pro vs Max vs Codex vs Cursor 深度数据对比' : 'Side-by-side matrix across Claude, Codex, Gemini, and Cursor'}</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="faq-section">
+      <h2>{isZh ? '常见问题解答 (FAQ)' : 'Frequently Asked Questions'}</h2>
+      <div class="faq-list">
+        {faqs.map((item) => (
+          <details class="faq-item" open>
+            <summary>{item.q}</summary>
+            <p>{item.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<script is:inline>
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-copy-target]') : null;
+    if (!btn) return;
+    var targetId = btn.getAttribute('data-copy-target');
+    var codeEl = targetId ? document.getElementById(targetId) : null;
+    if (!codeEl || !navigator.clipboard) return;
+    var text = codeEl.textContent || '';
+    var defaultText = btn.getAttribute('data-copy-default') || 'Copy';
+    var doneText = btn.getAttribute('data-copy-done') || 'Copied';
+    navigator.clipboard.writeText(text).then(function () {
+      btn.textContent = doneText;
+      setTimeout(function () {
+        btn.textContent = defaultText;
+      }, 1800);
+    });
+  });
+</script>
+
+<style>
+  .templates-page {
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+  .breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted, #8b949e);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .hero-card {
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    margin-bottom: 2.25rem;
+  }
+  .eyebrow {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    color: #34d399;
+    margin-bottom: 0.75rem;
+  }
+  .hero-card h1 {
+    font-size: clamp(1.6rem, 3vw, 2.3rem);
+    line-height: 1.25;
+    margin: 0 0 1rem;
+  }
+  .lead {
+    font-size: 1.02rem;
+    line-height: 1.65;
+    color: var(--text-muted, #9ca3af);
+    margin: 0 0 1.5rem;
+  }
+  .quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+  .pill-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.42rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-family: var(--font-mono, monospace);
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .pill-link.accent {
+    border-color: rgba(52, 211, 153, 0.45);
+    color: #34d399;
+  }
+  .templates-stack {
+    display: grid;
+    gap: 2rem;
+    margin-bottom: 2.75rem;
+  }
+  .template-card {
+    padding: 1.65rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .template-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .badge {
+    display: inline-block;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    margin-bottom: 0.45rem;
+  }
+  .template-header h2 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+  .copy-btn {
+    cursor: pointer;
+    padding: 0.5rem 0.95rem;
+    border-radius: 8px;
+    border: 1px solid rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.1);
+    color: #34d399;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .copy-btn:hover {
+    background: rgba(52, 211, 153, 0.2);
+  }
+  .template-summary {
+    color: var(--text-muted, #9ca3af);
+    font-size: 0.94rem;
+    line-height: 1.6;
+    margin: 0 0 1rem;
+  }
+  .code-box {
+    margin: 0;
+    padding: 1.15rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.55;
+  }
+  .related-links-card {
+    margin-bottom: 2.75rem;
+  }
+  .related-links-card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .rel-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1.2rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    text-decoration: none;
+    color: inherit;
+  }
+  .rel-item:hover {
+    border-color: #34d399;
+  }
+  .rel-item span {
+    font-size: 0.86rem;
+    color: var(--text-muted, #9ca3af);
+    line-height: 1.5;
+  }
+  .faq-section h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  .faq-list {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .faq-item {
+    padding: 1.1rem 1.25rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .faq-item summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .faq-item p {
+    margin: 0.65rem 0 0;
+    color: var(--text-muted, #9ca3af);
+    line-height: 1.65;
+    font-size: 0.94rem;
+  }
+</style>

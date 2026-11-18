@@ -1,0 +1,243 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+
+interface Props {
+  locale: 'zh' | 'en';
+  tool: 'claude-5-hour' | 'cursor-fast';
+}
+
+const { locale, tool } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+
+const meta =
+  tool === 'claude-5-hour'
+    ? {
+        slug: 'claude-5-hour-calculator',
+        titleZh: 'Claude Code 5 小时滑动窗口恢复时间计算器',
+        titleEn: 'Claude Code 5-Hour Rolling Window Recovery Calculator',
+        seoTitleZh: 'Claude 5小时限流恢复时间计算器 | T Salon WhenReset',
+        seoTitleEn: 'Claude 5-Hour Rolling Window Calculator | T Salon WhenReset',
+        descZh: '输入本轮窗口第一条请求时间（北京时间），立即推算 Claude Pro / Max / Claude Code 5 小时滑动窗口恢复时刻与防断流建议。',
+        descEn: 'Enter the timestamp of your first message in the current cycle to calculate your Claude Pro, Max, or Claude Code 5-hour rolling window reset time.',
+        badgeZh: 'SINGLE-PURPOSE TOOL · CLAUDE 5H',
+        badgeEn: 'SINGLE-PURPOSE TOOL · CLAUDE 5H',
+        directZh: 'Claude 的 5 小时限额从当前周期「第一条有效消息」开始计时，而不是从触发报错的那一刻起算。',
+        directEn: 'Claude starts the 5-hour countdown from the first message of your active cycle—never from the moment the rate-limit banner appears.',
+        relatedLinks: [
+          { href: `${prefix}/whenreset/claude/`, label: isEn ? 'Claude Global Reset Radar' : 'Claude 全网重置雷达' },
+          { href: `${prefix}/errors/claude-5-hour-limit-reached/`, label: isEn ? '5-Hour Limit Troubleshooting Guide' : '5 小时限额报错排查指南' },
+          { href: `${prefix}/calculator/`, label: isEn ? 'AI Cost & Cache Calculator' : 'AI 成本与缓存计算器' },
+        ],
+      }
+    : {
+        slug: 'cursor-fast-requests',
+        titleZh: 'Cursor 500 次 Fast Requests 消耗估算与防超额规划器',
+        titleEn: 'Cursor 500 Fast Requests Burn-Rate & Pacing Calculator',
+        seoTitleZh: 'Cursor 500次快速请求消耗估算器 | T Salon WhenReset',
+        seoTitleEn: 'Cursor 500 Fast Requests Calculator | T Salon WhenReset',
+        descZh: '填入本月已用 Fast Requests 次数（0–500）与账单重置日，实时计算剩余每日安全额度、预计耗尽日期与 Max Mode 控流建议。',
+        descEn: 'Enter your used Cursor Fast Requests (0–500) and billing reset date to compute your safe daily budget, projected exhaustion date, and pacing plan.',
+        badgeZh: 'SINGLE-PURPOSE TOOL · CURSOR 500',
+        badgeEn: 'SINGLE-PURPOSE TOOL · CURSOR 500',
+        directZh: 'Cursor Pro 默认包含每月 500 次 Fast Requests；重度 Agent / Composer 多文件改写会快速吞掉配额。',
+        directEn: 'Cursor Pro includes 500 Fast Requests per 30-day billing cycle; multi-file Composer and Max Mode loops consume multiple requests per task.',
+        relatedLinks: [
+          { href: `${prefix}/errors/cursor-fast-requests-exhausted/`, label: isEn ? 'Cursor Fast Requests Exhausted Guide' : 'Cursor 快速请求耗尽排查指南' },
+          { href: `${prefix}/calculator/`, label: isEn ? 'AI Cost & Subscription Break-Even' : 'AI 成本与订阅盈亏对比' },
+          { href: `${prefix}/whenreset/`, label: isEn ? 'Full WhenReset Quota Radar' : '完整 WhenReset 配额雷达' },
+        ],
+      };
+
+const pagePath = `${prefix}/whenreset/${meta.slug}/`;
+const altPath = isEn ? `/whenreset/${meta.slug}/` : `/en/whenreset/${meta.slug}/`;
+const canonicalUrl = new URL(pagePath, Astro.site).toString();
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: isEn ? meta.titleEn : meta.titleZh,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Web',
+    url: canonicalUrl,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    description: isEn ? meta.descEn : meta.descZh,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: isEn ? 'Home' : '首页', item: new URL(`${prefix}/`, Astro.site).toString() },
+      { '@type': 'ListItem', position: 2, name: isEn ? 'WhenReset Radar' : '配额重置雷达', item: new URL(`${prefix}/whenreset/`, Astro.site).toString() },
+      { '@type': 'ListItem', position: 3, name: isEn ? meta.titleEn : meta.titleZh, item: canonicalUrl },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title={isEn ? meta.seoTitleEn : meta.seoTitleZh}
+  description={isEn ? meta.descEn : meta.descZh}
+  alternatePath={altPath}
+  languageSwitchPath={altPath}
+  jsonLd={jsonLd}
+>
+  <main class="lt-page">
+    <div class="container lt-container">
+      <nav class="lt-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑导航'}>
+        <a href={`${prefix}/`}>{isEn ? 'Home' : '首页'}</a>
+        <span>/</span>
+        <a href={`${prefix}/whenreset/`}>{isEn ? 'WhenReset' : '重置雷达'}</a>
+        <span>/</span>
+        <span>{isEn ? meta.titleEn : meta.titleZh}</span>
+      </nav>
+
+      <header class="lt-hero">
+        <span class="mono lt-badge">{isEn ? meta.badgeEn : meta.badgeZh}</span>
+        <h1>{isEn ? meta.titleEn : meta.titleZh}</h1>
+        <p class="lt-direct">{isEn ? meta.directEn : meta.directZh}</p>
+      </header>
+
+      {tool === 'claude-5-hour' ? (
+        <section class="lt-card" aria-label={isEn ? '5-hour window calculator' : '5 小时窗口计算器'}>
+          <div class="lt-form-row">
+            <label for="lt-fivehour-start">{isEn ? 'First request in current window (Beijing UTC+8)' : '本轮窗口第一条请求时间（北京时间）'}</label>
+            <input id="lt-fivehour-start" type="datetime-local" step="60" />
+          </div>
+          <div class="lt-actions">
+            <button type="button" id="lt-fivehour-btn" class="btn btn-dark">{isEn ? 'Calculate Reset Time' : '计算预计恢复时间'}</button>
+          </div>
+          <div class="lt-result-box" aria-live="polite">
+            <span class="mono">{isEn ? 'ASSUMED 5-HOUR RECOVERY (UTC+8)' : '预计恢复时间（按 5 小时滑动窗口推算）'}</span>
+            <strong
+              id="lt-fivehour-output"
+              data-invalid={isEn ? 'Please enter a valid Beijing timestamp' : '请填写有效的北京时间起点'}
+            >
+              —
+            </strong>
+          </div>
+        </section>
+      ) : (
+        <section class="lt-card" aria-label={isEn ? 'Cursor 500 Fast Requests calculator' : 'Cursor 500 次快速请求规划器'}>
+          <div class="lt-grid-2">
+            <div class="lt-form-row">
+              <label for="lt-cursor-used">{isEn ? 'Fast Requests Used (0–500)' : '当前已用 Fast Requests（0–500）'}</label>
+              <input id="lt-cursor-used" type="number" min="0" max="500" value="220" />
+            </div>
+            <div class="lt-form-row">
+              <label for="lt-cursor-reset">{isEn ? 'Next Monthly Reset Time (Beijing UTC+8)' : '下次月度重置时间（北京时间）'}</label>
+              <input id="lt-cursor-reset" type="datetime-local" step="60" />
+            </div>
+          </div>
+          <div class="lt-actions">
+            <button type="button" id="lt-cursor-btn" class="btn btn-dark">{isEn ? 'Calculate Daily Budget' : '计算每日安全额度'}</button>
+          </div>
+          <div class="lt-result-box" aria-live="polite">
+            <span id="lt-cursor-badge" class="mono">{isEn ? 'PACING RESULT' : '配额评估结果'}</span>
+            <strong
+              id="lt-cursor-budget"
+              data-unit-day={isEn ? ' req/day (' : ' 次/天（剩余 '}
+              data-unit-left={isEn ? ' left)' : ' 次）'}
+            >—</strong>
+            <p id="lt-cursor-summary" class="lt-summary">
+              {isEn ? 'Click calculate to see remaining daily Fast Requests.' : '点击计算，查看剩余每天可用的 Fast Requests 安全预算。'}
+            </p>
+          </div>
+        </section>
+      )}
+
+      <section class="lt-links">
+        <h2>{isEn ? 'Related Tools & Guides' : '关联工具与排错指南'}</h2>
+        <div class="lt-link-grid">
+          {meta.relatedLinks.map((item) => (
+            <a class="lt-link-card" href={item.href}>{item.label} →</a>
+          ))}
+        </div>
+      </section>
+
+      <CommunityConversionCard locale={locale} context="whenreset" />
+    </div>
+  </main>
+</BaseLayout>
+
+<script>
+  import { calculateResetWindow } from '../lib/reset-window';
+  import { calculateWeeklyPace } from '../lib/weekly-calculator';
+
+  const fhStart = document.getElementById('lt-fivehour-start') as HTMLInputElement | null;
+  const fhBtn = document.getElementById('lt-fivehour-btn');
+  const fhOut = document.getElementById('lt-fivehour-output');
+
+  const toBeijingInput = (ms: number, hhmm: string) => {
+    const bjDate = new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
+    return `${bjDate}T${hhmm}`;
+  };
+
+  if (fhStart && fhBtn && fhOut) {
+    if (!fhStart.value) fhStart.value = toBeijingInput(Date.now(), '09:00');
+    const runFiveHour = () => {
+      const res = calculateResetWindow(fhStart.value, true);
+      fhOut.textContent = res ? res.endBeijing : (fhOut.getAttribute('data-invalid') || 'Invalid');
+    };
+    fhStart.addEventListener('input', () => { fhOut.textContent = '—'; });
+    fhBtn.addEventListener('click', runFiveHour);
+    runFiveHour();
+  }
+
+  const curUsed = document.getElementById('lt-cursor-used') as HTMLInputElement | null;
+  const curReset = document.getElementById('lt-cursor-reset') as HTMLInputElement | null;
+  const curBtn = document.getElementById('lt-cursor-btn');
+  const curBadge = document.getElementById('lt-cursor-badge');
+  const curBudget = document.getElementById('lt-cursor-budget');
+  const curSummary = document.getElementById('lt-cursor-summary');
+
+  if (curUsed && curReset && curBtn && curBadge && curBudget && curSummary) {
+    if (!curReset.value) curReset.value = toBeijingInput(Date.now() + 14 * 86400000, '08:00');
+    const isEnDoc = document.documentElement.lang === 'en';
+    const runCursor = () => {
+      const usedCount = Math.max(0, Math.min(500, Number(curUsed.value) || 0));
+      const usedPct = (usedCount / 500) * 100;
+      const pace = calculateWeeklyPace(usedPct, curReset.value, 30);
+      curBadge.textContent = isEnDoc ? pace.badgeEn : pace.badgeZh;
+      if (!pace.isValid || pace.isResetDue) {
+        curBudget.textContent = '—';
+      } else {
+        const dailyReqs = Math.max(0, Math.round((pace.dailyBudgetPercent / 100) * 500));
+        const remReqs = Math.max(0, 500 - usedCount);
+        const uDay = curBudget.getAttribute('data-unit-day') || ' req/day (';
+        const uLeft = curBudget.getAttribute('data-unit-left') || ' left)';
+        curBudget.textContent = `${dailyReqs}${uDay}${remReqs}${uLeft}`;
+      }
+      curSummary.textContent = isEnDoc ? pace.summaryEn : pace.summaryZh;
+    };
+    curBtn.addEventListener('click', runCursor);
+    runCursor();
+  }
+</script>
+
+<style>
+  .lt-page { padding-top: var(--space-12); padding-bottom: var(--space-24); }
+  .lt-container { max-width: 820px; }
+  .lt-breadcrumb { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: var(--text-12); color: var(--text-tertiary); margin-bottom: var(--space-6); }
+  .lt-breadcrumb a { color: var(--text-secondary); text-decoration: none; }
+  .lt-hero { margin-bottom: var(--space-8); }
+  .lt-badge { display: inline-block; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent-primary, #c2410c); margin-bottom: 0.65rem; }
+  .lt-hero h1 { font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.25; margin: 0 0 0.9rem; }
+  .lt-direct { margin: 0; padding: 1rem 1.15rem; border-radius: 12px; background: var(--surface-subtle, #f8fafc); border-left: 3px solid var(--accent-primary, #c2410c); color: var(--text-secondary); line-height: 1.65; }
+  .lt-card { padding: 1.4rem; border-radius: 16px; border: 1px solid var(--border-subtle, #e2e8f0); background: var(--surface-card, #ffffff); margin-bottom: var(--space-8); }
+  .lt-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+  .lt-form-row { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1rem; }
+  .lt-form-row label { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
+  .lt-form-row input { padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle, #cbd5e1); font-size: 0.95rem; }
+  .lt-actions { margin-bottom: 1rem; }
+  .lt-btn { padding: 0.65rem 1.2rem; border-radius: 9px; border: none; background: #111827; color: #ffffff; font-weight: 600; cursor: pointer; }
+  .lt-result-box { padding: 1rem 1.15rem; border-radius: 12px; background: var(--surface-subtle, #f8fafc); border: 1px solid var(--border-subtle, #e2e8f0); display: flex; flex-direction: column; gap: 0.35rem; }
+  .lt-result-box strong { font-size: 1.35rem; color: var(--accent-primary, #c2410c); }
+  .lt-summary { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+  .lt-links { margin-bottom: var(--space-8); }
+  .lt-links h2 { font-size: 1.15rem; margin-bottom: 0.85rem; }
+  .lt-link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; }
+  .lt-link-card { padding: 0.9rem 1rem; border-radius: 10px; border: 1px solid var(--border-subtle, #e2e8f0); text-decoration: none; color: var(--text-primary); font-weight: 600; font-size: 0.9rem; }
+</style>

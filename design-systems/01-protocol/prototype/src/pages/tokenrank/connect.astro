@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import TokenRankBadgeEmbed from '../../components/TokenRankBadgeEmbed.astro';
 import { getSession } from 'auth-astro/server';
 import { getOrCreateUploadToken, kv } from '../../lib/kv';
 
@@ -20,12 +21,12 @@ if (session?.user?.id) {
 }
 ---
 
-<BaseLayout alternatePath="/en/tokenrank/connect/" title="生成专属接入命令 — T Salon" description="绑定 GitHub，生成你的专属 Token 提取命令，加入排行榜。" image="/images/home-community-group.webp">
+<BaseLayout alternatePath="/en/tokenrank/connect/" title="本地体检与接入上榜 — T Salon TokenRank" description="支持免登录纯本地 Token 账单体检（--dry-run），或绑定 GitHub 一键同步上榜并生成动态 README 徽章。" image="/images/home-community-group.webp">
   <main>
     <header class="container page-title">
       <div class="page-title-main">
-        <h1>如何上榜</h1>
-        <p class="lead">绑定账号并生成接入命令</p>
+        <h1>如何体检与上榜</h1>
+        <p class="lead">支持免登录本地单次账单体检，或绑定 GitHub 生成个人战报页与 README 徽章</p>
       </div>
       <div class="page-title-side">
         <a class="btn btn-outline" href="/tokenrank/">← 返回排行榜</a>
@@ -33,14 +34,35 @@ if (session?.user?.id) {
     </header>
 
     <section class="container content-container">
-      <div class="event-main">
-        <div class="content-section" style="max-width: 600px; margin: 0 auto; text-align: center; padding: 3rem 1rem; border: 1px solid var(--color-border); border-radius: 8px;">
+      <div class="event-main" style="max-width: 760px; margin: 0 auto;">
+
+        <!-- Step 0: Zero-Login Local Dry-Run Checkup -->
+        <div style="margin-bottom: 1.5rem; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: 12px; background: var(--background-page);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.6rem;">
+            <span class="mono" style="font-size:0.75rem; color:#c2410c; font-weight:700;">STEP 1 · 免登录纯本地体检（--dry-run）</span>
+            <span style="font-size:0.78rem; color:var(--text-secondary);">无需登录 · 不上传数据 · 不装后台进程</span>
+          </div>
+          <h2 style="font-size:1.15rem; margin:0 0 0.5rem;">先在终端看一眼你的本地 AI 编程消费小票</h2>
+          <p style="font-size:0.9rem; color:var(--text-secondary); margin:0 0 0.85rem;">
+            不确定自己用了多少 Token 或缓存省了多少钱？直接复制下方命令运行一次，纯本地扫描 Claude Code / Codex / Cursor 等聚合数字并在终端打印消费小票，<strong>算完即退出、不联网上传</strong>：
+          </p>
+          <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 0.9rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0; font-size:0.86rem;">
+            bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --dry-run
+          </code>
+          <p style="margin:0.75rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+            🔒 <strong>隐私与安全底线</strong>：脚本 100% 开源可审计（<code>/scripts/agent.mjs</code>），仅汇总各工具的 Token 计数与模型名称，<strong>你的源代码、文件路径和对话 Prompt 永远不会离开本机</strong>。
+          </p>
+        </div>
+
+        <div class="content-section" style="text-align: center; padding: 2.25rem 1.5rem; border: 1px solid var(--color-border); border-radius: 12px;">
           
           {!session ? (
             <div>
-              <p style="margin-bottom: 2rem;">上榜命令与你的 GitHub 账号绑定，需登录后才能查看。</p>
-              <button id="login" class="btn btn-dark btn-block" style="font-size: 1.2rem; padding: 1rem;">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; vertical-align: middle;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              <span class="mono" style="font-size:0.75rem; color:#2563eb; font-weight:700; display:block; margin-bottom:0.5rem;">STEP 2 · 同步上榜与生成个人战报 / README 徽章</span>
+              <h2 style="font-size:1.25rem; margin:0 0 0.75rem;">绑定 GitHub 获取专属同步命令</h2>
+              <p style="margin-bottom: 1.5rem; color:var(--text-secondary); font-size:0.92rem;">登录后默认提供「单次运行即退出」同步命令，立即可生成个人数据看板与 GitHub README 动态 SVG 徽章。</p>
+              <button id="login" class="btn btn-dark btn-block" style="font-size: 1.1rem; padding: 0.95rem;">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; vertical-align: middle;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
                 使用 GitHub 登录
               </button>
               <p id="login-error" role="alert" hidden style="margin-top: 1rem;"></p>
@@ -49,28 +71,36 @@ if (session?.user?.id) {
             <div>
               <img src={session.user?.image} alt={session.user?.name} style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 1rem;" />
               <h3>已登录为 {session.user?.name}</h3>
-              <p style="margin-bottom: 2rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
-              <div class="code-tabs" style="margin-top: 1.5rem; text-align: left;">
-                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.5rem; background: var(--background-subtle); border: 1px solid var(--border-default); border-radius: 6px; padding: 4px;">
+              <p style="margin-bottom: 1.5rem; color: var(--color-gray);">这是你的专属接入命令，请勿泄露给他人。</p>
+              <div class="code-tabs" style="margin-top: 1rem; text-align: left;">
+                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.25rem; background: var(--background-subtle); border: 1px solid var(--border-default); border-radius: 6px; padding: 4px;">
                   <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1.5rem; border: none; background: var(--action-primary); color: var(--background-page); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Mac / Linux</button>
                   <button class="tab-btn" data-target="windows" style="padding: 0.5rem 1.5rem; border: none; background: transparent; color: var(--text-secondary); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Windows</button>
                 </div>
                 
                 <div id="mac-linux" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
-                  <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    自动守护（登录即同步 + 每天 09:17）
+                  <h4 style="margin-bottom: 0.4rem; font-weight: 600; font-size: 1rem;">
+                    推荐：单次同步（跑完即退出，不安装后台任务）
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在终端运行一次，将立即同步，并安装开机登录自动启动的后台任务：</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.6rem;">在终端运行一次即可立即同步当前用量并生成个人战报页：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --token="{uploadToken}" --install
+                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --token="{uploadToken}"
                   </code>
+
+                  <details style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-default);">
+                    <summary style="cursor:pointer; font-size:0.86rem; font-weight:600; color:var(--text-secondary);">高级选项：安装每日自动同步守护任务（--install）</summary>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0.5rem 0;">如希望每天 09:17 及开机登录时自动同步，可追加 <code>--install</code> 参数：</p>
+                    <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 0.85rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size:0.82rem;">
+                      bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --token="{uploadToken}" --install
+                    </code>
+                  </details>
                 </div>
 
                 <div id="windows" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    自动守护（登录即同步 + 每天 09:17）
+                    PowerShell 同步命令
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell（普通用户即可）中运行一次，将立即同步，并安装登录自动启动的后台任务：</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">在 PowerShell（普通用户即可）中运行一次即可立即同步：</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
                     powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm ('https' + '://www.tsalon.tech/scripts/token-agent.ps1?v=9')))) -token '{uploadToken}'"
                   </code>
@@ -78,8 +108,10 @@ if (session?.user?.id) {
               </div>
               
               <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                完成后刷新 <a href="/tokenrank/" style="color: var(--action-link); text-decoration: underline;">排行榜页面</a> 即可看到数据。
+                完成后可前往 <a href={`/tokenrank/user/${session.user?.id || 'demo'}/`} style="color: var(--action-link); text-decoration: underline; font-weight:600;">我的个人数据看板</a> 或 <a href="/tokenrank/" style="color: var(--action-link); text-decoration: underline;">排行榜页面</a> 查看。
               </p>
+
+              <TokenRankBadgeEmbed userId={session.user?.id || 'demo'} userName={session.user?.name || 'Developer'} locale="zh" />
               
               <button id="logout" class="btn btn-outline" style="margin-top: 2rem;">退出登录</button>
             </div>

@@ -18,10 +18,16 @@ tldr:
   - Cosmos 3 Edge 是面向物理 AI 的 4B 世界模型，覆盖理解、预测和动作生成。
   - 官方模型卡列出不同任务运行时及 Linux、BF16 测试条件；动作接入仍需匹配机器人与控制系统。
   - 物理建模是近似的；本文未验证消费显卡微调、手机 NPU 或 CoreML 移植能力。
-faq: []
+faq:
+  - question: "Cosmos 3 Edge（Cosmos3-Edge）的官方硬件要求与测试环境是什么？"
+    answer: "根据 NVIDIA 官方模型卡，Cosmos 3 Edge 是面向物理 AI 的 4B 参数世界模型，官方基准在 Linux 环境与 BF16 精度下验证；不同子任务（视觉理解、状态预测、动作策略生成）对应不同的运行时配置。"
+  - question: "Cosmos 3 Edge 支持 GGUF 量化、消费级显卡或手机端侧 NPU 吗？"
+    answer: "官方发布说明主要覆盖标准 Linux + BF16 推理与机器人策略接入；关于消费级显卡微调、GGUF 社区量化版本或手机 NPU / CoreML 移植的效果，仍需开发者结合具体硬件实测验证。"
+  - question: "Cosmos3-Edge-Policy 动作生成能直接控制真实机器人吗？"
+    answer: "不能直接裸跑。模型的策略输出（Policy）需要与具体机器人的运动学模型、底层控制器及安全边界做二次适配和闭环标定。"
 seo:
-  title: NVIDIA Cosmos 3 Edge：能力、部署条件与限制
-  description: 梳理 Cosmos 3 Edge 的世界模型与动作生成能力，说明官方运行时、Linux 与 BF16 测试边界，以及消费显卡和手机 NPU 移植仍需验证的条件。
+  title: NVIDIA Cosmos 3 Edge (Cosmos3-Edge)：硬件要求、Policy 与部署限制
+  description: 深度解析 NVIDIA 4B 物理 AI 世界模型 Cosmos 3 Edge（Cosmos3-Edge）的视觉理解、状态预测与 Policy 动作生成能力，梳理官方 Linux/BF16 硬件要求，以及 GGUF 量化、消费级显卡与端侧移植的验证边界。
   noindex: false
 updatedAt: 2026-09-27
 citations:

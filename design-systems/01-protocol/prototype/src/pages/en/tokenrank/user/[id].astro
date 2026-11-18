@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import TokenRankBadgeEmbed from '../../../../components/TokenRankBadgeEmbed.astro';
 import { getUserRankData, getLeaderboard, getUserAnalytics } from '../../../../lib/kv';
 import { beijingDateString, beijingDateNDaysAgo } from '../../../../lib/date';
 import { PRICING_SNAPSHOT_DATE } from '../../../../lib/token-pricing.mjs';
@@ -294,16 +295,16 @@ const profileJsonLd = [
     </header>
 
     <div class="tabs">
-      <a href={`?time=today&metric=${metricFilter}`} class={timeFilter === 'today' ? 'active' : ''}>Today</a>
-      <a href={`?time=yesterday&metric=${metricFilter}`} class={timeFilter === 'yesterday' ? 'active' : ''}>Yesterday</a>
-      <a href={`?time=3d&metric=${metricFilter}`} class={timeFilter === '3d' ? 'active' : ''}>3D</a>
-      <a href={`?time=7d&metric=${metricFilter}`} class={timeFilter === '7d' ? 'active' : ''}>7D</a>
-      <a href={`?time=30d&metric=${metricFilter}`} class={timeFilter === '30d' ? 'active' : ''}>30D</a>
-      <a href={`?time=90d&metric=${metricFilter}`} class={timeFilter === '90d' ? 'active' : ''}>90D</a>
-      <a href={`?time=all&metric=${metricFilter}`} class={timeFilter === 'all' ? 'active' : ''}>All time</a>
-      <a href={`?time=${timeFilter}&metric=total`} class={metricFilter === 'total' ? 'active' : ''}>With cache</a>
-      <a href={`?time=${timeFilter}&metric=norm`} class={metricFilter === 'norm' ? 'active' : ''}>No cache</a>
-      <a href={`?time=${timeFilter}&metric=cost`} class={metricFilter === 'cost' ? 'active' : ''}>Estimated cost</a>
+      <a rel="nofollow" href={`?time=today&metric=${metricFilter}`} class={timeFilter === 'today' ? 'active' : ''}>Today</a>
+      <a rel="nofollow" href={`?time=yesterday&metric=${metricFilter}`} class={timeFilter === 'yesterday' ? 'active' : ''}>Yesterday</a>
+      <a rel="nofollow" href={`?time=3d&metric=${metricFilter}`} class={timeFilter === '3d' ? 'active' : ''}>3D</a>
+      <a rel="nofollow" href={`?time=7d&metric=${metricFilter}`} class={timeFilter === '7d' ? 'active' : ''}>7D</a>
+      <a rel="nofollow" href={`?time=30d&metric=${metricFilter}`} class={timeFilter === '30d' ? 'active' : ''}>30D</a>
+      <a rel="nofollow" href={`?time=90d&metric=${metricFilter}`} class={timeFilter === '90d' ? 'active' : ''}>90D</a>
+      <a rel="nofollow" href={`?time=all&metric=${metricFilter}`} class={timeFilter === 'all' ? 'active' : ''}>All time</a>
+      <a rel="nofollow" href={`?time=${timeFilter}&metric=total`} class={metricFilter === 'total' ? 'active' : ''}>With cache</a>
+      <a rel="nofollow" href={`?time=${timeFilter}&metric=norm`} class={metricFilter === 'norm' ? 'active' : ''}>No cache</a>
+      <a rel="nofollow" href={`?time=${timeFilter}&metric=cost`} class={metricFilter === 'cost' ? 'active' : ''}>Estimated cost</a>
       <span class="current-date">{todayDateStr}</span>
     </div>
 
@@ -505,6 +506,8 @@ const profileJsonLd = [
         </table>
       </div>
     </div>
+
+    <TokenRankBadgeEmbed userId={id as string} userName={userData.name} locale="en" />
 
   </div>
 </BaseLayout>

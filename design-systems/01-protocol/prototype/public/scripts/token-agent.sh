@@ -8,6 +8,7 @@ TOKEN=""
 HOST="https://www.tsalon.tech"
 INSTALL=0
 SCHEDULED_RUN=0
+DRY_RUN=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -15,11 +16,16 @@ for arg in "$@"; do
     --host=*) HOST="${arg#*=}" ;;
     --install) INSTALL=1 ;;
     --scheduled-run) SCHEDULED_RUN=1 ;;
+    --dry-run|--local) DRY_RUN=1 ;;
   esac
 done
 
+if [ "$DRY_RUN" -eq 1 ] && [ -z "$TOKEN" ]; then
+  TOKEN="dry-run"
+fi
+
 if [ -z "$TOKEN" ]; then
-  echo "❌ Error: --token is required."
+  echo "❌ Error: --token is required (or pass --dry-run for local checkup)."
   exit 1
 fi
 
@@ -251,4 +257,8 @@ if [ ! -s "$TSALON_DIR/sql-wasm.wasm" ]; then
   fi
 fi
 
-"$NODE_CMD" "$TSALON_DIR/agent.mjs" --token="$TOKEN" --host="$HOST"
+if [ "$DRY_RUN" -eq 1 ]; then
+  "$NODE_CMD" "$TSALON_DIR/agent.mjs" --token="$TOKEN" --host="$HOST" --dry-run
+else
+  "$NODE_CMD" "$TSALON_DIR/agent.mjs" --token="$TOKEN" --host="$HOST"
+fi

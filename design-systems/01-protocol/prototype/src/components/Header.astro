@@ -26,6 +26,8 @@ const languageHref = hasTranslation && alternatePath ? alternatePath : (locale =
       <a href={route('/contact/')} aria-current={isActive('/contact/') ? 'page' : undefined}>{copy.contact}</a>
       <a href={route('/tokenrank/')} aria-current={isActive('/tokenrank/') ? 'page' : undefined}>{locale === 'zh' ? 'Token 排行榜' : 'Token Rank'}</a>
       <a href={route('/whenreset/')} aria-current={isActive('/whenreset/') ? 'page' : undefined}>{locale === 'zh' ? '重置雷达' : 'Reset Radar'}</a>
+      <a href={route('/calculator/')} aria-current={isActive('/calculator/') ? 'page' : undefined}>{locale === 'zh' ? '成本计算' : 'Cost Calc'}</a>
+      <a href={route('/errors/')} aria-current={isActive('/errors/') ? 'page' : undefined}>{locale === 'zh' ? '报错速查' : 'Error Wiki'}</a>
     </nav>
     <a class="btn btn-dark header-action" href={`${route('/about/')}#join`}>{copy.join} <span>↗</span></a>
     <a class="language-switch" href={languageHref} hreflang={locale === 'zh' ? 'en' : 'zh-Hans'} lang={locale === 'zh' ? 'en' : 'zh-CN'} title={copy.languageTitle} aria-label={copy.languageTitle} data-locale-choice={locale === 'zh' ? 'en' : 'zh'}>{copy.language}</a>
@@ -38,6 +40,8 @@ const languageHref = hasTranslation && alternatePath ? alternatePath : (locale =
         <a href={route('/contact/')}>{copy.contact} <span>→</span></a>
         <a href={route('/tokenrank/')}>{locale === 'zh' ? 'Token 排行榜' : 'Token Rank'} <span>→</span></a>
         <a href={route('/whenreset/')}>{locale === 'zh' ? '重置雷达' : 'Reset Radar'} <span>→</span></a>
+        <a href={route('/calculator/')}>{locale === 'zh' ? '成本计算器' : 'Cost Calculator'} <span>→</span></a>
+        <a href={route('/errors/')}>{locale === 'zh' ? '报错速查库' : 'Error Wiki'} <span>→</span></a>
         <a class="mobile-menu-action" href={`${route('/about/')}#join`}>{copy.join} <span>↗</span></a>
         <a class="mobile-menu-language" href={languageHref} hreflang={locale === 'zh' ? 'en' : 'zh-Hans'} lang={locale === 'zh' ? 'en' : 'zh-CN'} aria-label={copy.languageTitle} data-locale-choice={locale === 'zh' ? 'en' : 'zh'}>{copy.language} <span>→</span></a>
       </nav>

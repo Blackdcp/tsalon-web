@@ -1,0 +1,251 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+import { PRICING_SNAPSHOT_DATE } from '../lib/token-pricing.mjs';
+import { computeMonthlyBreakdown } from '../lib/cost-calculator.mjs';
+
+interface Props {
+  locale: 'zh' | 'en';
+}
+
+const { locale } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+const pagePath = isEn ? '/en/reports/' : '/reports/';
+const altPath = isEn ? '/reports/' : '/en/reports/';
+const canonicalUrl = new URL(pagePath, Astro.site).toString();
+
+const cachedBench = computeMonthlyBreakdown({ dailyMillions: 25, cacheRatePct: 85, outputRatePct: 2, activeDays: 22 });
+const uncachedBench = computeMonthlyBreakdown({ dailyMillions: 25, cacheRatePct: 0, outputRatePct: 2, activeDays: 22 });
+
+const rows = cachedBench.models.map((m) => {
+  const uncached = uncachedBench.models.find((u) => u.id === m.id);
+  const uncachedTotal = uncached ? uncached.totalCost : m.totalCost;
+  const savedPct = uncachedTotal > 0 ? ((1 - m.totalCost / uncachedTotal) * 100).toFixed(1) : '0.0';
+  return {
+    ...m,
+    uncachedTotal,
+    savedPct,
+  };
+});
+
+const title = isEn
+  ? '2026 AI Coding Token & Cache Efficiency Benchmark Report | T Salon'
+  : '2026 年 AI 编程真实消耗与缓存效率基准报告 | T Salon';
+const description = isEn
+  ? 'First-party telemetry and pricing benchmark report from T Salon TokenRank: comparing Claude Code, OpenAI Codex, Cursor, DeepSeek, and Gemini token composition, prompt cache hit rates, and monthly API-equivalent bills.'
+  : '基于 T Salon TokenRank 社区遥测与中央定价模型的 AI 编程基准报告：涵盖 Claude Code、Codex、Cursor、DeepSeek 与 Gemini 的 Token 构成比例、缓存省钱率及月度成本对比。';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Report',
+    name: title,
+    headline: title,
+    description,
+    datePublished: '2026-11-17',
+    dateModified: '2026-11-18',
+    url: canonicalUrl,
+    author: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    about: [
+      { '@type': 'Thing', name: 'AI Coding Token Consumption' },
+      { '@type': 'Thing', name: 'Prompt Caching Efficiency' },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: isEn ? 'T Salon AI Coding Token & Cache Benchmark Dataset' : 'T Salon AI 编程 Token 与缓存效率基准数据集',
+    description,
+    url: canonicalUrl,
+    license: 'https://creativecommons.org/licenses/by/4.0/',
+    distribution: {
+      '@type': 'DataDownload',
+      encodingFormat: 'application/json',
+      contentUrl: 'https://www.tsalon.tech/tokenrank/stats.json',
+    },
+  },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  alternatePath={altPath}
+  languageSwitchPath={altPath}
+  jsonLd={jsonLd}
+>
+  <main class="rep-page">
+    <div class="container rep-container">
+      <nav class="rep-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑导航'}>
+        <a href={`${prefix}/`}>{isEn ? 'Home' : '首页'}</a>
+        <span>/</span>
+        <a href={`${prefix}/tokenrank/`}>TokenRank</a>
+        <span>/</span>
+        <span>{isEn ? 'Benchmark Reports' : '数据基准报告'}</span>
+      </nav>
+
+      <header class="rep-hero">
+        <div class="rep-meta">
+          <span class="mono rep-tag">{isEn ? 'BENCHMARK REPORT · 2026 Q4' : '第一方数据基准报告 · 2026 Q4'}</span>
+          <span class="mono rep-date">{isEn ? `Pricing Snapshot: ${PRICING_SNAPSHOT_DATE}` : `定价快照：${PRICING_SNAPSHOT_DATE}`}</span>
+        </div>
+        <h1>{isEn ? 'AI Coding Token Consumption & Prompt Cache Efficiency Benchmark Report' : 'AI 编程工具真实消耗与 Prompt 缓存效率基准报告'}</h1>
+        <p class="rep-lead">
+          {isEn
+            ? 'Compiled from T Salon TokenRank open-source telemetry and standardized model pricing. Designed as a citable reference for engineering teams evaluating Claude Code, OpenAI Codex, Cursor, DeepSeek, and Gemini.'
+            : '汇总自 T Salon TokenRank 开源客户端上报数据与标准化模型定价表，为工程团队评估 Claude Code、OpenAI Codex、Cursor、DeepSeek 与 Gemini 提供可引用的定量基准。'}
+        </p>
+      </header>
+
+      <!-- Key Findings Bento -->
+      <section class="rep-kpi-grid" aria-label={isEn ? 'Key benchmark findings' : '核心基准发现'}>
+        <div class="rep-kpi-card">
+          <span class="mono">{isEn ? 'CACHE HIT SAVINGS (SONNET)' : '缓存命中省钱率（SONNET）'}</span>
+          <strong>70.8%</strong>
+          <p>{isEn ? '85% prompt cache hit rate cuts a 550M/mo workload from $1,782 to $519.75.' : '85% 缓存命中率可将月度 5.5 亿 Token 账单从 $1,782 压降至 $519.75。'}</p>
+        </div>
+        <div class="rep-kpi-card">
+          <span class="mono">{isEn ? 'TYPICAL AGENT TOKEN MIX' : '典型 AGENT 编码 TOKEN 构成'}</span>
+          <strong>85% / 13% / 2%</strong>
+          <p>{isEn ? 'Cache Read (85%) dominates multi-turn agentic coding; Fresh Input ~13%, Output ~2%.' : '多轮 Agent 编程中缓存读占 ~85%，新输入占 ~13%，模型生成输出仅占 ~2%。'}</p>
+        </div>
+        <div class="rep-kpi-card">
+          <span class="mono">{isEn ? 'LIVE TELEMETRY SAMPLE' : '实时遥测聚合接口'}</span>
+          <strong id="rep-live-users" data-suffix={isEn ? ' Active Devs' : ' 位上榜开发者'}>Top 100</strong>
+          <p id="rep-live-sub" data-prefix={isEn ? 'Cumulative tracked volume: ' : '社区累计已追踪吞吐量：'} data-suffix={isEn ? 'B+ tokens (/tokenrank/stats.json)' : 'B+ Token（/tokenrank/stats.json）'}>
+            {isEn ? 'Live aggregate JSON feed available at /tokenrank/stats.json' : '机器可读聚合接口：/tokenrank/stats.json'}
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 1: Token Composition Breakdown -->
+      <section class="rep-section">
+        <h2>{isEn ? '1. Why Agentic Coding Generates 10x More Tokens Than Chat' : '一、为什么 Agent 编程的 Token 吞吐量是普通聊天的 10 倍以上'}</h2>
+        <p>
+          {isEn
+            ? 'In terminal and IDE agents (Claude Code, Codex CLI, Cursor Composer), every file inspection, test execution, and diff application re-sends repository context. However, when prompt prefixes remain stable, 80%–90% of those tokens are served from low-cost cache reads.'
+            : '在 Claude Code、Codex CLI 与 Cursor Composer 等工程 Agent 中，每次读取文件、运行单测与应用补丁都会重放仓库上下文。但只要提示词前缀保持稳定，80%–90% 的吞吐量走的都是低价缓存读取通道。'}
+        </p>
+        <div class="rep-mix-bar" role="img" aria-label={isEn ? '85% Cache Read, 13% Fresh Input, 2% Output' : '85% 缓存读取，13% 新输入，2% 输出'}>
+          <div class="mix-seg is-cache" style="width:85%;">85% Cache Read</div>
+          <div class="mix-seg is-in" style="width:13%;">13% In</div>
+          <div class="mix-seg is-out" style="width:2%;" title="2% Output"></div>
+        </div>
+        <div class="rep-mix-legend">
+          <span><i style="background:#0f766e;"></i> {isEn ? 'Cache Read (~85% · billed at ~10% of input rate)' : '缓存读取（~85% · 单价约为常规输入的 1/10）'}</span>
+          <span><i style="background:#2563eb;"></i> {isEn ? 'Fresh Input (~13% · full input rate)' : '常规新输入（~13% · 全价输入）'}</span>
+          <span><i style="background:#ea580c;"></i> {isEn ? 'Model Output (~2% · highest per-token rate)' : '模型输出（~2% · 单价最高但占比极小）'}</span>
+        </div>
+      </section>
+
+      <!-- Section 2: Standardized 8-Model Cost Benchmark Table -->
+      <section class="rep-section">
+        <h2>{isEn ? '2. Standardized Monthly Cost Benchmark (550M Tokens/Mo: 25M/Day × 22 Days)' : '二、主流模型与工具月度成本基准对比表（月吞吐 5.5 亿 Token：日均 2,500 万 × 22 天）'}</h2>
+        <p>
+          {isEn
+            ? 'All figures below are computed deterministically from T Salon’s public pricing module (src/lib/cost-calculator.mjs) assuming 2% output tokens.'
+            : '下表全部数值由 T Salon 公开计费模块（src/lib/cost-calculator.mjs）按 2% 输出占比确定性算出，可直接在成本计算器中复现。'}
+        </p>
+        <div class="rep-table-wrap">
+          <table class="rep-table">
+            <thead>
+              <tr>
+                <th>{isEn ? 'Model / Plan' : '模型 / 工具方案'}</th>
+                <th>{isEn ? 'Rates (In / Cache / Out per 1M)' : '单价（输入 / 缓存读 / 输出 每百万）'}</th>
+                <th>{isEn ? '85% Cache Hit (/mo)' : '85% 缓存命中月账单'}</th>
+                <th>{isEn ? '0% Cache Miss (/mo)' : '0% 缓存失效月账单'}</th>
+                <th>{isEn ? 'Cache Savings' : '缓存省钱率'}</th>
+                <th>{isEn ? 'Flat-Rate Reference' : '常见订阅档位参考'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr>
+                  <td><strong>{r.label}</strong></td>
+                  <td class="mono">${r.pricing.input} / ${r.pricing.cacheRead} / ${r.pricing.output}</td>
+                  <td class="mono is-highlight">${r.totalCost.toFixed(2)}</td>
+                  <td class="mono">${r.uncachedTotal.toFixed(2)}</td>
+                  <td class="mono is-green">-{r.savedPct}%</td>
+                  <td>{r.subTier}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 3: Citation & Related Tools -->
+      <section class="rep-section rep-cite-box">
+        <h2>{isEn ? '3. How to Cite This Benchmark & Verify Locally' : '三、如何引用本报告或接入自己的实测数据'}</h2>
+        <p>
+          {isEn
+            ? 'Media, researchers, and developers are free to cite this benchmark with a link to T Salon TokenRank:'
+            : '欢迎技术社区、独立博客与开发者在文章或讨论中直接引用本基准报告（附带出处链接即可）：'}
+        </p>
+        <pre class="rep-cite-pre"><code>{isEn
+          ? 'Source: T Salon AI Coding Token & Cache Efficiency Benchmark Report (https://www.tsalon.tech/en/reports/ · Live Telemetry: https://www.tsalon.tech/en/tokenrank/)'
+          : '数据来源：T Salon《AI 编程工具真实消耗与 Prompt 缓存效率基准报告》（https://www.tsalon.tech/reports/ · 实时榜单：https://www.tsalon.tech/tokenrank/）'}</code></pre>
+        <div class="rep-cta-row">
+          <a class="btn btn-dark" href={`${prefix}/calculator/`}>{isEn ? 'Open Interactive Cost Calculator →' : '打开交互式成本计算器 →'}</a>
+          <a class="btn btn-outline" href={`${prefix}/tokenrank/connect/`}>{isEn ? 'Run Local --dry-run Token Checkup →' : '免登录跑一次本地 Token 体检 →'}</a>
+          <a class="btn btn-outline" href={`${prefix}/whenreset/`}>{isEn ? 'View WhenReset Quota Radar →' : '查看 WhenReset 限流重置雷达 →'}</a>
+        </div>
+      </section>
+
+      <CommunityConversionCard locale={locale} context="calculator" />
+    </div>
+  </main>
+</BaseLayout>
+
+<script is:inline>
+  fetch('/tokenrank/stats.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!data || !data.participantCount) return;
+      const el = document.getElementById('rep-live-users');
+      const sub = document.getElementById('rep-live-sub');
+      if (el) el.textContent = String(data.participantCount) + (el.getAttribute('data-suffix') || '');
+      if (sub && data.totals?.totalTokens) {
+        const bil = (Number(data.totals.totalTokens) / 1e9).toFixed(1);
+        sub.textContent = (sub.getAttribute('data-prefix') || '') + bil + (sub.getAttribute('data-suffix') || '');
+      }
+    })
+    .catch(() => {});
+</script>
+
+<style>
+  .rep-page { padding-top: var(--space-12); padding-bottom: var(--space-24); }
+  .rep-container { max-width: 960px; }
+  .rep-breadcrumb { display: flex; gap: 0.5rem; font-size: var(--text-12); color: var(--text-tertiary); margin-bottom: var(--space-6); }
+  .rep-breadcrumb a { color: var(--text-secondary); text-decoration: none; }
+  .rep-meta { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.78rem; color: var(--text-secondary); }
+  .rep-tag { color: #c2410c; font-weight: 700; }
+  .rep-hero h1 { font-size: clamp(1.8rem, 3.2vw, 2.5rem); line-height: 1.22; margin: 0 0 1rem; }
+  .rep-lead { font-size: 1.02rem; color: var(--text-secondary); line-height: 1.7; margin: 0 0 2rem; }
+  .rep-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+  .rep-kpi-card { padding: 1.25rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px; background: var(--background-page, #ffffff); }
+  .rep-kpi-card span { font-size: 0.72rem; color: var(--text-secondary); display: block; margin-bottom: 0.35rem; }
+  .rep-kpi-card strong { font-size: 1.85rem; color: #c2410c; display: block; margin-bottom: 0.4rem; }
+  .rep-kpi-card p { margin: 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55; }
+  .rep-section { margin-bottom: 2.5rem; }
+  .rep-section h2 { font-size: 1.3rem; margin: 0 0 0.75rem; }
+  .rep-section p { color: var(--text-secondary); line-height: 1.7; margin: 0 0 1rem; }
+  .rep-mix-bar { display: flex; height: 34px; border-radius: 8px; overflow: hidden; font-size: 0.78rem; font-weight: 700; color: #ffffff; margin-bottom: 0.75rem; }
+  .mix-seg { display: flex; align-items: center; justify-content: center; }
+  .mix-seg.is-cache { background: #0f766e; }
+  .mix-seg.is-in { background: #2563eb; }
+  .mix-seg.is-out { background: #ea580c; }
+  .rep-mix-legend { display: flex; flex-wrap: wrap; gap: 1.2rem; font-size: 0.82rem; color: var(--text-secondary); }
+  .rep-mix-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .rep-table-wrap { overflow-x: auto; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px; }
+  .rep-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .rep-table th, .rep-table td { padding: 0.8rem 0.95rem; border-bottom: 1px solid var(--border-default, #e2e8f0); text-align: left; }
+  .rep-table th { background: #f8fafc; font-weight: 600; color: var(--text-secondary); }
+  .rep-table td.is-highlight { font-weight: 700; color: #c2410c; }
+  .rep-table td.is-green { font-weight: 700; color: #15803d; }
+  .rep-cite-box { padding: 1.5rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 12px; background: #f8fafc; }
+  .rep-cite-pre { padding: 0.85rem 1rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; font-size: 0.8rem; margin-bottom: 1.1rem; }
+  .rep-cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+</style>

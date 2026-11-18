@@ -1,0 +1,100 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityConversionCard from './CommunityConversionCard.astro';
+import { COMPARISONS } from '../data/comparisons';
+
+interface Props {
+  locale: 'zh' | 'en';
+}
+
+const { locale } = Astro.props;
+const isEn = locale === 'en';
+const prefix = isEn ? '/en' : '';
+const pagePath = isEn ? '/en/compare/' : '/compare/';
+const altPath = isEn ? '/compare/' : '/en/compare/';
+const canonicalUrl = new URL(pagePath, Astro.site).toString();
+
+const title = isEn
+  ? 'AI Coding Tools, Quotas & Subscription Comparisons (2026) | T Salon'
+  : 'AI 编程工具、配额规则与订阅方案横向对比库 (2026) | T Salon';
+const description = isEn
+  ? 'Side-by-side engineering comparisons of Claude Code, OpenAI Codex CLI, Cursor, Google Antigravity, DeepSeek, and $20 vs $100/$200 subscriptions—backed by T Salon TokenRank telemetry and WhenReset rules.'
+  : '基于 T Salon TokenRank 实测数据与 WhenReset 配额规则，横向对比 Claude Code、OpenAI Codex、Cursor、Google Antigravity、DeepSeek 及 $20/$100/$200 订阅套餐的盈亏平衡点与防限流策略。';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: title,
+    description,
+    url: canonicalUrl,
+    mainEntity: {
+      '@type': 'ItemList',
+      itemListElement: COMPARISONS.map((c, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: isEn ? c.titleEn : c.titleZh,
+        url: new URL(`${prefix}/compare/${c.slug}/`, Astro.site).toString(),
+      })),
+    },
+  },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  alternatePath={altPath}
+  languageSwitchPath={altPath}
+  jsonLd={jsonLd}
+>
+  <main class="cmp-index-page">
+    <div class="container cmp-container">
+      <nav class="cmp-breadcrumb" aria-label={isEn ? 'Breadcrumb' : '面包屑导航'}>
+        <a href={`${prefix}/`}>{isEn ? 'Home' : '首页'}</a>
+        <span>/</span>
+        <span>{isEn ? 'AI Coding Comparisons' : 'AI 编程选型对比库'}</span>
+      </nav>
+
+      <header class="cmp-hero">
+        <span class="mono cmp-eyebrow">{isEn ? 'DECISION MATRICES // GEO BENCHMARKS' : '开发者选型矩阵 // 实测数据对比'}</span>
+        <h1>{isEn ? 'AI Coding Tools, Quotas & Subscription Comparisons' : 'AI 编程工具、配额机制与订阅方案横向对比库'}</h1>
+        <p class="cmp-lead">
+          {isEn
+            ? 'Deterministic, table-first comparisons powered by T Salon’s public pricing module, TokenRank community cache telemetry, and WhenReset quota rules.'
+            : '拒绝空泛印象流评测——每一篇对比均基于 T Salon 中央价目表、TokenRank 社区真实缓存命中率与 WhenReset 配额重置规则，直接给出定量表格与选型分界线。'}
+        </p>
+      </header>
+
+      <div class="cmp-grid">
+        {COMPARISONS.map((entry) => (
+          <a class="cmp-card" href={`${prefix}/compare/${entry.slug}/`}>
+            <span class="mono cmp-badge">{entry.badge}</span>
+            <h2>{isEn ? entry.titleEn : entry.titleZh}</h2>
+            <p>{isEn ? entry.descEn : entry.descZh}</p>
+            <strong class="cmp-link-text">{isEn ? 'View Comparison Matrix & Verdict →' : '查看完整对比表与选型结论 →'}</strong>
+          </a>
+        ))}
+      </div>
+
+      <CommunityConversionCard locale={locale} context="calculator" />
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .cmp-index-page { padding-top: var(--space-12); padding-bottom: var(--space-24); }
+  .cmp-container { max-width: 960px; }
+  .cmp-breadcrumb { display: flex; gap: 0.5rem; font-size: var(--text-12); color: var(--text-tertiary); margin-bottom: var(--space-6); }
+  .cmp-breadcrumb a { color: var(--text-secondary); text-decoration: none; }
+  .cmp-eyebrow { font-size: 0.75rem; color: #c2410c; font-weight: 700; display: block; margin-bottom: 0.5rem; }
+  .cmp-hero h1 { font-size: clamp(1.8rem, 3.2vw, 2.45rem); line-height: 1.22; margin: 0 0 0.9rem; }
+  .cmp-lead { font-size: 1rem; color: var(--text-secondary); line-height: 1.7; margin: 0 0 2.25rem; }
+  .cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.15rem; margin-bottom: 2.5rem; }
+  .cmp-card { display: flex; flex-direction: column; padding: 1.4rem; border: 1px solid var(--border-default, #e2e8f0); border-radius: 14px; background: var(--background-page, #ffffff); text-decoration: none; color: inherit; transition: border-color 0.15s ease, transform 0.15s ease; }
+  .cmp-card:hover { border-color: #111827; transform: translateY(-2px); }
+  .cmp-badge { font-size: 0.72rem; color: #c2410c; font-weight: 700; margin-bottom: 0.5rem; }
+  .cmp-card h2 { font-size: 1.12rem; line-height: 1.38; margin: 0 0 0.65rem; }
+  .cmp-card p { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1.1rem; flex: 1; }
+  .cmp-link-text { font-size: 0.86rem; color: #111827; }
+</style>

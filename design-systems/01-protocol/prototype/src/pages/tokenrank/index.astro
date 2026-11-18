@@ -11,6 +11,17 @@ import { resolveRankQuery, secondaryRankMetric } from '../../lib/tokenrank-domai
 export const prerender = false;
 
 const { time: timeFilter, metric: metricFilter } = resolveRankQuery(Astro.url.searchParams);
+const sortMode = Astro.url.searchParams.get('sort') === 'cache' ? 'cache' : 'metric';
+const userCacheRate = (user: any): number => {
+  let cacheRead = 0;
+  let total = 0;
+  for (const [k, raw] of Object.entries(user?.tokens || {})) {
+    if (k === 'total' || k === 'history' || !raw || typeof raw !== 'object') continue;
+    cacheRead += Number((raw as any).cache_read) || 0;
+    total += Number((raw as any).total) || 0;
+  }
+  return total > 0 ? Math.min(100, (cacheRead / total) * 100) : 0;
+};
 const rankValue = (user: any) => Number(user?.metrics?.[metricFilter]) || 0;
 const secondaryMetric = secondaryRankMetric(metricFilter);
 const secondaryValue = (user: any) => Number(user?.metrics?.[secondaryMetric]) || 0;
@@ -20,6 +31,9 @@ let stats = { totalUsers: 0, totalTokens: 0 };
 try {
   leaderboard = await getLeaderboard(100, timeFilter, metricFilter);
   stats = await getGlobalStats(leaderboard, metricFilter);
+  if (sortMode === 'cache') {
+    leaderboard = [...leaderboard].sort((a, b) => userCacheRate(b) - userCacheRate(a) || rankValue(b) - rankValue(a));
+  }
 } catch (e) {
   console.error('Failed to fetch leaderboard data:', e);
 }
@@ -93,6 +107,7 @@ const seoJsonLd = [
     url: tokenRankUrl,
     creator: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
     publisher: { '@type': 'Organization', name: 'T Salon', url: 'https://www.tsalon.tech/' },
+    license: 'https://creativecommons.org/licenses/by/4.0/',
     isAccessibleForFree: true,
     inLanguage: 'zh-CN',
     keywords: ['AI 编程', 'Token 消耗', 'Codex', 'Claude Code', '开发者生产力'],
@@ -332,18 +347,19 @@ const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) /
     <!-- Time Filters -->
     <div class="filter-panel-premium">
       <div class="time-filter-pills">
-        <a href={`?time=today&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
-        <a href={`?time=yesterday&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
-        <a href={`?time=3d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
-        <a href={`?time=7d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
-        <a href={`?time=30d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
-        <a href={`?time=90d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
-        <a href={`?time=all&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
+        <a rel="nofollow" href={`?time=today&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'today' ? 'active' : ''}`}>今天</a>
+        <a rel="nofollow" href={`?time=yesterday&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'yesterday' ? 'active' : ''}`}>昨天</a>
+        <a rel="nofollow" href={`?time=3d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '3d' ? 'active' : ''}`}>近3天</a>
+        <a rel="nofollow" href={`?time=7d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '7d' ? 'active' : ''}`}>近7天</a>
+        <a rel="nofollow" href={`?time=30d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '30d' ? 'active' : ''}`}>近30天</a>
+        <a rel="nofollow" href={`?time=90d&metric=${metricFilter}`} class={`pill-item ${timeFilter === '90d' ? 'active' : ''}`}>近90天</a>
+        <a rel="nofollow" href={`?time=all&metric=${metricFilter}`} class={`pill-item ${timeFilter === 'all' ? 'active' : ''}`}>全部</a>
       </div>
       <div class="time-filter-pills metric-filter-pills">
-        <a href={`?time=${timeFilter}&metric=total`} class={`pill-item ${metricFilter === 'total' ? 'active' : ''}`}>含缓存</a>
-        <a href={`?time=${timeFilter}&metric=norm`} class={`pill-item ${metricFilter === 'norm' ? 'active' : ''}`}>不含缓存</a>
-        <a href={`?time=${timeFilter}&metric=cost`} class={`pill-item ${metricFilter === 'cost' ? 'active' : ''}`}>预估费用</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=total`} class={`pill-item ${sortMode !== 'cache' && metricFilter === 'total' ? 'active' : ''}`}>含缓存</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=norm`} class={`pill-item ${sortMode !== 'cache' && metricFilter === 'norm' ? 'active' : ''}`}>不含缓存</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=cost`} class={`pill-item ${sortMode !== 'cache' && metricFilter === 'cost' ? 'active' : ''}`}>预估费用</a>
+        <a rel="nofollow" href={`?time=${timeFilter}&metric=total&sort=cache`} class={`pill-item ${sortMode === 'cache' ? 'active' : ''}`}>⚡ 缓存省钱率榜</a>
       </div>
       
       <div class="date-display">
@@ -431,7 +447,7 @@ const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) /
             });
 
           return (
-            <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}?time=${timeFilter}&metric=${metricFilter}'`}>
+            <div class="list-row" onclick={`window.location.href='/tokenrank/user/${user.userId}/?time=${timeFilter}&metric=${metricFilter}'`}>
               <div class="lb-col-rank">
                 {rank === 1 ? <div class="rank-text rank-1">#1</div> : 
                  rank === 2 ? <div class="rank-text rank-2">#2</div> : 
@@ -457,6 +473,9 @@ const aiTimeMinutes = Math.floor((globalOutputTokens / averageGenerationSpeed) /
                     else if (t.includes('claude')) tagClass = 'tag-claude';
                     return <span class={`tool-tag ${tagClass}`}>{toolName} {formatDisplayAmount(amount, metricFilter)}</span>;
                 })}
+                {userCacheRate(user) > 0 && (
+                  <span class="tool-tag" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;">⚡ 缓存 {userCacheRate(user).toFixed(1)}%</span>
+                )}
               </div>
               <div class="lb-col-tokens">
                 <div class="lb-num-tokens">{formatDisplayAmount(rankValue(user), metricFilter)}</div>

@@ -18,12 +18,18 @@ tldr:
   - "问题从哪来：跨平台仍有宿主差异：崔明辉先介绍自己的 iOS 与 Web 开发背景，以及 SVGA 动画库的经历，再把问题限定到微信小程序。"
   - "序列化与增量更新怎样配合：在具体讲解中，他围绕可复用的 Element 节点组织数据，将相关布局信息序列化为 JSON，再发给渲染端。"
   - "构建链路仍以 Dart 与 Flutter 工具为主：最后，他说明项目没有把 webpack 或 TypeScript 当作核心构建起点，而是沿用 Dart 编译到 JavaScript、打包静态资源的路径，并针对输出体积作了精简。"
-faq: []
+faq:
+  - question: 为什么不能直接把 Flutter Web 编译产物放进微信小程序运行？
+    answer: 微信小程序没有标准浏览器的完整 DOM 与 Canvas/WebGL 运行环境，且对首包与分包体积有严格限制；当时直接采用 Flutter Web 会有数兆级基础包体及部分 Android 机型滚动卡顿问题。
+  - question: MPFlutter 是如何让 Flutter 代码在微信小程序里渲染出界面的？
+    answer: MPFlutter 在 Dart 侧保留业务逻辑与 Flutter 布局计算，围绕可复用的 Element 节点提取位置、宽高及文本/图片内容并序列化为 JSON，通过微信 DOM 适配层映射为小程序宿主组件，并借助节点标识实现增量差异更新。
+  - question: 使用 Flutter 开发微信小程序与原生小程序相比有什么取舍？
+    answer: 核心收益是 iOS、Android、Web 与微信小程序四端共用一套 Dart 业务与布局代码；代价是需要维护序列化通信、Dart2JS 体积精简与宿主桥接层，且复杂滚动与原生交互体验仍与原生小程序存在一定差距。
 featured: false
 draft: false
 seo:
-  title: 崔明辉谈 MPFlutter：把 Flutter 布局带到微信小程序
-  description: 回顾崔明辉介绍 MPFlutter 的技术分享，解释布局序列化、宿主组件映射、增量更新与构建流程，保留历史版本和跨端体验取舍。
+  title: Flutter 开发微信小程序实战：崔明辉谈 MPFlutter 布局序列化与跨端取舍
+  description: 深度回顾崔明辉关于使用 Flutter 开发微信小程序（MPFlutter）的技术分享：详解 Element 树布局序列化、微信 DOM 适配层、增量差异更新与 Dart2JS 包体精简方案，对比四端代码复用与原生体验的工程取舍。
   noindex: false
 ---
 
@@ -82,3 +88,13 @@ MPFlutter 的思路是利用框架已经完成的工作。既然布局和应用�
 讲构建时，他从 Dart 项目生成 JavaScript，再由 Flutter 的资源打包环节处理图片等静态文件。项目要服务小程序的包体约束，还需对原有输出做精简。因而评估 MPFlutter 不能只看写页面时是否仍像写 Flutter；还要检查生成物、平台桥接、升级 Flutter 版本后的适配工作，以及目标端真实的滚动和文字体验。
 
 他以项目开源、实现与工具链可供查看作结。原片到这里结束，进一步的现场问答未收录在本分段中。
+
+## 附表：微信小程序跨端渲染路径与 MPFlutter 方案对比
+
+| 维度 | 原生微信小程序 / Taro 等编译型方案 | 早期 Flutter Web 直接交付 | MPFlutter（布局序列化 + 宿主映射） |
+| :--- | :--- | :--- | :--- |
+| **核心编程语言** | JavaScript / TypeScript + WXML/WXSS | Dart（面向标准浏览器 DOM/Canvas） | Dart（复用现有 Flutter Widget 与布局逻辑） |
+| **布局计算位置** | 微信小程序宿主排版引擎 | 浏览器内部引擎 | **Dart / Flutter 侧直接完成布局计算** |
+| **宿主渲染机制** | 直接映射小程序原生视图节点 | 难以在不提供完整 DOM 的小程序中直接运行 | **序列化 Element 位置/宽高为 JSON + 微信 DOM 适配层** |
+| **增量刷新策略** | 小程序 `setData` 局部路径更新 | 整树或画布重绘开销较大 | **基于稳定 Element 节点标识对比，仅下发差异节点** |
+| **工程权衡与适用场景** | 原生交互体验最佳，但无法与既有 Flutter App 共享代码 | 包体易达数 MB，移动端滚动易受影响 | **适合已有 Flutter 团队扩展小程序端**，需权衡桥接与包体精简成本 |

@@ -1,0 +1,198 @@
+---
+interface Props {
+  userId: string | number;
+  userName: string;
+  locale: 'zh' | 'en';
+}
+
+const { userId, userName, locale } = Astro.props;
+const isEn = locale === 'en';
+const idStr = String(userId);
+const profilePath = isEn ? `/en/tokenrank/user/${idStr}/` : `/tokenrank/user/${idStr}/`;
+const defaultBadgeUrl = `https://www.tsalon.tech/tokenrank/badge/${idStr}.svg`;
+const defaultMd = `[![TokenRank](${defaultBadgeUrl})](https://www.tsalon.tech${profilePath})`;
+---
+
+<div
+  class="tr-badge-embed chart-box"
+  data-user-id={idStr}
+  data-profile-url={`https://www.tsalon.tech${profilePath}`}
+  data-copied-label={isEn ? 'Copied ✓' : '已复制 ✓'}
+>
+  <div class="tr-badge-head">
+    <div>
+      <h3 style="margin:0;">{isEn ? 'Embed Dynamic SVG Badge in GitHub README' : '嵌入 GitHub README 动态 SVG 徽章'}</h3>
+      <p class="subtext" style="margin:0.25rem 0 0;">
+        {isEn
+          ? 'Choose from 4 styles (Card, Receipt, Terminal, Compact) and Dark/Light themes. Auto-updates every 30 minutes.'
+          : '支持标准卡片、消费小票（Receipt）、极客终端（Terminal）与极简徽章 4 种风格及暗/亮色切换，每 30 分钟自动刷新排名与消耗数据。'}
+      </p>
+    </div>
+    <button type="button" class="tr-copy-btn" data-md={defaultMd}>
+      {isEn ? 'Copy Markdown' : '复制 Markdown'}
+    </button>
+  </div>
+
+  <div class="tr-badge-controls">
+    <div class="tr-pill-group" role="group" aria-label={isEn ? 'Badge style' : '徽章风格'}>
+      <button type="button" class="tr-style-pill active" data-style="card">{isEn ? 'Card' : '标准卡片'}</button>
+      <button type="button" class="tr-style-pill" data-style="receipt">{isEn ? 'Receipt' : '消费小票'}</button>
+      <button type="button" class="tr-style-pill" data-style="terminal">{isEn ? 'Terminal' : '极客终端'}</button>
+      <button type="button" class="tr-style-pill" data-style="compact">{isEn ? 'Compact' : '极简徽章'}</button>
+    </div>
+    <div class="tr-pill-group" role="group" aria-label={isEn ? 'Badge theme' : '徽章主题'}>
+      <button type="button" class="tr-theme-pill active" data-theme="dark">{isEn ? 'Dark' : '暗色'}</button>
+      <button type="button" class="tr-theme-pill" data-theme="light">{isEn ? 'Light' : '亮色'}</button>
+    </div>
+  </div>
+
+  <div class="tr-badge-preview">
+    <img
+      class="tr-preview-img"
+      src={`/tokenrank/badge/${idStr}.svg`}
+      alt={`${userName} TokenRank badge`}
+      loading="lazy"
+    />
+  </div>
+
+  <pre class="tr-md-code"><code class="tr-md-text">{defaultMd}</code></pre>
+</div>
+
+<script is:inline>
+  document.querySelectorAll('.tr-badge-embed').forEach((box) => {
+    const userId = box.getAttribute('data-user-id');
+    const profileUrl = box.getAttribute('data-profile-url');
+    const copiedLabel = box.getAttribute('data-copied-label') || 'Copied ✓';
+    const previewImg = box.querySelector('.tr-preview-img');
+    const mdText = box.querySelector('.tr-md-text');
+    const copyBtn = box.querySelector('.tr-copy-btn');
+    let currentStyle = 'card';
+    let currentTheme = 'dark';
+
+    function updateBadge() {
+      const params = new URLSearchParams();
+      if (currentStyle !== 'card') params.set('style', currentStyle);
+      if (currentTheme !== 'dark') params.set('theme', currentTheme);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const localSrc = `/tokenrank/badge/${userId}.svg${qs}`;
+      const fullBadgeUrl = `https://www.tsalon.tech/tokenrank/badge/${userId}.svg${qs}`;
+      const md = `[![TokenRank](${fullBadgeUrl})](${profileUrl})`;
+      if (previewImg) previewImg.setAttribute('src', localSrc);
+      if (mdText) mdText.textContent = md;
+      if (copyBtn) copyBtn.setAttribute('data-md', md);
+    }
+
+    box.querySelectorAll('.tr-style-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        box.querySelectorAll('.tr-style-pill').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStyle = btn.getAttribute('data-style') || 'card';
+        updateBadge();
+      });
+    });
+
+    box.querySelectorAll('.tr-theme-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        box.querySelectorAll('.tr-theme-pill').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTheme = btn.getAttribute('data-theme') || 'dark';
+        updateBadge();
+      });
+    });
+
+    copyBtn?.addEventListener('click', async function () {
+      const md = this.getAttribute('data-md');
+      if (!md) return;
+      try {
+        await navigator.clipboard.writeText(md);
+        const prev = this.textContent;
+        this.textContent = copiedLabel;
+        setTimeout(() => {
+          this.textContent = prev;
+        }, 1800);
+      } catch {}
+    });
+  });
+</script>
+
+<style>
+  .tr-badge-embed {
+    margin-top: 1.5rem;
+    text-align: left;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .tr-badge-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+  .tr-copy-btn {
+    padding: 0.45rem 0.95rem;
+    border-radius: 8px;
+    border: 1px solid #111827;
+    background: #111827;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .tr-badge-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+  }
+  .tr-pill-group {
+    display: inline-flex;
+    background: #f3f4f6;
+    padding: 3px;
+    border-radius: 8px;
+    gap: 2px;
+  }
+  .tr-style-pill,
+  .tr-theme-pill {
+    border: none;
+    background: transparent;
+    padding: 0.32rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4b5563;
+    cursor: pointer;
+  }
+  .tr-style-pill.active,
+  .tr-theme-pill.active {
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  .tr-badge-preview {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+  }
+  .tr-preview-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  .tr-md-code {
+    margin: 0.85rem 0 0;
+    padding: 0.7rem 0.9rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    overflow-x: auto;
+    color: #1e293b;
+  }
+</style>

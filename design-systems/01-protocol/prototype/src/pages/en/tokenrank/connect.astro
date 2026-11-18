@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import TokenRankBadgeEmbed from '../../../components/TokenRankBadgeEmbed.astro';
 import { getSession } from 'auth-astro/server';
 import { getOrCreateUploadToken, kv } from '../../../lib/kv';
 
@@ -22,12 +23,12 @@ if (session?.user?.id) {
 const displayToken = uploadToken || '';
 ---
 
-<BaseLayout alternatePath="/tokenrank/connect/" title="Get your personal sync command — T Salon" description="Link your GitHub account and generate your personal token command to join the leaderboard." image="/images/home-community-group.webp">
+<BaseLayout alternatePath="/tokenrank/connect/" title="Local Token Audit & Leaderboard Sync — T Salon" description="Run a zero-login local AI token receipt audit (--dry-run) or link GitHub for one-shot leaderboard sync and dynamic README badges." image="/images/home-community-group.webp">
   <main>
     <header class="container page-title">
       <div class="page-title-main">
-        <h1>How to get on the leaderboard</h1>
-        <p class="lead">Link your account to get your personal token command</p>
+        <h1>Local Checkup & Leaderboard Sync</h1>
+        <p class="lead">Run a zero-login local receipt checkup first, or link GitHub to publish your rank & README badge</p>
       </div>
       <div class="page-title-side">
         <a class="btn btn-outline" href="/en/tokenrank/">← Back to leaderboard</a>
@@ -35,14 +36,35 @@ const displayToken = uploadToken || '';
     </header>
 
     <section class="container content-container">
-      <div class="event-main">
-        <div class="content-section" style="max-width: 600px; margin: 0 auto; text-align: center; padding: 3rem 1rem; border: 1px solid var(--color-border); border-radius: 8px;">
+      <div class="event-main" style="max-width: 760px; margin: 0 auto;">
+
+        <!-- Step 1: Zero-Login Local Dry-Run Checkup -->
+        <div style="margin-bottom: 1.5rem; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: 12px; background: var(--background-page);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.6rem;">
+            <span class="mono" style="font-size:0.75rem; color:#c2410c; font-weight:700;">STEP 1 · ZERO-LOGIN LOCAL CHECKUP (--dry-run)</span>
+            <span style="font-size:0.78rem; color:var(--text-secondary);">No sign-in · No upload · No background daemon</span>
+          </div>
+          <h2 style="font-size:1.15rem; margin:0 0 0.5rem;">Preview your local AI coding token receipt in Terminal</h2>
+          <p style="font-size:0.9rem; color:var(--text-secondary); margin:0 0 0.85rem;">
+            Want to check your Claude Code, Codex, or Cursor token volume and prompt cache savings before signing in? Run this one-shot command locally—<strong>it prints your receipt and exits without uploading anything</strong>:
+          </p>
+          <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 0.9rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0; font-size:0.86rem;">
+            bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --dry-run
+          </code>
+          <p style="margin:0.75rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+            🔒 <strong>Privacy Guarantee</strong>: 100% open-source and auditable (<code>/scripts/agent.mjs</code>). Only aggregate token counts and model IDs are read—<strong>your source code, file paths, and prompts never leave your machine</strong>.
+          </p>
+        </div>
+
+        <div class="content-section" style="text-align: center; padding: 2.25rem 1.5rem; border: 1px solid var(--color-border); border-radius: 12px;">
           
           {!session ? (
             <div>
-              <p style="margin-bottom: 2rem;">Your leaderboard command is tied to your GitHub account. Sign in to view it.</p>
-              <button id="login" class="btn btn-dark btn-block" style="font-size: 1.2rem; padding: 1rem;">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; vertical-align: middle;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              <span class="mono" style="font-size:0.75rem; color:#2563eb; font-weight:700; display:block; margin-bottom:0.5rem;">STEP 2 · SYNC TO LEADERBOARD & GET GITHUB BADGE</span>
+              <h2 style="font-size:1.25rem; margin:0 0 0.75rem;">Sign in with GitHub for your personal sync command</h2>
+              <p style="margin-bottom: 1.5rem; color:var(--text-secondary); font-size:0.92rem;">Defaults to a clean one-shot sync (no background daemon required) and unlocks your personal dashboard + dynamic GitHub README SVG badges.</p>
+              <button id="login" class="btn btn-dark btn-block" style="font-size: 1.1rem; padding: 0.95rem;">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; vertical-align: middle;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
                 Sign in with GitHub
               </button>
               <p id="login-error" role="alert" hidden style="margin-top: 1rem;"></p>
@@ -51,28 +73,36 @@ const displayToken = uploadToken || '';
             <div>
               <img src={session.user?.image} alt={session.user?.name} style="width: 64px; height: 64px; border-radius: 50%; margin-bottom: 1rem;" />
               <h3>Signed in as {session.user?.name}</h3>
-              <p style="margin-bottom: 2rem; color: var(--color-gray);">This is your personal command — keep it private.</p>
-              <div class="code-tabs" style="margin-top: 1.5rem; text-align: left;">
-                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.5rem; background: var(--background-subtle); border: 1px solid var(--border-default); border-radius: 6px; padding: 4px;">
+              <p style="margin-bottom: 1.5rem; color: var(--color-gray);">This is your personal command — keep it private.</p>
+              <div class="code-tabs" style="margin-top: 1rem; text-align: left;">
+                <div class="tab-buttons" style="display: inline-flex; gap: 0; margin-bottom: 1.25rem; background: var(--background-subtle); border: 1px solid var(--border-default); border-radius: 6px; padding: 4px;">
                   <button class="tab-btn active" data-target="mac-linux" style="padding: 0.5rem 1.5rem; border: none; background: var(--action-primary); color: var(--background-page); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Mac / Linux</button>
                   <button class="tab-btn" data-target="windows" style="padding: 0.5rem 1.5rem; border: none; background: transparent; color: var(--text-secondary); font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s;">Windows</button>
                 </div>
                 
                 <div id="mac-linux" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: block;">
-                  <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    Automatic sync (at login + daily at 09:17)
+                  <h4 style="margin-bottom: 0.4rem; font-weight: 600; font-size: 1rem;">
+                    Recommended: One-Shot Sync (runs once & exits, no background daemon)
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in Terminal. It syncs immediately and installs a login background job:</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.6rem;">Run this once in Terminal to sync your latest usage immediately:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --token="{displayToken}" --install
+                    bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --token="{displayToken}"
                   </code>
+
+                  <details style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-default);">
+                    <summary style="cursor:pointer; font-size:0.86rem; font-weight:600; color:var(--text-secondary);">Optional: Install automatic daily background sync (--install)</summary>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0.5rem 0;">Pass <code>--install</code> if you want a daily 09:17 + login background sync job:</p>
+                    <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 0.85rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size:0.82rem;">
+                      bash -c "$(curl -fsSL https':'//www.tsalon.tech/scripts/token-agent.sh\?v=9)" -- --token="{displayToken}" --install
+                    </code>
+                  </details>
                 </div>
 
                 <div id="windows" class="tab-content" style="background: var(--background-page); border: 1px solid var(--border-default); padding: 1.5rem; border-radius: 8px; overflow-x: auto; display: none;">
                   <h4 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; font-size: 1rem;">
-                    Automatic sync (at login + daily at 09:17)
+                    PowerShell Sync Command
                   </h4>
-                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this once in PowerShell (no admin needed). It syncs immediately and creates a login background task:</p>
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Run this in PowerShell (no admin needed) to sync your usage:</p>
                   <code style="word-break: break-all; color: var(--action-link); font-family: monospace; display: block; background: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid #e2e8f0;">
                     powershell -NoProfile -Command "& ([ScriptBlock]::Create((irm ('https' + '://www.tsalon.tech/scripts/token-agent.ps1?v=9')))) -token '{displayToken}'"
                   </code>
@@ -80,8 +110,10 @@ const displayToken = uploadToken || '';
               </div>
               
               <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-                Then refresh the <a href="/en/tokenrank/" style="color: var(--action-link); text-decoration: underline;">leaderboard</a> to see your data.
+                Then open <a href={`/en/tokenrank/user/${session.user?.id || 'demo'}/`} style="color: var(--action-link); text-decoration: underline; font-weight:600;">your personal dashboard</a> or refresh the <a href="/en/tokenrank/" style="color: var(--action-link); text-decoration: underline;">leaderboard</a>.
               </p>
+
+              <TokenRankBadgeEmbed userId={session.user?.id || 'demo'} userName={session.user?.name || 'Developer'} locale="en" />
               
               <button id="logout" class="btn btn-outline" style="margin-top: 2rem;">Sign out</button>
             </div>

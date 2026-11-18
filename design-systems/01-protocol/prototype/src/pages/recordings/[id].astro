@@ -18,7 +18,10 @@ const videoJsonLd = data.videoParts.map((part) => ({
   '@type': 'VideoObject',
   name: `${data.title} — ${part.title}`,
   description: data.summary,
-  thumbnailUrl: [part.thumbnailUrl || new URL(data.cover, Astro.site).toString()],
+  thumbnailUrl: [
+    new URL('/images/share-logo.jpg', Astro.site).toString(),
+    ...(part.thumbnailUrl ? [part.thumbnailUrl] : []),
+  ],
   embedUrl: `https://player.bilibili.com/player.html?bvid=${part.bvid}&page=${part.page}&danmaku=0`,
   url: part.url,
   mainEntityOfPage: pageUrl,
@@ -50,7 +53,6 @@ const jsonLd = [
     </header>
     <section class="content-detail-shell content-detail-body">
       <article class="prose content-detail-prose">
-        {recaps.length > 0 && <section aria-label="文字回顾"><h2>文字回顾</h2><ul>{recaps.map(article => <li><a href={`/articles/${article.id}/`}>{article.data.title} →</a><p>{article.data.summary}</p>{article.data.tldr.length > 0 && <ul>{article.data.tldr.map(pt => <li>{pt}</li>)}</ul>}</li>)}</ul></section>}
         <h2 id="videos">视频回看</h2>
         <p>按原视频分段选择观看。日期为 B 站稿件发布日期，同一稿件的分段共用该日期。</p>
         {firstPart && (
@@ -59,7 +61,6 @@ const jsonLd = [
               src={`https://player.bilibili.com/player.html?bvid=${firstPart.bvid}&page=${firstPart.page}&high_quality=1&danmaku=0`}
               allowfullscreen
               title={data.title}
-              loading="lazy"
             ></iframe>
           </div>
         )}
@@ -68,6 +69,7 @@ const jsonLd = [
           <p>{durationLabel(part.durationSeconds)} · 稿件发布于 <time datetime={part.uploadedAt}>{part.uploadedAt.slice(0, 10)}</time></p>
           <p>原发布账号：<a href={`https://space.bilibili.com/${part.owner.uid}`} target="_blank" rel="noopener noreferrer">{part.owner.name}</a></p>
         </li>)}</ol>
+        {recaps.length > 0 && <section aria-label="文字回顾"><h2>文字回顾</h2><ul>{recaps.map(article => <li><a href={`/articles/${article.id}/`}>{article.data.title} →</a><p>{article.data.summary}</p>{article.data.tldr.length > 0 && <ul>{article.data.tldr.map(pt => <li>{pt}</li>)}</ul>}</li>)}</ul></section>}
         <h2>相关主题</h2>
         <div class="tag-list">
           {data.topics.map((topic) => {

@@ -16,6 +16,7 @@ const altPath = isEn ? `/errors/${entry.slug}/` : `/en/errors/${entry.slug}/`;
 const pageUrl = new URL(pagePath, Astro.site).toString();
 const faqList = isEn ? entry.faqEn : entry.faqZh;
 const others = ERROR_GUIDES.filter((item) => item.slug !== entry.slug).slice(0, 3);
+const relatedArticle = isEn ? entry.relatedArticleEn : entry.relatedArticleZh;
 
 const jsonLd = [
   {
@@ -82,6 +83,44 @@ const jsonLd = [
         </div>
       </header>
 
+      {entry.widgetType === 'five-hour' && (
+        <section class="inline-widget-card" aria-label={isEn ? '5-hour window calculator' : '5 小时恢复时间计算器'}>
+          <div class="iw-head">
+            <h2>{isEn ? 'Quick 5-Hour Recovery Time Calculator' : '本页直接算：5 小时窗口恢复时间'}</h2>
+            <p>{isEn ? 'Enter the timestamp of your first prompt in this cycle (UTC+8).' : '输入本轮窗口第一条请求时间（北京时间），立即换算假设 5 小时后的恢复时刻。'}</p>
+          </div>
+          <div class="iw-row">
+            <input type="datetime-local" id="error-fivehour-start" class="iw-input" step="60" />
+            <button type="button" id="error-fivehour-btn" class="btn btn-dark">{isEn ? 'Calculate (+5h)' : '加 5 小时计算'}</button>
+            <div class="iw-result" aria-live="polite">
+              <span class="mono">{isEn ? 'Assumed recovery:' : '预计恢复时间：'}</span>
+              <strong id="error-fivehour-output" data-invalid-msg={isEn ? 'Enter a valid Beijing start timestamp' : '请输入有效起点时间'}>—</strong>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {entry.widgetType === 'cache-diff' && (
+        <section class="inline-widget-card" aria-label={isEn ? 'Cache hit rate impact preview' : '缓存命中率成本差对比'}>
+          <div class="iw-head">
+            <h2>{isEn ? 'Quick Impact Check: 85% Cache vs 0% Cache (25M tokens/day)' : '直观对比：同一工作量下 85% 缓存 vs 0% 缓存的月账单差距'}</h2>
+            <p>{isEn ? 'Example based on Claude 3.5 / Sonnet pricing ($3 input / $0.30 cache read / $15 output per 1M tokens) over 22 days.' : '以主力编程每天 2,500 万 Token、每月 22 天、Claude Sonnet 单价（输入 $3 / 缓存读 $0.30 / 输出 $15）为例：'}</p>
+          </div>
+          <div class="iw-compare-grid">
+            <div class="iw-compare-box is-good">
+              <span class="mono">{isEn ? 'HEALTHY (85% CACHE HIT)' : '健康状态（85% 缓存命中）'}</span>
+              <strong>$520 / {isEn ? 'mo' : '月'}</strong>
+              <p>{isEn ? 'Most repository context is served at 10% cache-read price.' : '绝大部分上下文走 $0.30/M 的低价缓存读取通道。'}</p>
+            </div>
+            <div class="iw-compare-box is-bad">
+              <span class="mono">{isEn ? 'CACHE BUSTED (0% CACHE HIT)' : '缓存全失效（0% 缓存命中）'}</span>
+              <strong>$1,782 / {isEn ? 'mo (3.4x higher)' : '月（暴涨 3.4 倍）'}</strong>
+              <p>{isEn ? 'Dynamic prefixes force full $3/1M input billing on every turn.' : '前缀失效导致每轮全按 $3/M 全价新输入计费。'}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div class="error-body-grid">
         <section class="error-section">
           <h2>{isEn ? 'Why this happens' : '常见触发原因'}</h2>
@@ -102,6 +141,13 @@ const jsonLd = [
           </ol>
         </section>
       </div>
+
+      {relatedArticle && (
+        <aside class="related-deep-guide">
+          <span class="mono">{isEn ? 'DEEP DIVE GUIDE' : '关联深度指南'}</span>
+          <a href={relatedArticle.path}>{relatedArticle.title} →</a>
+        </aside>
+      )}
 
       {faqList.length > 0 && (
         <section class="error-faq-section">
@@ -134,6 +180,25 @@ const jsonLd = [
   </main>
 </BaseLayout>
 
+<script>
+  import { calculateResetWindow } from '../lib/reset-window';
+
+  const startEl = document.getElementById('error-fivehour-start') as HTMLInputElement | null;
+  const btnEl = document.getElementById('error-fivehour-btn');
+  const outEl = document.getElementById('error-fivehour-output');
+
+  if (startEl && btnEl && outEl) {
+    startEl.addEventListener('input', () => {
+      outEl.textContent = '—';
+    });
+    btnEl.addEventListener('click', () => {
+      const res = calculateResetWindow(startEl.value, true);
+      const invalidMsg = outEl.getAttribute('data-invalid-msg') || 'Invalid timestamp';
+      outEl.textContent = res ? res.endBeijing : invalidMsg;
+    });
+  }
+</script>
+
 <style>
   .error-detail-page {
     padding-top: var(--space-12);
@@ -151,7 +216,7 @@ const jsonLd = [
     text-decoration: none;
   }
   .error-header {
-    margin-bottom: var(--space-10);
+    margin-bottom: var(--space-8);
   }
   .error-meta {
     display: flex;
@@ -193,11 +258,75 @@ const jsonLd = [
     font-size: 1.05rem;
     line-height: 1.65;
   }
+  .inline-widget-card {
+    margin-bottom: var(--space-8);
+    padding: var(--space-6);
+    border: 1px solid var(--border-default);
+    background: #fff;
+  }
+  .iw-head h2 {
+    margin: 0 0 0.35rem;
+    font-size: 1.2rem;
+  }
+  .iw-head p {
+    margin: 0 0 var(--space-4);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  .iw-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+  }
+  .iw-input {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border-default);
+    font-size: var(--text-14);
+  }
+  .iw-result {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    background: var(--background-subtle);
+    border: 1px solid var(--border-default);
+  }
+  .iw-compare-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 1rem;
+  }
+  .iw-compare-box {
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+  }
+  .iw-compare-box.is-good {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+  .iw-compare-box.is-bad {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+  .iw-compare-box span {
+    display: block;
+    font-size: var(--text-11);
+    margin-bottom: 0.35rem;
+  }
+  .iw-compare-box strong {
+    font-size: 1.35rem;
+  }
+  .iw-compare-box p {
+    margin: 0.4rem 0 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
   .error-body-grid {
     display: grid;
     grid-template-columns: 1fr 1.2fr;
     gap: var(--space-8);
-    margin-bottom: var(--space-10);
+    margin-bottom: var(--space-8);
   }
   .error-section {
     padding: var(--space-6);
@@ -225,6 +354,23 @@ const jsonLd = [
     color: var(--text-secondary);
     font-size: 0.925rem;
     line-height: 1.6;
+  }
+  .related-deep-guide {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: var(--space-8);
+    border: 1px solid var(--border-default);
+    background: var(--background-subtle);
+  }
+  .related-deep-guide span {
+    font-size: var(--text-11);
+    color: var(--text-tertiary);
+  }
+  .related-deep-guide a {
+    font-weight: 600;
   }
   .error-faq-section {
     margin-bottom: var(--space-10);

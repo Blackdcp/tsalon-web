@@ -6,7 +6,7 @@ import { getResetRadarData } from '../../../lib/reset-radar';
 export const prerender = false;
 
 const radarData = await getResetRadarData();
-const { codex, claude, grok, updatedAtBeijing, status } = radarData;
+const { codex, claude, grok, google, updatedAtBeijing, status } = radarData;
 Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, '');
@@ -25,12 +25,16 @@ const faqItems = [
     "a": "From loaded records, the median gap between up to 10 distinct global reset timestamps is computed and added to the latest global reset time. Reset cards and scoped resets are excluded. If fewer than two global resets are loaded, no reference point is displayed. This is purely a historical arithmetic point, not an official schedule."
   },
   {
-    "q": "Where do records for Codex, Claude, and Grok come from?",
-    "a": "T Salon queries the <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev records API</a> upon page request with a 5-minute cache. Records link directly to original posts by official teams and technical leads. When unreachable, the page indicates temporary unavailability."
+    "q": "Where do records for Codex (@thsottiaux / Tibo), Claude, and Grok come from?",
+    "a": "T Salon queries the <a href=\"https://whenreset.dev/api/resets\" target=\"_blank\" rel=\"noreferrer\">WhenReset.dev records API</a> upon page request with a 5-minute cache. Records link directly to original posts by official teams and technical leads (such as OpenAI Codex engineering lead Thibault Sottiaux, <code>@thsottiaux</code> / Tibo). When unreachable, the page indicates temporary unavailability."
   },
   {
-    "q": "How does the weekly quota planner calculator work?",
-    "a": "Enter your current percentage used and your next personal reset time as shown in your product client. The calculator estimates your hourly burn pace, remaining time until reset, and recommended daily quota budget. All calculations run client-side with data stored only in local storage."
+    "q": "Is it possible to get a notification when Claude or Codex gets a reset?",
+    "a": "Yes. You can subscribe to the standard RSS 2.0 feed (<code>/en/whenreset/rss.xml</code>), enable instant browser desktop alerts on this page, connect our public JSON endpoint (<code>/api/reset/data</code>) to Slack, Discord, or Feishu webhooks, or add our Streamable HTTP MCP server (<code>/api/reset/mcp</code>) to Claude Code or Cursor."
+  },
+  {
+    "q": "How do I fix 'on pace to hit your weekly limit early' with the weekly quota planner?",
+    "a": "Enter your current percentage used and your next personal reset time as shown in your product client. The Weekly Quota Planner calculates your hourly burn pace, predicts when you would run out if you are on pace to hit your weekly limit early, and gives you a safe daily percentage budget (e.g., ~14.2%/day). All data stays in local storage."
   }
 ];
 
@@ -63,8 +67,8 @@ const jsonLd = [
 ---
 
 <BaseLayout
-  title="AI Quota Reset Radar · Multi-Model Tracker & Weekly Planner | T Salon"
-  description="Live tracking of Codex, Claude, and Grok quota resets and bonus cards from WhenReset.dev, with weekly pacing calculator, 5-hour window tools, and RSS feeds."
+  title="Codex Reset Radar & Claude / GPT Quota Reset Tracker (Live) | T Salon"
+  description="Live Codex Reset Radar, ChatGPT / GPT Reset Tracker, Claude Code 5-hour limit calculator, Grok and Google Gemini quota reset tracker. Check verified global resets, bonus reset cards, and weekly quota pacing in real time."
   alternatePath="/whenreset/"
   locale="en"
   jsonLd={jsonLd}
@@ -79,6 +83,30 @@ const jsonLd = [
         </div>
         <h1 class="hero-title">AI Quota Reset Radar</h1>
         <p class="hero-desc">Live tracker for OpenAI Codex, Anthropic Claude, and xAI Grok reset and bonus card events, featuring weekly quota pacing planning and real-time RSS/Webhook feeds. Recorded events do not establish your personal account quota status.</p>
+
+        <!-- Unified 4-Provider At-a-Glance Strip -->
+        <div class="unified-overview-strip" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:0.75rem; margin: 1.25rem 0;">
+          {[codex, claude, grok, google].map((p) => (
+            <div style="padding:0.85rem 1rem; border-radius:10px; border:1px solid var(--border-default, #e2e8f0); background:var(--background-page, #ffffff); text-align:left; display:flex; flex-direction:column; gap:0.25rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:0.9rem;">{p.name}</strong>
+                <span class="mono" style="font-size:0.72rem; padding:0.15rem 0.45rem; border-radius:99px; background:#f1f5f9; color:#334155;">
+                  {p.latestEvent?.categoryLabelEn || (p.dailySchedule ? `Daily ${p.dailySchedule.resetHourBeijing}` : 'Tracking')}
+                </span>
+              </div>
+              <div style="font-size:0.82rem; color:var(--text-secondary);">
+                {p.dailySchedule && !p.latestEvent ? (
+                  <>Next daily RPD reset: <strong>{p.dailySchedule.nextDateBeijing} {p.dailySchedule.nextTimeBeijing}</strong></>
+                ) : (
+                  <>Since global reset: <strong>{p.sinceLastReset.textEn}</strong> · 30d: {p.resets30d} resets / {p.cards30d} cards</>
+                )}
+              </div>
+              <div style="font-size:0.76rem; color:var(--text-tertiary);">
+                {p.dailySchedule ? p.dailySchedule.countdownEn : `Cadence: ${p.nextEstimated.relativeTextEn}`} · <a href={`/en/whenreset/${p.provider}/`} style="color:var(--action-link);">Details ↗</a>
+              </div>
+            </div>
+          ))}
+        </div>
 
         <!-- Provider Switcher Tabs -->
         <div class="provider-tabs">
@@ -97,12 +125,18 @@ const jsonLd = [
             <span class="tab-name">xAI Grok</span>
             <span class="tab-badge">Records</span>
           </button>
+          <button class="tab-btn" data-provider="google">
+            <span class="tab-icon">✨</span>
+            <span class="tab-name">Google Gemini</span>
+            <span class="tab-badge">Daily + Events</span>
+          </button>
         </div>
         <nav class="provider-direct-links mono" aria-label="Dedicated model trackers and guide" style="margin-top: 1rem; font-size: 0.8125rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary);">
           <span>Dedicated pages:</span>
           <a href="/en/whenreset/codex/">OpenAI Codex Tracker →</a>
           <a href="/en/whenreset/claude/">Anthropic Claude Tracker →</a>
           <a href="/en/whenreset/grok/">xAI Grok Tracker →</a>
+          <a href="/en/whenreset/google/">Google Gemini Tracker →</a>
           <a href="/en/articles/ai-quota-reset-radar-guide/">Quota Rules & Pacing Guide →</a>
         </nav>
       </section>
@@ -470,6 +504,59 @@ const jsonLd = [
         </div>
       </div>
 
+      <!-- Google Section -->
+      <div id="section-google" class="provider-section">
+        <div class="stats-bento">
+          <div class="bento-card">
+            <div class="card-label">Daily RPD Reset (Midnight PT)</div>
+            <div class="card-value highlight">{google.dailySchedule?.nextDateBeijing} <span class="time-sub">{google.dailySchedule?.nextTimeBeijing}</span></div>
+            <div class="card-sub">{google.dailySchedule?.countdownEn}</div>
+            <div class="card-sub">{google.dailySchedule?.ruleNoteEn}</div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Last Midnight PT Reset (UTC+8)</div>
+            <div class="card-value">{google.dailySchedule?.lastDailyBeijing || '—'}</div>
+            <div class="card-sub">Applies to Google AI Studio & Gemini CLI daily RPD</div>
+            <a href="/en/whenreset/google/" class="card-link">Open Google Tracker & Per-Model Pool Rules ↗</a>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Antigravity Quota Isolation</div>
+            <div class="card-value">Per-Model Pools</div>
+            <div class="card-sub">Exhausting flagship reasoning leaves Flash / Flash-Lite available</div>
+            <div class="card-hint"><a href="/en/errors/gemini-cli-quota-exceeded-429/">Read 429 Resource Exhausted Fix Guide →</a></div>
+          </div>
+          <div class="bento-card">
+            <div class="card-label">Global Events (Past 30 Days)</div>
+            <div class="card-value">{status === 'unavailable' ? '—' : google.resets30d} <span class="unit">resets</span></div>
+            <div class="card-sub">Latest public event: {google.latestEvent?.typeLabelEn || 'No public global event'}</div>
+            <div class="card-hint">Source: Google AI / WhenReset.dev</div>
+          </div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">⏳</div>
+            <div>
+              <h2 class="tool-title">Google / Antigravity Five-Hour Window Calculator</h2>
+              <p class="tool-sub">For Pro, Ultra, and Antigravity tiers using 5-hour rolling windows, enter your known first-message timestamp in UTC+8.</p>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label for="google-window-start">Known window start (UTC+8)</label>
+              <input type="datetime-local" id="google-window-start" class="time-input" step="60" />
+              <button type="button" id="google-calculate" class="btn btn-dark">Calculate with 5 hours</button>
+            </div>
+            <div class="calc-arrow" aria-hidden="true">➔</div>
+            <div class="calc-result-box" aria-live="polite">
+              <div class="result-label">Assumed window end (UTC+8)</div>
+              <div class="result-time" id="google-calc-result">—</div>
+              <div class="result-tips" id="google-calc-tips">Enter a known start, then select Calculate.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Weekly Quota & Pacing Calculator -->
       <section id="weekly-calculator-app" class="planner-section">
         <div class="section-badge-tag">Quota Planning Tool</div>
@@ -537,7 +624,12 @@ const jsonLd = [
 
             <div class="planner-verdict-box">
               <div class="verdict-icon">💡</div>
-              <p id="weekly-calc-summary" class="verdict-text">Calculating usage pacing and recommended daily budgets from your input...</p>
+              <div>
+                <p id="weekly-calc-summary" class="verdict-text">Calculating usage pacing and recommended daily budgets from your input...</p>
+                <p style="margin:0.4rem 0 0; font-size:0.8rem; color:var(--text-secondary);">
+                  Want to check what your quota is worth in API dollars? <a href="/en/calculator/">Open AI Cost Calculator →</a> · <a href="/en/whenreset/claude-5-hour-calculator/">5-Hour Window Calculator →</a> · <a href="/en/whenreset/cursor-fast-requests/">Cursor 500 Fast Requests →</a>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -592,6 +684,21 @@ const jsonLd = [
               <button type="button" class="btn btn-dark full-width" id="desktop-notification-btn">Enable Desktop Alerts</button>
             </div>
           </div>
+
+          <div class="hub-card">
+            <div class="hub-card-header">
+              <span class="hub-icon">🔌</span>
+              <div>
+                <h3 class="hub-title">Claude Code & Cursor MCP Server</h3>
+                <span class="hub-tag">Streamable HTTP MCP</span>
+              </div>
+            </div>
+            <p class="hub-desc">Add our zero-auth MCP server to <code>.mcp.json</code> so your coding agent can query live reset forecasts and 5-hour recovery times directly in IDE.</p>
+            <div class="hub-action">
+              <input type="text" readonly value="https://www.tsalon.tech/api/reset/mcp" class="hub-input" id="mcp-link-input" />
+              <button type="button" class="btn btn-outline" onclick="navigator.clipboard?.writeText('https://www.tsalon.tech/api/reset/mcp'); this.textContent='Copied ✓';">Copy MCP</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -640,6 +747,7 @@ const jsonLd = [
   initResetWindowCalculator('codex', 'en');
   initResetWindowCalculator('claude', 'en');
   initResetWindowCalculator('grok', 'en');
+  initResetWindowCalculator('google', 'en');
   initWeeklyQuotaCalculator('en');
 
   // RSS Copy button

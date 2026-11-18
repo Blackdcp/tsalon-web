@@ -8,7 +8,7 @@ export interface ResetSource {
 
 export interface RawResetEvent {
   id: string;
-  provider: 'codex' | 'claude' | 'grok';
+  provider: 'codex' | 'claude' | 'grok' | 'google' | 'gemini';
   type: 'reset' | 'card';
   scope: string;
   scopeNote?: { 'zh-CN'?: string; 'en'?: string };
@@ -20,8 +20,13 @@ export interface RawResetEvent {
 
 export interface FormattedResetEvent {
   id: string;
-  provider: 'codex' | 'claude' | 'grok';
+  provider: 'codex' | 'claude' | 'grok' | 'google';
   type: 'reset' | 'card';
+  category: 'banked-card' | 'incident-compensation' | 'milestone-promo' | 'scheduled-global' | 'scoped-reset';
+  categoryLabelZh: string;
+  categoryLabelEn: string;
+  rolloverRuleZh: string;
+  rolloverRuleEn: string;
   typeLabelZh: string;
   typeLabelEn: string;
   scopeZh: string;
@@ -43,11 +48,24 @@ export interface WatchNotice {
   text?: string;
 }
 
+export interface DailyPtResetSchedule {
+  isPacificDst: boolean;
+  resetHourBeijing: string;
+  lastDailyBeijing: string;
+  nextDateBeijing: string;
+  nextTimeBeijing: string;
+  countdownZh: string;
+  countdownEn: string;
+  ruleNoteZh: string;
+  ruleNoteEn: string;
+}
+
 export interface ProviderStats {
-  provider: 'codex' | 'claude' | 'grok';
+  provider: 'codex' | 'claude' | 'grok' | 'google';
   name: string;
   sourceAccount: string;
   latestEvent: FormattedResetEvent | null;
+  dailySchedule?: DailyPtResetSchedule;
   sinceLastReset: {
     days: number;
     hours: number;
@@ -85,6 +103,7 @@ export interface ResetRadarData {
   codex: ProviderStats;
   claude: ProviderStats;
   grok: ProviderStats;
+  google: ProviderStats;
 }
 
 // In-memory cache with 5-minute TTL
@@ -166,15 +185,118 @@ function eventReason(event: RawResetEvent, locale: 'zh-CN' | 'en') {
     || (locale === 'en' ? 'Not specified in this record' : '该记录未说明');
 }
 
+function classifyEventCategory(event: RawResetEvent): {
+  category: FormattedResetEvent['category'];
+  categoryLabelZh: string;
+  categoryLabelEn: string;
+  rolloverRuleZh: string;
+  rolloverRuleEn: string;
+} {
+  if (event.type === 'card') {
+    return {
+      category: 'banked-card',
+      categoryLabelZh: '手动重置卡 (Banked)',
+      categoryLabelEn: 'Banked Reset Card',
+      rolloverRuleZh: '需手动领取或核销；建议在启动大型重构任务前使用，避免被常规周重置覆盖。',
+      rolloverRuleEn: 'Manual voucher/rollover; deploy before heavy tasks so automatic weekly resets do not overwrite it.',
+    };
+  }
+  const raw = `${event.reason || ''} ${event.reasonNote?.['zh-CN'] || ''} ${event.reasonNote?.en || ''}`;
+  if (/outage|incident|recovery|service|bug|error|fix|故障|恢复|异常|补偿/i.test(raw)) {
+    return {
+      category: 'incident-compensation',
+      categoryLabelZh: '故障补偿重置',
+      categoryLabelEn: 'Incident Compensation',
+      rolloverRuleZh: '因服务波动触发的补偿性清零，已用计数立即归零，旧周期剩余额度不叠加。',
+      rolloverRuleEn: 'Triggered after service degradation; resets active usage counters without stacking unused quota.',
+    };
+  }
+  if (/milestone|promo|holiday|launch|bonus|gift|福利|里程碑|活动|节日/i.test(raw)) {
+    return {
+      category: 'milestone-promo',
+      categoryLabelZh: '里程碑/福利刷新',
+      categoryLabelEn: 'Milestone / Promo Flush',
+      rolloverRuleZh: '官方活动或版本节点发放的全局刷新，所有符合条件账号配额直接恢复。',
+      rolloverRuleEn: 'Promotional or milestone quota flush applied across eligible accounts.',
+    };
+  }
+  if (event.scope === 'all') {
+    return {
+      category: 'scheduled-global',
+      categoryLabelZh: '全局直接重置',
+      categoryLabelEn: 'Direct Global Reset',
+      rolloverRuleZh: '全量用户配额直接归零刷新，未用完的旧周期余量不会结转到下一周期。',
+      rolloverRuleEn: 'Direct global rollover across all users; unused allowance does not carry over.',
+    };
+  }
+  return {
+    category: 'scoped-reset',
+    categoryLabelZh: '定向范围重置',
+    categoryLabelEn: 'Scoped Reset',
+    rolloverRuleZh: '仅针对特定套餐或受影响用户群体的配额刷新。',
+    rolloverRuleEn: 'Targeted quota refresh for a specific plan tier or affected cohort.',
+  };
+}
+
+export function computeGoogleDailyPtReset(now = Date.now()): DailyPtResetSchedule {
+  const tzParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(new Date(now));
+  const tzOffset = tzParts.find((p) => p.type === 'timeZoneName')?.value || 'GMT-8';
+  const isPacificDst = tzOffset.includes('-7');
+  const resetHourUtc = isPacificDst ? 7 : 8;
+  const resetHourBeijingNum = isPacificDst ? 15 : 16;
+  const resetHourBeijing = `${resetHourBeijingNum}:00`;
+
+  const utcNow = new Date(now);
+  const todayResetUtcMs = Date.UTC(
+    utcNow.getUTCFullYear(),
+    utcNow.getUTCMonth(),
+    utcNow.getUTCDate(),
+    resetHourUtc,
+    0,
+    0
+  );
+
+  const nextResetMs = now < todayResetUtcMs ? todayResetUtcMs : todayResetUtcMs + 86400000;
+  const lastResetMs = now >= todayResetUtcMs ? todayResetUtcMs : todayResetUtcMs - 86400000;
+
+  const nextParts = toBeijingParts(new Date(nextResetMs));
+  const lastParts = toBeijingParts(new Date(lastResetMs));
+  const remMs = Math.max(0, nextResetMs - now);
+  const remHours = Math.floor(remMs / 3600000);
+  const remMins = Math.floor((remMs % 3600000) / 60000);
+
+  return {
+    isPacificDst,
+    resetHourBeijing,
+    lastDailyBeijing: lastParts.full,
+    nextDateBeijing: nextParts.displayDate,
+    nextTimeBeijing: nextParts.displayTime,
+    countdownZh: `距下次每日清零约 ${remHours} 小时 ${remMins} 分钟`,
+    countdownEn: `Next daily reset in ${remHours}h ${remMins}m`,
+    ruleNoteZh: isPacificDst
+      ? '当前北美夏令时（PDT）：太平洋午夜 00:00 = 每日北京时间 15:00 清零 RPD'
+      : '当前北美冬令时（PST）：太平洋午夜 00:00 = 每日北京时间 16:00 清零 RPD',
+    ruleNoteEn: isPacificDst
+      ? 'US Daylight Saving Time (PDT): Midnight PT = 15:00 UTC+8 daily RPD reset'
+      : 'US Standard Time (PST): Midnight PT = 16:00 UTC+8 daily RPD reset',
+  };
+}
+
 function formatEvent(event: RawResetEvent, now: number): FormattedResetEvent {
   const parts = toBeijingParts(new Date(event.landedAt));
   const diff = formatTimeDiff(now - Date.parse(event.landedAt));
   const globalReset = event.type === 'reset' && event.scope === 'all';
   const scopedReset = ['paid', 'affected', 'max'].includes(event.scope);
+  const cat = classifyEventCategory(event);
+  const normProvider = event.provider === 'gemini' ? 'google' : event.provider;
   return {
     id: event.id,
-    provider: event.provider,
+    provider: normProvider,
     type: event.type,
+    ...cat,
     typeLabelZh: event.type === 'card' ? '重置卡' : globalReset ? '全局重置' : scopedReset ? '指定范围重置' : '重置（范围未说明）',
     typeLabelEn: event.type === 'card' ? 'Reset card' : globalReset ? 'Global reset' : scopedReset ? 'Scoped reset' : 'Reset (scope unspecified)',
     scopeZh: eventScope(event, 'zh-CN'),
@@ -189,7 +311,7 @@ function formatEvent(event: RawResetEvent, now: number): FormattedResetEvent {
 }
 
 function computeProviderStats(
-  provider: 'codex' | 'claude' | 'grok',
+  provider: 'codex' | 'claude' | 'grok' | 'google',
   allEvents: RawResetEvent[],
   remoteWatch?: any
 ): ProviderStats {
@@ -197,11 +319,17 @@ function computeProviderStats(
   // Aggregate timestamps do not identify an event. All display fields are
   // derived from actual records; future notices belong in watch, not history.
   const events = allEvents
-    .filter((event) => event && event.provider === provider
-      && ['reset', 'card'].includes(event.type)
-      && typeof event.landedAt === 'string'
-      && Number.isFinite(Date.parse(event.landedAt))
-      && Date.parse(event.landedAt) <= now)
+    .filter((event) => {
+      if (!event) return false;
+      const p = event.provider === 'gemini' ? 'google' : event.provider;
+      return (
+        p === provider &&
+        ['reset', 'card'].includes(event.type) &&
+        typeof event.landedAt === 'string' &&
+        Number.isFinite(Date.parse(event.landedAt)) &&
+        Date.parse(event.landedAt) <= now
+      );
+    })
     .sort((a, b) => Date.parse(b.landedAt) - Date.parse(a.landedAt));
   const resetEvents = events.filter((event) => event.type === 'reset');
   const lastResetEvent = resetEvents[0];
@@ -276,11 +404,21 @@ function computeProviderStats(
     };
   }
 
+  const dailySchedule = provider === 'google' ? computeGoogleDailyPtReset(now) : undefined;
+
   return {
     provider,
-    name: provider === 'codex' ? 'OpenAI Codex' : provider === 'claude' ? 'Anthropic Claude' : 'xAI Grok',
-    sourceAccount: 'WhenReset.dev',
+    name:
+      provider === 'codex'
+        ? 'OpenAI Codex'
+        : provider === 'claude'
+          ? 'Anthropic Claude'
+          : provider === 'grok'
+            ? 'xAI Grok'
+            : 'Google Gemini / Antigravity',
+    sourceAccount: provider === 'google' ? 'Google AI / WhenReset.dev' : 'WhenReset.dev',
     latestEvent: formattedEvents[0] || null,
+    dailySchedule,
     sinceLastReset,
     lastReset: lastResetObj,
     resets30d,
@@ -327,14 +465,16 @@ export async function getResetRadarData(): Promise<ResetRadarData> {
   const codex = computeProviderStats('codex', events, watchRemote?.codex);
   const claude = computeProviderStats('claude', events, watchRemote?.claude);
   const grok = computeProviderStats('grok', events, watchRemote?.grok);
+  const google = computeProviderStats('google', events, watchRemote?.google || watchRemote?.gemini);
 
   const data: ResetRadarData = {
-    status: !fetchedAt ? 'unavailable' : codex.events.length || claude.events.length || grok.events.length ? 'ready' : 'empty',
+    status: !fetchedAt ? 'unavailable' : codex.events.length || claude.events.length || grok.events.length || google.events.length ? 'ready' : 'empty',
     updatedAtBeijing: fetchedAt ? toBeijingParts(fetchedAt).full : null,
     updatedAtIso: fetchedAt?.toISOString() || null,
     codex,
     claude,
     grok,
+    google,
   };
 
   cacheData = {
